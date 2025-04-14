@@ -6,3 +6,6 @@ lib: [
 bin: [
   "_build/install/default/bin/ssr_typechecker"
 ]
+doc: [
+  "_build/install/default/doc/ssr_typechecker/README.md"
+]
