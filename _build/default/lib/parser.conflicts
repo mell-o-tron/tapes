@@ -1,0 +1,137 @@
+
+** Conflict (shift/reduce) in state 51.
+** Tokens involved: Otimes Oplus
+** The following explanations concentrate on token Otimes.
+** This state is reached from main after reading:
+
+term Compose term
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+main 
+term EOF 
+(?)
+
+** In state 51, looking ahead at Otimes, shifting is permitted
+** because of the following sub-derivation:
+
+term Compose term 
+             term . Otimes term 
+
+** In state 51, looking ahead at Otimes, reducing production
+** term -> term Compose term
+** is permitted because of the following sub-derivation:
+
+term Otimes term // lookahead token appears
+term Compose term . 
+
+** Conflict (shift/reduce) in state 49.
+** Tokens involved: Otimes Oplus Compose
+** The following explanations concentrate on token Otimes.
+** This state is reached from main after reading:
+
+term Oplus term
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+main 
+term EOF 
+(?)
+
+** In state 49, looking ahead at Otimes, shifting is permitted
+** because of the following sub-derivation:
+
+term Oplus term 
+           term . Otimes term 
+
+** In state 49, looking ahead at Otimes, reducing production
+** term -> term Oplus term
+** is permitted because of the following sub-derivation:
+
+term Otimes term // lookahead token appears
+term Oplus term . 
+
+** Conflict (shift/reduce) in state 47.
+** Tokens involved: Otimes Oplus Compose
+** The following explanations concentrate on token Otimes.
+** This state is reached from main after reading:
+
+term Otimes term
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+main 
+term EOF 
+(?)
+
+** In state 47, looking ahead at Otimes, shifting is permitted
+** because of the following sub-derivation:
+
+term Otimes term 
+            term . Otimes term 
+
+** In state 47, looking ahead at Otimes, reducing production
+** term -> term Otimes term
+** is permitted because of the following sub-derivation:
+
+term Otimes term // lookahead token appears
+term Otimes term . 
+
+** Conflict (shift/reduce) in state 12.
+** Tokens involved: Otimes Oplus
+** The following explanations concentrate on token Otimes.
+** This state is reached from main after reading:
+
+SwapTimes LPAREN object_type Oplus object_type
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+main 
+term EOF 
+SwapTimes LPAREN object_type COMMA object_type RPAREN 
+                 (?)
+
+** In state 12, looking ahead at Otimes, shifting is permitted
+** because of the following sub-derivation:
+
+object_type Oplus object_type 
+                  object_type . Otimes object_type 
+
+** In state 12, looking ahead at Otimes, reducing production
+** object_type -> object_type Oplus object_type
+** is permitted because of the following sub-derivation:
+
+object_type Otimes object_type // lookahead token appears
+object_type Oplus object_type . 
+
+** Conflict (shift/reduce) in state 10.
+** Tokens involved: Otimes Oplus
+** The following explanations concentrate on token Otimes.
+** This state is reached from main after reading:
+
+SwapTimes LPAREN object_type Otimes object_type
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+main 
+term EOF 
+SwapTimes LPAREN object_type COMMA object_type RPAREN 
+                 (?)
+
+** In state 10, looking ahead at Otimes, shifting is permitted
+** because of the following sub-derivation:
+
+object_type Otimes object_type 
+                   object_type . Otimes object_type 
+
+** In state 10, looking ahead at Otimes, reducing production
+** object_type -> object_type Otimes object_type
+** is permitted because of the following sub-derivation:
+
+object_type Otimes object_type // lookahead token appears
+object_type Otimes object_type . 

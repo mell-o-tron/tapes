@@ -1,0 +1,10 @@
+(executable
+ (public_name ssr_typechecker)
+ (name main)
+ (preprocess
+  (pps js_of_ocaml-ppx))
+ (libraries ssr_typechecker menhirLib js_of_ocaml)
+ (flags
+  (:standard -g))
+
+(modes byte))

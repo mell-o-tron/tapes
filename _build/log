@@ -1,0 +1,16 @@
+# dune build --profile=dev
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location: /home/mrdalliard/.cache/dune/db
+# Workspace root: "/home/mrdalliard/Salad/UNI/Tesi/SSR TypeChecker"
+# Auto-detected concurrency: 6
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /home/mrdalliard/.opam/5.2.0/bin/ocamlc.opt -config > /tmp/dune_91f463_output
