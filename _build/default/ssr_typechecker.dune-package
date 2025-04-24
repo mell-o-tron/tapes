@@ -1,7 +1,0 @@
-(lang dune 3.17)
-(name ssr_typechecker)
-(sections (lib .) (bin ../../bin) (doc ../../doc/ssr_typechecker))
-(files
- (lib (META dune-package opam))
- (bin (ssr_typechecker))
- (doc (README.md)))

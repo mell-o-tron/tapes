@@ -104,3 +104,16 @@ let rec tape_arity (t : tape) = match t with
   | Copy _ -> failwith "not yet implemented"
   | CoDiscard _ -> failwith "not yet implemented"
   | CoCopy _ -> failwith "not yet implemented"
+
+  (* checks if arity and coarity match in compositions *)
+let rec circuit_typecheck (t : circuit) = match t with
+  | CCompose (t1, t2)  -> circuit_arity(t2) = circuit_coarity(t1)
+  | Otimes (t1, t2)    -> circuit_typecheck(t1) && circuit_typecheck(t2)
+  | _                 -> true
+
+  (* checks if arity and coarity match in compositions *)
+let rec tape_typecheck (t : tape) = match t with
+  | TCompose (t1, t2)  -> tape_arity(t2) = tape_coarity(t1)
+  | Oplus (t1, t2)    -> tape_typecheck(t1) && tape_typecheck(t2)
+  | Tape (c1)         -> circuit_typecheck c1
+  | _                 -> true

@@ -1,5 +1,6 @@
 open Tapes
 open Typecheck
+open Rewrite
 
 type circuit_draw_interface = 
   | EmptyCircuit 
@@ -97,6 +98,13 @@ let rec tape_interface_map (f : tape_draw_interface -> tape_draw_interface) (t :
   | TapeInterface _ -> f(t)
   | TapeTens (t1, t2) -> TapeTens(f(t1),  (tape_interface_map f t2)))
   
+(* returns the lowest position of a tape *)
+let rec base_of_tape_interface t = match tape_interface_normalize t with
+  | EmptyTape ((x, y), _) -> (x, y)
+  | TapeTens(_, t2) -> base_of_tape_interface t2
+  | TapeInterface ((x, y), _, _) ->  (x, y)
+
+
 let rec tape_interface_to_string_map2 (f : tape_draw_interface -> tape_draw_interface -> string) (t1 : tape_draw_interface) (t2 : tape_draw_interface) =
 
 print_endline ("MAP2: \n" ^ show_tape_draw_interface t1 ^ "\n\n" ^ show_tape_draw_interface t2) ; 
@@ -109,15 +117,6 @@ print_endline ("MAP2: \n" ^ show_tape_draw_interface t1 ^ "\n\n" ^ show_tape_dra
   failwith "tape_interface_to_string_map2 could not be applied, args have different sizes."
 )
 
-  
-(********************************************************************************************************)
-(* turns a circuit to product form *)
-let rec circuit_to_product (t : circuit) = match t with
-    | CCompose(Otimes(t1, t2), Otimes(t3, t4)) -> Otimes(CCompose(t1, t3), CCompose(t2, t4))
-    | CCompose(t1, t2) -> CCompose(circuit_to_product t1, circuit_to_product t2)
-    | Otimes(t1, t2) -> Otimes(circuit_to_product t1, circuit_to_product t2)
-    | _ -> t
-    
     
 (********************************************************************************************************)
 (* counters used in generating fresh ids for the tikz elements *)
@@ -305,6 +304,14 @@ let tape_connect_interfaces (ina: tape_draw_interface) (inb: tape_draw_interface
   ) ina inb
    
 let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t with 
+
+  (* remove redundant identities TODO FIXME (figure out why does not work) *)
+  | TCompose (TId _, t2) -> tikz_of_tape(t2)(posx) (posy) (debug)
+  | TCompose (t1, TId _) -> tikz_of_tape(t1)(posx) (posy) (debug)
+
+  | TCompose (Tape (CId _), t2) -> tikz_of_tape(t2)(posx) (posy) (debug)
+  | TCompose (t1, Tape (CId _)) -> tikz_of_tape(t1)(posx) (posy) (debug)
+
   | TId l -> tikz_of_tape (tid_to_normal_form l)(posx) (posy) debug 
   | TId0 -> ("", 0., 0., EmptyTape ((posx, posy), (posx, posy)), EmptyTape ((posx, posy), (posx, posy)))
   | Tape c -> let diag, h, l, li, ri  = tikz_of_circuit_meas c (posx) (posy +. 0.5) debug in
@@ -314,21 +321,17 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t 
                 TapeInterface ((posx, posy), (posx, posy +. h +. 1.0), li), (* here 1 should be sum of margins *)
                 TapeInterface ((posx +. l, posy), (posx +. l, posy +. h +. 1.0), ri)
               )
-  
-  (*| TCompose (TId _, t2) -> tikz_of_tape(t2)(posx) (posy) (debug)
-  | TCompose (t1, TId _) -> tikz_of_tape(t1)(posx) (posy) (debug)*)
               
   | TCompose (t1, t2) -> 
-    let diag1, h1, l1, li1, _ = tikz_of_tape t1 posx posy debug in
-    let diag2, h2, l2, _, ri2 = tikz_of_tape t2 (posx +. l1) posy debug in
+    let diag1, h1, l1, li1, ri1 = tikz_of_tape t1 posx posy debug in
+    let diag2, h2, l2, _, ri2 = tikz_of_tape t2 (posx +. l1) (snd(base_of_tape_interface ri1)) debug in
     ( diag1 ^ diag2,
       max h1 h2,
       l1 +. l2,
       li1,
       ri2
     )
-    
-    
+
   | Oplus (TId0, t2) -> tikz_of_tape(t2)(posx) (posy) (debug)
   | Oplus (t1, TId0) -> tikz_of_tape(t1)(posx) (posy) (debug)
   
@@ -346,19 +349,22 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t 
       TapeTens(ri1_aligned, ri2_aligned)
     )
   
-  | SwapPlus (l1, l2) -> let len1, len2 = (List.length l1), (List.length l2) in 
+  | SwapPlus (l1, l2) -> let len1, len2 = (List.length l1), (List.length l2) in (* TODO check if this works correctly *)
   
     let i1l = (List.mapi (fun i _ -> (posx, posy +. (float_of_int i) *. 0.5)) l1) in
     let i2l = (List.mapi (fun i _ -> (posx, posy +. (float_of_int len2) *. 0.5 +. 0.5 +. (float_of_int i) *. 0.5)) l2) in
     let i1r = (List.mapi (fun i _ -> (2. +. posx, posy +. (float_of_int len1) *. 0.5 +. 0.5 +. (float_of_int i) *. 0.5)) l1) in
     let i2r = (List.mapi (fun i _ -> (2. +. posx, posy +. (float_of_int i) *. 0.5)) l2) in
     
+    let h1 =  float_of_int(len1) /. 2. +. 0.5 in
+    let h2 =  float_of_int(len1) /. 2. +. 0.5 in
+
     (
       Printf.sprintf "\\swaptape {%f} {%f} {%d} {%d}" posx posy len1 len2,
-      0., (* FIXME wtf? I think this currently works because all swaps are surrounded in ids(?) *)
+      h1 +. h2,
       2.0,
-      TapeTens(TapeInterface ((posx, 0.), (posx, 0.), circuit_interface_of_list (i1l)), TapeInterface ((posx +. 2., 0.), (posx +. 2., 0.), circuit_interface_of_list (i2l))) |> tape_interface_normalize,
-      TapeTens(TapeInterface ((posx, 0.), (posx, 0.), circuit_interface_of_list (i2r)), TapeInterface ((posx +. 2., 0.), (posx +. 2., 0.), circuit_interface_of_list (i1r))) |> tape_interface_normalize
+      TapeTens(TapeInterface ((posx, posy +. h1), (posx, posy +. h1 +. h2), circuit_interface_of_list (i1l)), TapeInterface ((posx, posy), (posx, posy +. h1), circuit_interface_of_list (i2l))) |> tape_interface_normalize,
+      TapeTens(TapeInterface ((posx +. 2., posy +. h2), (posx +. 2., posy +. h2 +. h1), circuit_interface_of_list (i2r)), TapeInterface ((posx +. 2., posy), (posx +. 2., posy +. h2), circuit_interface_of_list (i1r))) |> tape_interface_normalize
     )
     
   | Ldistr (_, _, _) -> failwith "not yet implemented"
@@ -399,8 +405,8 @@ let draw_circuit (ast:circuit) =
                     (* write something *)
                     close_out oc;;
                     
-let draw_tape (ast:tape) =
-    match (tikz_of_tape (ast) 0. 0. false) with
+let draw_tape (ast:tape) = (print_endline ("AST:\n"^(pp_tape(ast)))) ; (print_endline ("AST TO SUM\n"^(pp_tape(tape_to_sum ast)))) ;
+    match (tikz_of_tape (tape_to_sum ast) 0. 0. false) with
       | s, _, _, li, ri -> (* Write message to file *)
                     let oc = open_out "figure.txt" in
                     (* create or truncate file, return channel *)
