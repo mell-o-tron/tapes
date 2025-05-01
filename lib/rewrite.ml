@@ -10,7 +10,7 @@ let rec circuit_to_product (t : circuit) = match t with
     | CCompose(t1, t2) -> CCompose(circuit_to_product t1, circuit_to_product t2)
     | Otimes(t1, t2) -> Otimes(circuit_to_product t1, circuit_to_product t2)
     | _ -> t
-    
+
 
 (* turns a tape to sum form *)
 let rec tape_to_sum (t : tape) = match t with
@@ -21,3 +21,4 @@ let rec tape_to_sum (t : tape) = match t with
   | TCompose (t1, t2) -> TCompose(tape_to_sum t1, tape_to_sum t2)
   | Oplus(t1, t2) -> Oplus(tape_to_sum t1, tape_to_sum t2)
   | _ -> t
+

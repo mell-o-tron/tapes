@@ -1,1 +1,7 @@
-Id("A" + "B" + "C") ; Id("A" + "B" + "C") ; Id("A" + "B" + "C") ; Id("A" + "B" + "C") ; σ⊕ ("A" + "B", "C")
+sort A ; sort B ; sort C
+
+tape
+
+([gen(f, A, A*B) ; (id(A) * gen(g, B, C)) ; gen(h, A * C, D)] +
+id(A*B));
+s+(D, A*B)

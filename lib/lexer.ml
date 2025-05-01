@@ -5,30 +5,32 @@ let hexNumber = [%sedlex.regexp? Plus hex_digit]
 let number = [%sedlex.regexp? Plus digit | "0x", hexNumber]
 let character = [%sedlex.regexp? 0x20 .. 0x7E]
 let quoted_string = [%sedlex.regexp? '"', Star (Compl (Chars "\"")), '"']
+let variable_name = [%sedlex.regexp? ('a'..'z' | 'A'..'Z' | '_'), Star ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')]
 
 let rec token lexbuf =
   match%sedlex lexbuf with
-  | "Id"               -> Id
+  | "id"               -> Id
   | "s*" | "σ⊗"       -> SwapTimes
   | "s+" | "σ⊕"       -> SwapPlus
   | "*"  | "⊗"        -> Otimes
   | "+"  | "⊕"        -> Oplus
-  | ";"                -> Compose
   | "dl" | "δl"        -> Ldistr
-  | "Gen"             -> Gen
+  | "gen"             -> Gen
   | "0"               -> Zero
   | "1"               -> One
   | "(" -> LPAREN
   | ")" -> RPAREN
   | "[" -> LBRACKET
   | "]" -> RBRACKET
+  | ";" -> SEMICOLON
+  | "sort" -> Newsort
+  | "term" -> Term
+  | "tape" -> Tape
   | white_space -> token lexbuf
   | "," -> COMMA
 (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)
-  | quoted_string ->
-      let lexeme = Sedlexing.Latin1.lexeme lexbuf in
-      let content = String.sub lexeme 1 (String.length lexeme - 2) in
-      STRING content
+  | variable_name ->
+      let lexeme = Sedlexing.Latin1.lexeme lexbuf in STRING lexeme
   | "**" -> comment lexbuf
   | eof -> EOF
   | any ->

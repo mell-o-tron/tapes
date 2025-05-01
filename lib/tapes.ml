@@ -22,7 +22,6 @@ type tape =   TId of (Ast.sort list list)
             | CoCopy of Ast.sort list
             [@@deriving show]
 
-
 (* Pretty-print a list of sorts, e.g. ["a"; "b"] becomes: ["a", "b"] *)
 let pp_sort_list (lst : string list) : string =
   "[" ^ (String.concat ", " (List.map (fun s -> "\"" ^ s ^ "\"") lst)) ^ "]"
@@ -78,3 +77,18 @@ let rec pp_tape (t : tape) : string =
   | CoCopy lst ->
       Printf.sprintf "CoCopy(%s)" (pp_sort_list lst)
 
+(* remove redundant identities *)
+let rec clean_circuit (c : circuit) = match c with
+    | CCompose (c1, c2) -> CCompose (clean_circuit c1, clean_circuit c2)
+    | Otimes (c1, CId1) -> clean_circuit c1
+    | Otimes (CId1, c2) -> clean_circuit c2
+    | Otimes (c1, c2)   -> Otimes (clean_circuit c1, clean_circuit c2)
+    | _ -> c
+
+let rec clean_tape (t : tape) = match t with
+    | TCompose (t1, t2) -> TCompose (clean_tape t1, clean_tape t2)
+    | Oplus (t1, TId0)  -> clean_tape t1
+    | Oplus (TId0, t2)  -> clean_tape t2
+    | Oplus (t1, t2)    -> Oplus (clean_tape t1, clean_tape t2)
+    | Tape (c)          -> Tape(clean_circuit c)
+    | _ -> t

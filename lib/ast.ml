@@ -57,8 +57,15 @@ let obj_of_polynomial poly =
 let _object_to_normal_form ob = obj_of_polynomial(obj_to_polynomial ob)
 
 
-(*
+(* transforms an object of the form ∏_i (s_i) to [s_1, s_2, ...]  *)
+let rec sort_prod_to_list (ob : obj) = match ob with
+  | S(e) -> [e]
+  | Ob1 -> []
+  | Obtimes (t1, t2) -> (sort_prod_to_list t1) @ (sort_prod_to_list t2)
+  | Obplus _ | Ob0 -> failwith "tried to transform non-prod type to prod list"
 
+
+(*
  - def 4.5 distributore
  - 4.6 swap del * (su polinomi - su monomi è come il multiSwap di prima)
  - funzione multiswap -> swap polimorfa
