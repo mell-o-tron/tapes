@@ -2,6 +2,6 @@ sort A ; sort B ; sort C
 
 tape
 
-([gen(f, A, A*B) ; (id(A) * gen(g, B, C)) ; gen(h, A * C, D)] +
+([gen(f, A, A*B) ; (id(A) * gen(g, B, C)) ; gen(h, A * C, D*E*F)] +
 id(A*B));
-s+(D, A*B)
+s+(D*E*F, A*B)
