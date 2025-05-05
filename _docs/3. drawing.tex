@@ -19,7 +19,7 @@ The approach we used to draw the diagrams was to essentially \emph{``compile''} 
 \end{lstlisting}
 When the tool is asked to render the circuit $id_S$, it will simply generate the code:
 \begin{lstlisting}
-\id {0} {0} {1}
+\id {1} {0} {0}
 \end{lstlisting}
 Where ``1'' is a fresh name, uniquely generated every time the identity-drawing routine is called. The result will be the following:
 \ctbox{
@@ -33,12 +33,12 @@ This simple idea can be extended to much more complex diagrams; an example of th
 
 \begin{lstlisting}
 % fresh posx posy arity-1 coarity-1 name otimesdist
-\gen {1} {0.0} {0.0} {1} {2} {example} {0.5}
+\gen {1} {0.0} {0.0} {1} {2} {example} {1.}
 \end{lstlisting}
 
 \ctbox{
 \begin{tikzpicture}
-   \gen {1} {0.0} {0.0} {0} {1} {example} {1.}
+   \gen {1} {0.0} {0.0} {1} {2} {example} {1.}
 \end{tikzpicture}
 }
 A further example of a complex, parametric generator is the macro for drawing arbitrary tape-swaps. A generator of the form $\sigma^{\oplus}_{\bullet, \bullet}$ is compiled to the macro:
@@ -217,9 +217,9 @@ Once again, when two diagrams of different lengths are summed, we need to perfor
 \begin{tikzpicture}[scale = .7]
 \freestyletape {2.000000} {0.000000} {2.000000} {3.000000} {3.000000} {0.500000} {3.000000} {2.500000}\draw [in=180, out=0] (2.000000 , 1.500000) to (3.000000 , 1.500000);
 \tape {0.000000} {0.000000} {2.000000} {3.000000}
-\gen {1}{0.000000}{0.500000}{2}{0}{f}{1.000000}
+\gen {1}{0.000000}{0.500000}{3}{1}{f}{1.000000}
 \tape {3.000000} {0.500000} {2.000000} {2.000000}
-\gen {2}{3.000000}{1.000000}{0}{1}{g}{1.000000}
+\gen {2}{3.000000}{1.000000}{1}{2}{g}{1.000000}
 
 
 \node () at (-0.500000, 2.500000) {A};
@@ -245,7 +245,7 @@ Note that, by definition of the \texttt{TapeInterface} constructor, the interfac
 \ctbox{
 \begin{tikzpicture}[scale = .7]
 \tape {0.000000} {0.000000} {2.000000} {1.000000}
-\gen {1}{0.000000}{0.500000}{0}{0}{f}{1.000000}
+\gen {1}{0.000000}{0.500000}{1}{1}{f}{1.000000}
 
 \node () at (-0.500000, 0.500000) {A};
 \node () at (2.500000, 0.500000) {B};
@@ -265,16 +265,16 @@ Note that, by definition of the \texttt{TapeInterface} constructor, the interfac
 \freestyletape {6.000000} {0.000000} {6.000000} {2.000000} {7.000000} {0.000000} {7.000000} {2.000000}\draw [in=180, out=0] (6.000000 , 1.500000) to (7.000000 , 1.500000);
 \draw [in=180, out=0] (6.000000 , 0.500000) to (7.000000 , 0.500000);
 \tape {0.000000} {2.500000} {6.000000} {3.000000}
-\gen {1}{0.000000}{3.500000}{0}{1}{f}{1.000000}
+\gen {1}{0.000000}{3.500000}{1}{2}{f}{1.000000}
 \id{3}{2.000000}{4.500000}
-\gen {2}{2.000000}{3.500000}{0}{0}{g}{1.000000}
+\gen {2}{2.000000}{3.500000}{1}{1}{g}{1.000000}
 % adjusting misaligned tensors:
 \draw [in=180, out=0] (3.000000 , 4.500000) to (4.000000 , 4.500000);
 \draw [in=180, out=0] (4.000000 , 3.500000) to (4.000000 , 3.500000);
 % composing interfaces:
 \draw [in=180, out=0] (2.000000 , 4.500000) to (2.000000 , 4.500000);
 \draw [in=180, out=0] (2.000000 , 3.500000) to (2.000000 , 3.500000);
-\gen {3}{4.000000}{3.000000}{1}{2}{h}{1.000000}
+\gen {3}{4.000000}{3.000000}{2}{3}{h}{1.000000}
 % composing interfaces:
 \draw [in=180, out=0] (4.000000 , 4.500000) to (4.000000 , 4.500000);
 \draw [in=180, out=0] (4.000000 , 3.500000) to (4.000000 , 3.500000);
@@ -307,3 +307,4 @@ id(A\otimes B));
 
 
 \end{document}
+

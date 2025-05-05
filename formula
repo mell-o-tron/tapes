@@ -1,8 +1,5 @@
 let A : sort.   let B : sort.   let C : sort.
-let t : tape = id(A + B) ; s+(A, B).
 
-check t.                          // true
-check id(A) ; id(B).              // false
-draw t to "./figure1.txt".
-draw s*(A + B, C) to "./figure2.txt"
+let t : tape = id(A).
 
+draw t to "aaa"

@@ -28,15 +28,22 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
  \draw [in=-180, out=0] (swapb1) to (swapc1);
 }
 
-% fresh posx posy arity-1 coarity-1 name otimesdist
+% fresh posx posy arity coarity name otimesdist
 \newcommand{\gen}[7]{
   \node [color=gray] () at (#2, #3) {$\bot$};
-  \pgfmathsetmacro\arminone{#4};
-  \pgfmathsetmacro\coarminone{#5};
+  \pgfmathsetmacro\arity{#4};
+  \pgfmathsetmacro\coarity{#5};
   \pgfmathsetmacro\otimesdist{#7};
 
-  \pgfmathsetmacro\arity{#4 + 1};
-  \pgfmathsetmacro\coarity{#5 + 1};
+\pgfmathparse{%
+  \arity - 1
+}%
+\let\arminone\pgfmathresult
+
+\pgfmathparse{%
+  \coarity - 1
+}%
+\let\coarminone\pgfmathresult
 
 \pgfmathparse{%
   (\arity>\coarity)
@@ -58,35 +65,24 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   }%
 \let\coarshift\pgfmathresult
 
+  \ifnum \arity=0\else
    \foreach \i in {0,...,\arminone}
   {
     \node [nodestyle] (#1in\i) at (#2, #3 + \i * \otimesdist + \height / 2 - \arshift) {};
 
-    % Correct conditional computation
-     % Use TeX conditional to avoid division by zero
-    \ifnum\arminone=0
-      \def\angle{180}
-    \else
-      \pgfmathsetmacro{\angle}{(180 / \arminone) * -\i - 90}
-    \fi
-
-    \draw[in=0, out=\angle] (a) to (#1in\i);
+    \draw[in=0, out=180] (a) to (#1in\i);
   }
+  
+  \fi
 
+  \ifnum \coarity=0\else
   \foreach \i in {0,...,\coarminone}
   {
     \node [nodestyle] (#1out\i) at (#2 + 2, #3 + \i * \otimesdist + \height / 2 - \coarshift) {};
 
-    % Correct conditional computation
-     % Use TeX conditional to avoid division by zero
-    \ifnum\coarminone=0
-      \def\angle{0}
-    \else
-      \pgfmathsetmacro{\angle}{(180 / \coarminone) * \i - 90}
-    \fi
-
-    \draw[in=180, out=\angle] (a) to (#1out\i);
+    \draw[in=180, out=0] (a) to (#1out\i);
   }
+  \fi
 }
 
 
@@ -193,6 +189,44 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
     }
 
 
+}
+
+
+% posx, posy, n, paddingdist, otimesdist, oplusdist
+\newcommand{\copytape}[6] {
+  \pgfmathsetmacro{\posx}{#1}
+  \pgfmathsetmacro{\posy}{#1}
+  \pgfmathsetmacro{\n}{#3}
+  \pgfmathsetmacro{\paddingdist}{#4}
+  \pgfmathsetmacro{\otimesdist}{#5}
+  \pgfmathsetmacro{\oplusdist}{#6}
+  
+  \pgfmathsetmacro{\h}{2 * \paddingdist + (\n - 1) * \otimesdist}
+  \pgfmathsetmacro{\l}{(2*\h + \oplusdist)/2}
+  \pgfmathsetmacro{\diff}{(\oplusdist - \h) / 2}
+  
+   \draw [fill=tapeBg, tapeBg] (\posx, \posy + \h + \diff) -- (\posx + 1, \posy + \h + \diff) [out = 270, in = 180] to (\posx +1 + \l, \posy) [in = 270, out = 90] to (\posx +1 + \l, \posy + \h) to [out = 180, in = 270] (\posx + 1 + \l/2, \posy + \h + \h/2 + \diff) to [out = 90, in = 180] (\posx +1 + \l, \posy + \h + \oplusdist) -- (\posx +1 + \l, \posy + 2*\h + \oplusdist) to [out = 180, in = 90] (\posx + 1, \posy + 2*\h + \diff) -- (\posx, \posy + 2 * \h + \diff) -- cycle;
+  
+  \draw[tapeBorder, line width=0.5pt] (\posx, \posy + \h + \diff) -- (\posx + 1, \posy + \h + \diff) [out = 270, in = 180] to (\posx +1 + \l, \posy);
+  
+  \draw[tapeBorder, line width=0.5pt] (\posx, \posy + 2*\h + \diff) -- (\posx + 1, \posy + 2*\h + \diff) [out = 90, in = 180] to (\posx +1 + \l, \posy + 2*\h + \oplusdist);
+  
+  \draw [tapeBorder, line width=0.5pt] (\posx +1 + \l, \posy + \h + \oplusdist) [in = 90, out= 180] to (\posx + 1 +  \l/2, \posy + \h + \h/2 + \diff) [in = 180, out= 270] to (\posx +1 + \l, \posy + \h);
+  
+  
+   \foreach \i in {0,...,\n}
+    {
+      \ifnum\i=0
+    \else
+     \pgfmathsetmacro{\ishift}{(\i - 1) * \otimesdist}
+      
+       \draw[line width=0.5pt] (\posx, \posy + \h + \diff + \paddingdist + \ishift) -- 
+      (\posx + 1 + \paddingdist, \posy + \h + \diff + \paddingdist + \ishift) [out = 270, in = 180] to (\posx +1 + \l, \posy + \paddingdist + \ishift);
+      \draw[line width=0.5pt] (\posx, \posy + \h + \diff + \paddingdist + \ishift) -- 
+      (\posx + 1 + \paddingdist, \posy + \h + \diff + \paddingdist + \ishift) [out = 90, in = 180] to (\posx +1 + \l, \posy + \h + \oplusdist + \paddingdist + \ishift);
+    \fi
+    }
+  
 }
 
 % fresh name, len, posx, posy

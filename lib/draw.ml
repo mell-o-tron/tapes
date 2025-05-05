@@ -68,7 +68,7 @@ let rec circuit_interface_to_list_map (f : circuit_draw_interface -> 'a list) (c
 let top_of_circuit_interface c = match circuit_interface_rev c with
   | EmptyCircuit -> None
   | CircuitPin (x, y) | CircuitTens(CircuitPin (x, y), _) -> Some (x, y)
-  | _ -> failwith "malformed circuit interface"
+  | _ -> failwith "malformed circuit interface 1"
 
 (* returns the hightst position of a circuit *)
 let rec base_of_circuit_interface c = match circuit_interface_normalize c with
@@ -195,12 +195,13 @@ let circuit_align_interfaces ri1 ri2 =
   match ri1, ri2 with
   | EmptyCircuit, EmptyCircuit -> ri1, ri2
   | CircuitTens(CircuitPin (posx1, _posy1), _), CircuitTens(CircuitPin (posx2, _posy2), _)
+  | CircuitTens(CircuitPin (posx1, _posy1), _), CircuitPin (posx2, _posy2)
+  | CircuitPin (posx1, _posy1), CircuitTens(CircuitPin (posx2, _posy2), _)
   | CircuitPin (posx1, _posy1), CircuitPin (posx2, _posy2) ->
       let max_x = max posx1 posx2 in 
       let f = fun c -> (match c with CircuitPin (_, y) -> CircuitPin(max_x, y) | _ -> c) 
       in (circuit_interface_map f ri1, circuit_interface_map f ri2)
-  
-  | _ -> failwith "malformed circuit interface"
+  | _ -> failwith "malformed circuit interface 2"
   
 let rec tikz_of_circuit_meas (t:circuit) (posx:float) (posy:float) (debug : bool)= 
   
@@ -281,7 +282,7 @@ and tikz_of_circuit (t:circuit) (posx:float) (posy:float) (debug:bool) = match t
                             let arshift = if ar_size < coar_size then float_of_int(coar_size - ar_size) /. 2. *. otimes_dist else 0. in
                             let coarshift = if ar_size > coar_size then float_of_int(ar_size - coar_size) /. 2. *. otimes_dist else 0. in
                             
-                            ( Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n" (fresh_gen()) posx (posy) (ar_size - 1) (coar_size - 1) name otimes_dist,
+                            ( Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n" (fresh_gen()) posx (posy) (ar_size) (coar_size) name otimes_dist,
                               height,
                               2.,
                               circuit_interface_rev (circuit_interface_init (ar_size)   (fun i -> CircuitPin(posx, (float_of_int (i - 1) *. otimes_dist) +. posy +. arshift))) |> circuit_interface_normalize,
