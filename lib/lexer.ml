@@ -23,15 +23,24 @@ let rec token lexbuf =
   | "[" -> LBRACKET
   | "]" -> RBRACKET
   | ";" -> SEMICOLON
-  | "sort" -> Newsort
+  | ":" -> COLON
+  | "=" -> EQUALS
+  | "." -> DOT
+  | "sort" -> Sort
+  | "let" -> Let
   | "term" -> Term
   | "tape" -> Tape
+  | "draw" -> Draw
+  | "check" -> Check
+  | "to" -> To
   | white_space -> token lexbuf
   | "," -> COMMA
 (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)
   | variable_name ->
       let lexeme = Sedlexing.Latin1.lexeme lexbuf in STRING lexeme
-  | "**" -> comment lexbuf
+  | quoted_string ->
+      let lexeme = Sedlexing.Latin1.lexeme lexbuf in QSTRING lexeme
+  | "//" -> comment lexbuf
   | eof -> EOF
   | any ->
       failwith

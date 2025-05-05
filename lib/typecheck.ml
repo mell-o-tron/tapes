@@ -1,7 +1,6 @@
-open Ast
+open Terms
 open Tapes
 
-exception Syntax_error of int * int * string
 
 (* returns the arity of a term *)
 let rec arity (t : term) = match t with

@@ -1,0 +1,62 @@
+\documentclass{article}
+\input{macros}
+
+\begin{document}
+\section{\LaTeX \, Macros}
+
+\begin{lstlisting}[caption=\LaTeX \, macro for rendering generators., label={lst:gen}]
+% fresh posx posy arity-1 coarity-1 name otimesdist
+\newcommand{\gen}[7]{
+  \pgfmathsetmacro\arminone{#4};
+  \pgfmathsetmacro\coarminone{#5};
+  \pgfmathsetmacro\otimesdist{#7};
+  \pgfmathsetmacro\arity{#4 + 1};
+  \pgfmathsetmacro\coarity{#5 + 1};
+
+  % compute height of the generator
+  \pgfmathparse{
+    (\arity>\coarity)
+      ? \arminone * \otimesdist
+      : \coarminone * \otimesdist
+  }
+  \let\height\pgfmathresult
+
+  % Draw generator body
+  \node [boxstyle] (a) at (#2 + 1,#3 + \height / 2) {#6};
+
+  \pgfmathparse{
+    (\arity - 1) / 2 * \otimesdist
+  }
+  \let\arshift\pgfmathresult
+
+  \pgfmathparse{
+    (\coarity - 1) / 2 * \otimesdist
+  }
+  \let\coarshift\pgfmathresult
+
+   % Draw left interface of the generator
+   \foreach \i in {0,...,\arminone} {
+    \node [nodestyle] (#1in\i) at (#2, #3 + \i * \otimesdist + \height / 2 - \arshift) {};
+    \ifnum\arminone=0
+      \def\angle{180}
+    \else
+      \pgfmathsetmacro{\angle}{(180 / \arminone) * -\i - 90}
+    \fi
+    \draw[in=0, out=\angle] (a) to (#1in\i);
+  }
+
+  % Draw right interface of the generator
+  \foreach \i in {0,...,\coarminone} {
+    \node [nodestyle] (#1out\i) at (#2 + 2, #3 + \i * \otimesdist + \height / 2 - \coarshift) {};
+    \ifnum\coarminone=0
+      \def\angle{0}
+    \else
+      \pgfmathsetmacro{\angle}{(180 / \coarminone) * \i - 90}
+    \fi
+
+    \draw[in=180, out=\angle] (a) to (#1out\i);
+  }
+}
+\end{lstlisting}
+
+\end{document}

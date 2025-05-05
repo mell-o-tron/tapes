@@ -1,25 +1,25 @@
-type circuit = CId of Ast.sort
+type circuit = CId of Terms.sort
             |  CId1
-            |  Gen of string * (Ast.sort list) * (Ast.sort list)
+            |  Gen of string * (Terms.sort list) * (Terms.sort list)
             |  CCompose of circuit * circuit
             |  Otimes of circuit * circuit
-            |  SwapTimes of Ast.sort * Ast.sort
+            |  SwapTimes of Terms.sort * Terms.sort
             [@@deriving show]
             
-type tape =   TId of (Ast.sort list list)
+type tape =   TId of (Terms.sort list list)
             | TId0
             | Tape of circuit
             | TCompose of tape * tape
             | Oplus of tape * tape
-            | SwapPlus of (Ast.sort list * Ast.sort list)
+            | SwapPlus of (Terms.sort list * Terms.sort list)
             
             (* not in tech report -- should include?? *)
-            | Ldistr of (Ast.sort list * Ast.sort list * Ast.sort list)
+            | Ldistr of (Terms.sort list * Terms.sort list * Terms.sort list)
             
-            | Discard of Ast.sort list
-            | Copy of Ast.sort list
-            | CoDiscard of Ast.sort list
-            | CoCopy of Ast.sort list
+            | Discard of Terms.sort list
+            | Copy of Terms.sort list
+            | CoDiscard of Terms.sort list
+            | CoCopy of Terms.sort list
             [@@deriving show]
 
 (* Pretty-print a list of sorts, e.g. ["a"; "b"] becomes: ["a", "b"] *)

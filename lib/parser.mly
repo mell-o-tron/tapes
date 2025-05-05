@@ -1,64 +1,100 @@
 
 %{
 (*   open Ast (* Define the abstract syntax tree in Ast.ml *) *)
+let remove_first_last s =
+  let len = String.length s in
+  if len <= 2 then
+    ""  (* or raise an error if preferred *)
+  else
+    String.sub s 1 (len - 2)
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF Term Tape Newsort
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To
 
-%token <string> STRING
+%token <string> STRING QSTRING
 
 %left SEMICOLON
 %left Tensor
 
-%start <Ast.sort list * Ast.term option * Tapes.tape option> main
+%start <Ast.program> main
 %%
 
 main:
-  | l = separated_list (SEMICOLON, sortdef) Term t=term EOF                                    { l, Some t , None}
-  | l = separated_list (SEMICOLON, sortdef) Tape t=tape EOF                                    { l, None, Some t}
+  | p=program EOF {p}
 
+program:
+  | c=command {Ast.Comm(c)}
+  | d=decl {d}
+  | p1=program DOT p2=program {Ast.Seq(p1, p2)}
+  | program DOT error {raise (Errors.ParseError "further commands expected after \".\". There should be no dot at the end of a program")}
 
-sortdef:
-  | Newsort s=STRING                                                                                    {s}
+command:
+  | Draw e=expr To qs=QSTRING {Ast.Draw(e, remove_first_last qs)}
+  | Check e=expr {Ast.Check(e)}
+  | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
+  | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
+  | error {raise (Errors.ParseError "command expected")}
+
+decl:
+  | Let s=STRING COLON t=exprtype EQUALS e=expr {Ast.Decl(Ast.ExprDecl(s, t, e))}
+  | Let s=STRING COLON Sort {Ast.Decl(Ast.SortDecl(s))}
+  | Let STRING EQUALS error {raise (Errors.ParseError "error in declaration. Maybe you forgot to specify the type of the expression")}
+  | error {raise (Errors.ParseError "declaration expected")}
+
+exprtype:
+  | Term {Ast.TermType}
+  | Tape {Ast.TapeType}
+  | error {raise (Errors.ParseError "expression type expected")}
+
+expr:
+  | s=STRING {Ast.Var(s)}
+  | t=term {Ast.Term(t)}
+  | t=tape {Ast.Tape(t)}
+  | error {raise (Errors.ParseError "expression expected")}
 
 term:
-  | Id LPAREN t1 = object_type RPAREN                                                                   {Ast.Id(Ast.obj_to_polynomial(t1)) }
-  | SwapTimes LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                     {Ast.SwapTimes(Ast.obj_to_polynomial(t1), Ast.obj_to_polynomial(t2)) }
-  | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      {Ast.SwapPlus(Ast.obj_to_polynomial(t1), Ast.obj_to_polynomial(t2)) }
-  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Ast.Gen(s, Ast.obj_to_polynomial(t1), Ast.obj_to_polynomial(t2))}
-  | Ldistr LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN                 {Ast.Ldistr(Ast.obj_to_polynomial(t1), Ast.obj_to_polynomial(t2), Ast.obj_to_polynomial(t3))}
-  | t1 = term Otimes t2 = term                                                                          {Ast.Otimes(t1, t2)}
-  | t1 = term Oplus t2 = term                                                                           {Ast.Oplus(t1, t2)}
-  | t1 = term SEMICOLON t2 = term                                                                       {Ast.Compose(t1, t2)}
+  | Id LPAREN t1 = object_type RPAREN                                                                   {Terms.Id(Terms.obj_to_polynomial(t1)) }
+  | SwapTimes LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                     {Terms.SwapTimes(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
+  | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      {Terms.SwapPlus(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
+  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Terms.Gen(s, Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2))}
+  | Ldistr LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN                 {Terms.Ldistr(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.obj_to_polynomial(t3))}
+  | t1 = term Otimes t2 = term                                                                          {Terms.Otimes(t1, t2)}
+  | t1 = term Oplus t2 = term                                                                           {Terms.Oplus(t1, t2)}
+  | t1 = term SEMICOLON t2 = term                                                                       {Terms.Compose(t1, t2)}
   | LPAREN t = term RPAREN                                                                              {t}
+  | error {raise (Errors.ParseError "term expected")}
 
 circuit:
   | One                                                                                                 { Tapes.CId1 }
   | Id LPAREN s = STRING RPAREN                                                                         { Tapes.CId (s) }
-  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Ast.sort_prod_to_list t1, Ast.sort_prod_to_list t2) }
+  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
   | SwapTimes LPAREN s1 = STRING COMMA s2 = STRING RPAREN                                               { Tapes.SwapTimes (s1, s2) }
   | c1 = circuit Otimes c2 = circuit                                                                    { Tapes.Otimes    (c1, c2) }
   | c1 = circuit SEMICOLON c2 = circuit                                                                 { Tapes.CCompose (c1, c2) }
   | LPAREN c = circuit RPAREN                                                                           { c }
+  | error {raise (Errors.ParseError "circuit expected")}
 
 tape:
   | Zero                                                                                                { Tapes.TId0 }
-  | Id LPAREN t = object_type RPAREN                                                                    { Tapes.TId      (Ast.obj_to_polynomial t) }
+  | Id LPAREN t = object_type RPAREN                                                                    { Tapes.TId      (Terms.obj_to_polynomial t) }
   | LBRACKET c = circuit RBRACKET                                                                       { Tapes.Tape     c }
   | t1 = tape Oplus t2 = tape                                                                           { Tapes.Oplus    (t1, t2) }
-  | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Ast.sort_prod_to_list t1, Ast.sort_prod_to_list t2) }
-  | Ldistr   LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN               { Tapes.Ldistr  (Ast.sort_prod_to_list t1, Ast.sort_prod_to_list t2, Ast.sort_prod_to_list t3) }
+  | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
+  | Ldistr   LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN               { Tapes.Ldistr  (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2, Terms.sort_prod_to_list t3) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
-  | LPAREN t = tape RPAREN                                                                              { t }
+  | LPAREN t = tape RPAREN
+  { t }
+  | error {raise (Errors.ParseError "tape expected")}
 
 object_type:
   | LPAREN o = object_type RPAREN                                 {o}
-  | s = STRING                                                    {(Ast.S(s))}
-  | o1 = object_type Otimes o2 = object_type                      {(Ast.Obtimes(o1, o2))}
-  | o1 = object_type Oplus o2 = object_type                       {(Ast.Obplus(o1, o2))}
-  | Zero                                                          {(Ast.Ob0)}
-  | One                                                           {(Ast.Ob1)}
+  | s = STRING                                                    {(Terms.S(s))}
+  | o1 = object_type Otimes o2 = object_type                      {(Terms.Obtimes(o1, o2))}
+  | o1 = object_type Oplus o2 = object_type                       {(Terms.Obplus(o1, o2))}
+  | Zero                                                          {(Terms.Ob0)}
+  | One                                                           {(Terms.Ob1)}
+  | error {raise (Errors.ParseError "object type expected")}
 
 
 /*type_list_list:

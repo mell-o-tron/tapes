@@ -1,7 +1,8 @@
-sort A ; sort B ; sort C
+let A : sort.   let B : sort.   let C : sort.
+let t : tape = id(A + B) ; s+(A, B).
 
-tape
+check t.                          // true
+check id(A) ; id(B).              // false
+draw t to "./figure1.txt".
+draw s*(A + B, C) to "./figure2.txt"
 
-([gen(f, A, A*B) ; (id(A) * gen(g, B, C)) ; gen(h, A * C, D*E*F)] +
-id(A*B));
-s+(D*E*F, A*B)

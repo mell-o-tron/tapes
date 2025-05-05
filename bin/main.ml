@@ -1,11 +1,14 @@
-open Ssr_typechecker.Ast
+(* open Ssr_typechecker.Terms *)
 open Ssr_typechecker.Typecheck
 open Ssr_typechecker.Term_to_tape
 open Ssr_typechecker.Tapes
+open Ssr_typechecker.Ast
+open Ssr_typechecker.Errors
+open ANSITerminal
 
 (*open Js_of_ocaml*)
 
-  
+
 let inchn = open_in Sys.argv.(1)
 
 let ast_of_channel inchn =
@@ -15,18 +18,59 @@ let ast_of_channel inchn =
     MenhirLib.Convert.Simplified.traditional2revised Ssr_typechecker.Parser.main
   in
   try parser lexer
-  with Ssr_typechecker.Parser.Error ->
+  with
+    | ParseError s -> raise
+      (Syntax_error
+         ( (fst (Sedlexing.lexing_positions lexbuf)).pos_lnum,
+           (fst (Sedlexing.lexing_positions lexbuf)).pos_cnum
+           - (fst (Sedlexing.lexing_positions lexbuf)).pos_bol,
+           s ))
+    | Ssr_typechecker.Parser.Error ->
     raise
       (Syntax_error
          ( (fst (Sedlexing.lexing_positions lexbuf)).pos_lnum,
            (fst (Sedlexing.lexing_positions lexbuf)).pos_cnum
            - (fst (Sedlexing.lexing_positions lexbuf)).pos_bol,
-           "Syntax error" ))
-           
+           "Generic Syntax Error" ))
+
+
+let sorts = ref []
+let env = Hashtbl.create 10
+
+let rec typecheck_command (e : expr) = match e with
+  | Tape (t) -> printf [] "Typecheck result:\t%s\n" (if tape_typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] "false ❌"))
+  | Term (t) -> printf [] "Typecheck result:\t%s\n" (if typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] "false ❌"))
+  | Var (id) -> if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id) else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+
+let rec draw_command (e : expr) (path : string) = (match e with
+  | Tape (t) -> let tc = tape_typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (t))) path else (raise (RuntimeError "Cannot draw: does not typecheck."))
+  | Term (t) -> let tc = typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (_to_tape t))) path else (raise (RuntimeError "Cannot draw: does not typecheck."))
+  | Var (id) -> if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path else raise (RuntimeError (Printf.sprintf "Variable %s not found" id)))
+
+
+
+let rec exec (p : program) = match p with
+  | Comm (c) -> (match c with
+      | Check e -> typecheck_command e
+      | Draw (e, path) -> draw_command e path
+  )
+  | Decl (d) -> (match d with
+      | ExprDecl (id, _typ, e) -> Hashtbl.add env id (e)
+      | SortDecl id -> sorts := (id :: !sorts)
+  )
+  | Seq(p1, p2) -> (exec p1) ; (exec p2)
+
 
 (* prints the result of the computation *)
-let main () = match ast_of_channel inchn with
-  | _definded_sorts, Some ast, None ->
+
+let main () = try let p = ast_of_channel inchn in exec (p)
+with
+  | RuntimeError s -> printf [Bold; red] "Runtime Error: %s.\n" s
+  | Syntax_error (a, b, s) -> printf [Bold; red] "Syntax Error at (%d, %d): %s.\n" a b s
+
+  ;;
+
+(*  | _definded_sorts, Some ast, None ->
     let ar = arity ast in
     let coar = coarity ast in
     print_string "Arity:\t\t"; _print_type( ar ) ;
@@ -55,7 +99,7 @@ let main () = match ast_of_channel inchn with
 
     ; print_endline "\n"
   | _ -> failwith "CULO"
-;;
+;;*)
 
 
 main()

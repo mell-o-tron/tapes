@@ -1,4 +1,4 @@
-open Ast
+open Terms
 open Tapes
 
 (* Given a list of circuits, forms a polynomial with those circuits as monomials *)

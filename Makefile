@@ -24,9 +24,9 @@ run: build
 	opam exec -- dune build --profile=dev
 
 	OCAMLRUNPARAM=b ./_build/default/bin/main.exe ./formula
-	cat ./tikz_out/prologue ./figure.txt ./tikz_out/epilogue > ./tikz_out/result.tex
-	rm ./figure.txt
-	pdflatex ./tikz_out/result.tex
-	rm ./result.aux
-	rm ./result.log
+# 	cat ./tikz_out/prologue ./figure.txt ./tikz_out/epilogue > ./tikz_out/result.tex
+# 	rm ./figure.txt
+# 	pdflatex ./tikz_out/result.tex
+# 	rm ./result.aux
+# 	rm ./result.log
 	
