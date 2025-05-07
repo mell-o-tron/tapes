@@ -33,6 +33,7 @@ let rec token lexbuf =
   | "draw" -> Draw
   | "check" -> Check
   | "to" -> To
+  | "to_tape" -> ToTape
   | white_space -> token lexbuf
   | "," -> COMMA
 (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

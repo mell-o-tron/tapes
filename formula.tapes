@@ -1,0 +1,6 @@
+let A : sort.   let B : sort.   let C : sort.
+
+let t1 : term = s+(U, V) * s+(U1, V1).
+
+check t1.
+draw t1 to "./result_examples/times_of_swapsum.txt"

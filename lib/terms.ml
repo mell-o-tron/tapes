@@ -53,6 +53,9 @@ let obj_of_polynomial poly =
     Obplus(acc, term)
   ) Ob0 poly
 
+(* turns a monomial in S* representation into a polynomial *)
+let obj_of_monomial (mon : sort list) = List.fold_left (fun acc_e e -> Obtimes(acc_e, S(e))) Ob1 mon
+
 (* reduces an object into its normal form *)
 let _object_to_normal_form ob = obj_of_polynomial(obj_to_polynomial ob)
 
@@ -62,8 +65,7 @@ let rec sort_prod_to_list (ob : obj) = match ob with
   | S(e) -> [e]
   | Ob1 -> []
   | Obtimes (t1, t2) -> (sort_prod_to_list t1) @ (sort_prod_to_list t2)
-  | Obplus _ | Ob0 -> failwith "tried to transform non-prod type to prod list"
-
+  | Obplus _ | Ob0 -> raise (Errors.TypeError "expected product of sorts, got non-product type")
 
 (*
  - def 4.5 distributore

@@ -1,0 +1,71 @@
+{
+  "scopeName": "source.tapes",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings"  },
+    { "include": "#keywords" },
+    { "include": "#types"    },
+    { "include": "#constructors" },
+    { "include": "#operators" },
+    { "include": "#variables" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.tapes",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.tapes",
+          "begin": "\"",
+          "end": "\""
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.tapes",
+          "match": "\\b(?:let|check|draw|to)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.tapes",
+          "match": "\\b(?:tape|term|sort|to_tape)\\b"
+        }
+      ]
+    },
+    "constructors": {
+      "patterns": [
+        {
+          "name": "support.function.constructor.tapes",
+          "match": "\\b(?:id|s\\+|s\\*|dl|gen)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.tapes",
+          "match": "\\.|;|:|=|\\+"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.tapes",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+} 

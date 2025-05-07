@@ -10,7 +10,7 @@ let remove_first_last s =
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape
 
 %token <string> STRING QSTRING
 
@@ -37,21 +37,27 @@ command:
   | error {raise (Errors.ParseError "command expected")}
 
 decl:
-  | Let s=STRING COLON t=exprtype EQUALS e=expr {Ast.Decl(Ast.ExprDecl(s, t, e))}
+  | Let s=STRING COLON Tape EQUALS e=tape_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TapeType, e))}
+  | Let s=STRING COLON Term EQUALS e=term_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TermType, e))}
   | Let s=STRING COLON Sort {Ast.Decl(Ast.SortDecl(s))}
+  | Let STRING COLON error {raise (Errors.ParseError "expression type (tape or term) expected")}
   | Let STRING EQUALS error {raise (Errors.ParseError "error in declaration. Maybe you forgot to specify the type of the expression")}
   | error {raise (Errors.ParseError "declaration expected")}
 
-exprtype:
-  | Term {Ast.TermType}
-  | Tape {Ast.TapeType}
-  | error {raise (Errors.ParseError "expression type expected")}
-
 expr:
+  | e = tape_expr {e}
+  | e = term_expr {e}
+
+tape_expr:
+  | s=STRING {Ast.Var(s)}
+  | t=tape {Ast.Tape(t)}
+  | ToTape t=term {Ast.Tape(Term_to_tape._to_tape(t))}
+  | error {raise (Errors.ParseError "tape expression expected")}
+
+term_expr:
   | s=STRING {Ast.Var(s)}
   | t=term {Ast.Term(t)}
-  | t=tape {Ast.Tape(t)}
-  | error {raise (Errors.ParseError "expression expected")}
+  | error {raise (Errors.ParseError "term expression expected")}
 
 term:
   | Id LPAREN t1 = object_type RPAREN                                                                   {Terms.Id(Terms.obj_to_polynomial(t1)) }

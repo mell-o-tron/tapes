@@ -1,0 +1,30 @@
+{
+  "name": "tapes-syntax",
+  "displayName": "Tapes Syntax",
+  "description": "Syntax highlighting for the Tapes language",
+  "version": "0.0.1",
+  "publisher": "Lorenzo Pace",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tapes",
+        "aliases": ["Tapes", "tapes"],
+        "extensions": [".tapes"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tapes",
+        "scopeName": "source.tapes",
+        "path": "./syntaxes/tapes.tmLanguage.json"
+      }
+    ]
+  }
+} 

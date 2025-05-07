@@ -1,5 +1,0 @@
-let A : sort.   let B : sort.   let C : sort.
-
-let t : tape = id(A).
-
-draw t to "aaa"

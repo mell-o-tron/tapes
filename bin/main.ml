@@ -38,13 +38,13 @@ let sorts = ref []
 let env = Hashtbl.create 10
 
 let rec typecheck_command (e : expr) = match e with
-  | Tape (t) -> printf [] "Typecheck result:\t%s\n" (if tape_typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] "false ❌"))
-  | Term (t) -> printf [] "Typecheck result:\t%s\n" (if typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] "false ❌"))
+  | Tape (t) -> printf [] "Tape typecheck result:\t%s\n" (if tape_typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] ("false ❌")))
+  | Term (t) -> printf [] "Term typecheck result:\t%s\n" (if typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] "false ❌"))
   | Var (id) -> if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id) else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
 let rec draw_command (e : expr) (path : string) = (match e with
-  | Tape (t) -> let tc = tape_typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (t))) path else (raise (RuntimeError "Cannot draw: does not typecheck."))
-  | Term (t) -> let tc = typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (_to_tape t))) path else (raise (RuntimeError "Cannot draw: does not typecheck."))
+  | Tape (t) -> let tc = tape_typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (t))) path else (raise (RuntimeError "Cannot draw tape: does not typecheck."))
+  | Term (t) -> let tc = typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (_to_tape t))) path else (raise (RuntimeError "Cannot draw term: does not typecheck."))
   | Var (id) -> if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path else raise (RuntimeError (Printf.sprintf "Variable %s not found" id)))
 
 
@@ -65,11 +65,11 @@ let rec exec (p : program) = match p with
 
 let main () = try let p = ast_of_channel inchn in exec (p)
 with
+  | TypeError s -> printf [Bold; red] "Type Error: %s.\n" s
   | RuntimeError s -> printf [Bold; red] "Runtime Error: %s.\n" s
   | Syntax_error (a, b, s) -> printf [Bold; red] "Syntax Error at (%d, %d): %s.\n" a b s
 
   ;;
-
 (*  | _definded_sorts, Some ast, None ->
     let ar = arity ast in
     let coar = coarity ast in
