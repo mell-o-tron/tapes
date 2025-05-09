@@ -136,3 +136,13 @@ and _to_tape (t : term) = match t with
   | Oplus (t1, t2)      -> Oplus(_to_tape(t1), _to_tape(t2))
   | Compose (t1, t2)    -> TCompose(_to_tape(t1), _to_tape(t2))
   | Gen (_, _, _)       -> failwith("cannot convert SSR generator to tape")
+
+
+  (*  copy & discard etc
+      Definitions (20), (21) under theorem 7.3 (for polynomials)
+      for monomials, use coherence axioms
+  *)
+
+  (*
+      split, join, cut, spawn
+  *)

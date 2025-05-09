@@ -6,7 +6,7 @@ type circuit = CId of Terms.sort
             |  SwapTimes of Terms.sort * Terms.sort
             [@@deriving show]
             
-type tape =   TId of (Terms.sort list list)
+type tape =   TId of (Terms.sort list list) (* da vedere *)
             | TId0
             | Tape of circuit
             | TCompose of tape * tape
