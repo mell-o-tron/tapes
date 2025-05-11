@@ -9,8 +9,8 @@ let remove_first_last s =
     String.sub s 1 (len - 2)
 %}
 
-%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape
+%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape ARROW
 
 %token <string> STRING QSTRING
 
@@ -37,6 +37,7 @@ command:
   | error {raise (Errors.ParseError "command expected")}
 
 decl:
+  | Let s=STRING COLON o1 = object_type ARROW o2 = object_type {Ast.Decl(Ast.GenDecl(s, o1, o2))}
   | Let s=STRING COLON Tape EQUALS e=tape_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TapeType, e))}
   | Let s=STRING COLON Term EQUALS e=term_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TermType, e))}
   | Let s=STRING COLON Sort {Ast.Decl(Ast.SortDecl(s))}
@@ -68,7 +69,12 @@ term:
   | t1 = term Otimes t2 = term                                                                          {Terms.Otimes(t1, t2)}
   | t1 = term Oplus t2 = term                                                                           {Terms.Oplus(t1, t2)}
   | t1 = term SEMICOLON t2 = term                                                                       {Terms.Compose(t1, t2)}
+  | Cut LPAREN t = object_type RPAREN                                                                   { Terms.Cut (Terms.obj_to_polynomial t)}
+  | Split LPAREN t = object_type RPAREN                                                                 { Terms.Split (Terms.obj_to_polynomial t)}
+  | Spawn LPAREN t = object_type RPAREN                                                                 { Terms.Spawn (Terms.obj_to_polynomial t)}
+  | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
   | LPAREN t = term RPAREN                                                                              {t}
+  | s = STRING {Terms.GenVar(s)}
   | error {raise (Errors.ParseError "term expected")}
 
 circuit:
@@ -84,10 +90,13 @@ circuit:
 tape:
   | Zero                                                                                                { Tapes.TId0 }
   | Id LPAREN t = object_type RPAREN                                                                    { Tapes.TId      (Terms.obj_to_polynomial t) }
+  | Cut LPAREN t = object_type RPAREN                                                                   { Tapes.Cut (Terms.obj_to_monomial t)}
+  | Split LPAREN t = object_type RPAREN                                                                 { Tapes.Split (Terms.obj_to_monomial t)}
+  | Spawn LPAREN t = object_type RPAREN                                                                 { Tapes.Spawn (Terms.obj_to_monomial t)}
+  | Join LPAREN t = object_type RPAREN                                                                  { Tapes.Join (Terms.obj_to_monomial t)}
   | LBRACKET c = circuit RBRACKET                                                                       { Tapes.Tape     c }
   | t1 = tape Oplus t2 = tape                                                                           { Tapes.Oplus    (t1, t2) }
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
-  | Ldistr   LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN               { Tapes.Ldistr  (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2, Terms.sort_prod_to_list t3) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
   | LPAREN t = tape RPAREN
   { t }

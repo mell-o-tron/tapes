@@ -26,6 +26,7 @@ let rec token lexbuf =
   | ":" -> COLON
   | "=" -> EQUALS
   | "." -> DOT
+  | "->" -> ARROW
   | "sort" -> Sort
   | "let" -> Let
   | "term" -> Term
@@ -34,6 +35,10 @@ let rec token lexbuf =
   | "check" -> Check
   | "to" -> To
   | "to_tape" -> ToTape
+  | "split" -> Split
+  | "cut" ->  Cut  
+  | "join" -> Join
+  | "spawn" -> Spawn
   | white_space -> token lexbuf
   | "," -> COMMA
 (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

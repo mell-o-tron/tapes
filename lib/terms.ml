@@ -16,6 +16,7 @@ type obj  = S of sort | Obtimes of obj * obj | Obplus of obj * obj | Ob0 | Ob1 [
 
 
 type term = Id of (sort list list)
+            | GenVar of string
             | Gen of string * (sort list list) * (sort list list)
             | SwapTimes of (sort list list * sort list list)
             | SwapPlus of (sort list list * sort list list)
@@ -23,6 +24,10 @@ type term = Id of (sort list list)
             | Otimes of term * term
             | Compose of term * term
             | Ldistr of (sort list list * sort list list * sort list list)
+            | Cut of sort list list
+            | Split of sort list list
+            | Spawn of sort list list
+            | Join of sort list list
             [@@deriving show]
 
 
@@ -41,6 +46,12 @@ let rec obj_to_polynomial ob = match ob with
   | Obtimes (o1, o2)  -> times_on_objects (obj_to_polynomial(o1)) (obj_to_polynomial(o2))
   | Ob0               -> []
   | Ob1               -> [[]]
+
+let rec obj_to_monomial ob = match ob with
+  | S (e)             -> [e]
+  | Obtimes (o1, o2)  -> obj_to_monomial(o1) @ obj_to_monomial(o2)
+  | Ob1               -> []
+  | Ob0 | Obplus _   -> raise (Errors.TypeError "used non-monomial type where monomial type was needed") 
 
 (* turns a polynomial in S** representation into a polynomial *)
 let obj_of_polynomial poly =

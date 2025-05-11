@@ -176,18 +176,23 @@ let rec get_circuit_height (c : circuit) = match c with
   | Gen (_, ar, coar) -> let ar_size =  (List.length ar) in let coar_size =  (List.length coar) in (float_of_int)(max (max (ar_size - 1) (coar_size - 1)) (0)) *. otimes_dist
 
 let rec get_circuit_left_interface_height (c : circuit) = match c with
-| CId _ | CId1 | SwapTimes (_) | Gen _ -> get_circuit_height c
+| CId _ | CId1 | SwapTimes (_) -> get_circuit_height c
+| Gen (_, ar, _) -> print_float ((max 0. (float_of_int (List.length ar - 1))) *. otimes_dist); (max 0. (float_of_int (List.length ar - 1))) *. otimes_dist
 | Otimes (t1, t2) -> get_circuit_left_interface_height t1 +. get_circuit_left_interface_height t2 +. otimes_dist
 | CCompose (t1, _t2)  -> get_circuit_left_interface_height t1
 
-
+let rec get_circuit_within_tape_left_interface_height (c : circuit) = match c with
+| CId _ | CId1 | SwapTimes (_) -> get_circuit_height c
+| Gen _ -> get_circuit_height c
+| Otimes (t1, t2) -> get_circuit_within_tape_left_interface_height t1 +. get_circuit_within_tape_left_interface_height t2 +. otimes_dist
+| CCompose (t1, _t2)  -> get_circuit_within_tape_left_interface_height t1
 
 let rec circuit_connect_interfaces (ina: circuit_draw_interface) (inb: circuit_draw_interface) =  match (circuit_interface_normalize ina, circuit_interface_normalize inb) with
   | EmptyCircuit, EmptyCircuit  -> ""
   | CircuitPin (x1, y1), CircuitPin (x2, y2) -> (Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2 y2)
   | CircuitTens (CircuitPin (x1, y1), ina1), CircuitTens (CircuitPin (x2, y2), inb1) 
     -> (Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2 y2) ^ (circuit_connect_interfaces ina1 inb1)
-  | _ -> failwith "trying to connect incompatible interfaces"
+  | _ -> failwith "trying to connect incompatible circuit interfaces"
   
   
 let circuit_align_interfaces ri1 ri2 = 
@@ -296,6 +301,7 @@ and tikz_of_circuit (t:circuit) (posx:float) (posy:float) (debug:bool) = match t
 (* Drawing Tapes *)
 
 
+
 (* transforms a tape identity into ⊕_i (Tape(⊗_j (circuit ids))) *)
 let tid_to_normal_form (l : Terms.sort list list) =
   let to_tape (l1 : Terms.sort list) = Tape (List.fold_left (fun acc x -> Otimes(acc, CId(x))) CId1 l1 ) in
@@ -321,12 +327,17 @@ let rec get_tape_height (t : tape) = match t with
     let h2 =  float_of_int(len2 - 1) *. otimes_dist +. tape_padding *. 2. in
     h1 +. h2 +. oplus_dist
 
-  | Ldistr (_, _, _) -> failwith "not yet implemented"
-  | Discard _ -> failwith "not yet implemented"
-  | Copy _ -> failwith "not yet implemented"
-  | CoDiscard _ -> failwith "not yet implemented"
-  | CoCopy _ ->  failwith "not yet implemented"
+  | Cut l1 -> let n = List.length l1 in tape_padding *. 2. +. float_of_int (max 0  (n -1)) *. otimes_dist
+  | Split l1 -> let n = List.length l1 in tape_padding *. 4. +. 2. *. float_of_int (max 0  (n -1)) *. otimes_dist +. oplus_dist
+  | Spawn l1 -> let n = List.length l1 in tape_padding *. 2. +. float_of_int (max 0  (n -1)) *. otimes_dist
+  | Join l1 -> let n = List.length l1 in tape_padding *. 4. +. 2. *. float_of_int (max 0  (n -1)) *. otimes_dist +. oplus_dist
   
+  let rec get_tape_left_interface_height (t : tape) = match t with
+  | Tape c -> get_circuit_within_tape_left_interface_height c +. (2. *. tape_padding)
+  | TCompose (t1, _) -> get_tape_left_interface_height t1
+  | Oplus (t1, t2) -> get_tape_left_interface_height t1 +. get_tape_left_interface_height t2 +. oplus_dist
+  | _ -> get_tape_height t
+
 let rec get_max_x_tape t = match t with 
   | EmptyTape (_, (x, _)) -> x
   | TapeInterface (_, (x, _), _) -> x
@@ -364,9 +375,11 @@ let construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2 = match (_pos
 (* connects two tape interfaces *)
 let tape_connect_interfaces (ina: tape_draw_interface) (inb: tape_draw_interface) = 
   tape_interface_to_string_map2 (fun t1 t2 -> match t1, t2 with
+    | EmptyTape _ , EmptyTape _ -> ""
     | TapeInterface (_pos_bot1, _pos_top1, c1), TapeInterface (_pos_bot2, _pos_top2, c2) -> 
       (construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2) ^ circuit_connect_interfaces c1 c2
-    | _ -> failwith "trying to connect incompatible interfaces"
+    | _ -> Printf.printf "==========\n%s\n//\n%s\n========== " (show_tape_draw_interface ina) (show_tape_draw_interface inb) ; 
+    failwith "trying to connect incompatible tape interfaces"
   ) ina inb
    
 (* returns a string of latex macros representing the tape diagram *)
@@ -374,10 +387,7 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t 
   | TId l -> tikz_of_tape (tid_to_normal_form l)(posx) (posy) debug 
   | TId0 -> ("", 0., 0., EmptyTape ((posx, posy), (posx, posy)), EmptyTape ((posx, posy), (posx, posy)))
   | Tape c ->
-    let c_height = get_circuit_height c in
-    let linterf_height = get_circuit_left_interface_height c in
-    let diff = (c_height -. linterf_height) /. 2. in
-    let diag, h, l, li, ri  = tikz_of_circuit_meas c (posx ) (tape_padding +. posy +. diff) debug in
+    let diag, h, l, li, ri  = tikz_of_circuit_meas c (posx ) (tape_padding +. posy) debug in
               ((Printf.sprintf "\\tape {%f} {%f} {%f} {%f}\n" (posx ) posy (l) (h +. 2. *. tape_padding)) ^ diag,
                 h +. 2. *. tape_padding,
                 l,
@@ -391,8 +401,11 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t 
     if is_tape_identity t2 then tikz_of_tape (t1) posx posy debug else
     let offset = 1. in
     let diag1, h1, l1, li1, ri1 = tikz_of_tape t1 posx posy debug in
-    let diag2, h2, l2, li2, ri2 = tikz_of_tape t2 (posx +. l1 +. offset) (snd(base_of_tape_interface ri1) +. ((tape_interface_height ri1) /.2.) -. (get_tape_height t2)/.2.) debug in
-    ( tape_connect_interfaces ri1 li2 ^ diag1 ^ diag2,
+    let diag2, h2, l2, li2, ri2 = tikz_of_tape t2 (posx +. l1 +. offset) (snd(base_of_tape_interface ri1) +. ((tape_interface_height ri1) /.2.) -. (get_tape_left_interface_height t2)/.2.) debug in
+    ( (tape_connect_interfaces ri1 li2 ^ diag1 ^ diag2 ^ "\n"
+    (* ^ (Printf.sprintf "\n\\node () at (%f, %f) {%f};\n" (posx +. l1) (posy +. (tape_interface_height ri1)/.2.) (tape_interface_height ri1))) ^
+    (Printf.sprintf "\n\\node () at (%f, %f) {%f};\n" (posx +. l1 +. offset) (posy +. (tape_interface_height ri1)/.2.) (get_tape_left_interface_height t2)*)) 
+      ,
       max h1 h2,
       l1 +. l2 +. offset,
       li1,
@@ -436,13 +449,68 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = match t 
                 TapeInterface ((posx +. 2., posy), (posx +. 2., posy +. h1), circuit_interface_of_list (List.rev i2r))) |> tape_interface_normalize
     )
     
-  | Ldistr (_, _, _) -> failwith "not yet implemented"
-  | Discard _ -> failwith "not yet implemented"
-  | Copy _ -> failwith "not yet implemented"
-  | CoDiscard _ -> failwith "not yet implemented"
-  | CoCopy _ ->  failwith "not yet implemented"
+  | Cut l1 -> 
+    let n = List.length l1 in
+    let h = tape_padding *. 2. +. float_of_int (max 0  (n -1)) *. otimes_dist in
+    let l = if n > 0 then float_of_int n *. otimes_dist else 1. in
+    let il = List.mapi (fun i _ -> (posx, posy +. float_of_int (i) *. otimes_dist +. tape_padding) ) l1 |> List.rev in
+    (
+      Printf.sprintf "\\cuttape {%f} {%f} {%d} {%f} {%f}" posx posy n tape_padding otimes_dist,
+      h,
+      l,
+      TapeInterface ((posx,posy), (posx, posy +. h), circuit_interface_of_list (il)),
+      EmptyTape ((posx +. l,posy), (posx +. l,posy +. h))
+    )
+    
+    | Spawn l1 -> 
+      let n = List.length l1 in
+      let h = tape_padding *. 2. +. float_of_int (max 0  (n -1)) *. otimes_dist in
+      let l = if n > 0 then float_of_int n *. otimes_dist else 1. in
+      let il = List.mapi (fun i _ -> (posx +. l, posy +. float_of_int (i) *. otimes_dist +. tape_padding) ) l1 |> List.rev in
+      (
+        Printf.sprintf "\\spawntape {%f} {%f} {%d} {%f} {%f}" posx posy n tape_padding otimes_dist,
+        h,
+        l,
+        EmptyTape ((posx,posy), (posx,posy +. h)),
+        TapeInterface ((posx +. l,posy), (posx +. l, posy +. h), circuit_interface_of_list (il))
+      )
+
+    
+  | Split l1 -> 
+      let n = List.length l1 in 
+      let h = 2. *. tape_padding +. float_of_int (max 0 (n - 1)) *. otimes_dist in
+      let base_left = h /. 2. +. oplus_dist /. 2. in
+      let toth = tape_padding *. 4. +. 2. *. float_of_int (max 0  (n -1)) *. otimes_dist +. oplus_dist in
+      let l = toth /. 2. +. 1. in
+      let lil = List.mapi (fun i _ -> (posx, posy +. float_of_int (i) *. otimes_dist +. tape_padding +. base_left) ) l1 |> List.rev in
+      let ril1 = List.mapi (fun i _ -> (posx +. l, posy +. float_of_int (i) *. otimes_dist +. tape_padding) ) l1 |> List.rev in
+      let ril2 = List.mapi (fun i _ -> (posx +. l, posy +. float_of_int (i) *. otimes_dist +. tape_padding +. h +. oplus_dist) ) l1 |> List.rev in
+      (
+        Printf.sprintf "\\splittape {%f} {%f} {%d} {%f} {%f} {%f}" posx posy n tape_padding otimes_dist oplus_dist,
+        toth,
+        l,
+        TapeInterface ((posx, posy +. base_left), (posx, posy +. h +. base_left), circuit_interface_of_list (lil)),
+        TapeTens(TapeInterface ((posx +. l, posy +. h +. oplus_dist), (posx +. l, posy +. 2. *. h +. oplus_dist), circuit_interface_of_list (ril2)), TapeInterface ((posx +. l, posy), (posx +. l, posy +. h), circuit_interface_of_list (ril1)))
+      )
+
+  | Join l1 -> 
+    let n = List.length l1 in 
+    let h = 2. *. tape_padding +. float_of_int (max 0 (n - 1)) *. otimes_dist in
+    let base_left = h /. 2. +. oplus_dist /. 2. in
+    let toth = tape_padding *. 4. +. 2. *. float_of_int (max 0  (n -1)) *. otimes_dist +. oplus_dist in
+    let l = toth /. 2. +. 1. in
+    let lil = List.mapi (fun i _ -> (posx +. l, posy +. float_of_int (i) *. otimes_dist +. tape_padding +. base_left) ) l1 |> List.rev in
+    let ril1 = List.mapi (fun i _ -> (posx, posy +. float_of_int (i) *. otimes_dist +. tape_padding) ) l1 |> List.rev in
+    let ril2 = List.mapi (fun i _ -> (posx, posy +. float_of_int (i) *. otimes_dist +. tape_padding +. h +. oplus_dist) ) l1 |> List.rev in
+    (
+      Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f}" posx posy n tape_padding otimes_dist oplus_dist,
+      toth,
+      l,
+      TapeTens(TapeInterface ((posx, posy +. h +. oplus_dist), (posx, posy +. 2. *. h +. oplus_dist), circuit_interface_of_list (ril2)), TapeInterface ((posx, posy), (posx, posy +. h), circuit_interface_of_list (ril1))),
+      TapeInterface ((posx +. l, posy +. base_left), (posx +. l, posy +. h +. base_left), circuit_interface_of_list (lil))
+    )
   
-  
+
 (********************************************************************************************************)
 
 let rec flatten_tape (t : tape_draw_interface) = match t with

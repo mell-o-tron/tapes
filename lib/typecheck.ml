@@ -17,6 +17,11 @@ let rec arity (t : term) = match t with
         Obplus(obj_of_polynomial(l2), obj_of_polynomial(l3))
       )
   )
+  | GenVar v -> raise(Errors.RuntimeError (Printf.sprintf "generator %s not found" v))
+  | Cut l1              -> l1
+  | Split l1            -> l1
+  | Spawn _             -> []
+  | Join l1             -> l1 @ l1 (* IDK TODO check*)
 
   
 (*  | _ -> failwith("arity not yet implemented")*)
@@ -36,6 +41,11 @@ let rec coarity (t : term) = match t with
         Obtimes (obj_of_polynomial(l1), obj_of_polynomial(l3))
     )
 )
+| GenVar v -> raise(Errors.RuntimeError (Printf.sprintf "generator %s not found" v))
+| Cut _              -> []
+| Split l1            -> l1 @ l1 (* IDK TODO check*)
+| Spawn l1             -> l1
+| Join l1             -> l1
 
 (* checks if arity and coarity match in compositions *)
 let rec typecheck (t : term) = match t with
@@ -69,19 +79,10 @@ let rec tape_arity (t : tape) = match t with
   | TCompose (t1, _t2) -> tape_arity t1
   | Oplus (t1, t2) -> tape_arity t1 @ tape_arity t2
   | SwapPlus (sl1, sl2) -> [sl1 ; sl2]
-
-  (* not in tech report -- should include?? *)
-  | Ldistr (sl1, sl2, sl3) -> obj_to_polynomial (
-    Obtimes(
-      obj_of_polynomial([sl1]), 
-      Obplus(obj_of_polynomial([sl2]), obj_of_polynomial([sl3]))
-    )
-  )
-
-  | Discard _ -> failwith "not yet implemented"
-  | Copy _ -> failwith "not yet implemented"
-  | CoDiscard _ -> failwith "not yet implemented"
-  | CoCopy _ -> failwith "not yet implemented"
+  | Cut l1 -> [l1]
+  | Split l1 -> [l1]
+  | Spawn _ -> []
+  | Join l1 -> [l1 ; l1]
 
   let rec tape_coarity (t : tape) = match t with 
   | TId sll -> sll
@@ -90,19 +91,10 @@ let rec tape_arity (t : tape) = match t with
   | TCompose (_t1, t2) -> tape_coarity t2
   | Oplus (t1, t2) -> tape_coarity t1 @ tape_coarity t2
   | SwapPlus (sl1, sl2) -> [sl2 ; sl1]
-
-  (* not in tech report -- should include?? *)
-  | Ldistr (sl1, sl2, sl3) -> obj_to_polynomial (
-    Obplus(
-        Obtimes (obj_of_polynomial([sl1]), obj_of_polynomial([sl2])),
-        Obtimes (obj_of_polynomial([sl1]), obj_of_polynomial([sl3]))
-    )
-)
-
-  | Discard _ -> failwith "not yet implemented"
-  | Copy _ -> failwith "not yet implemented"
-  | CoDiscard _ -> failwith "not yet implemented"
-  | CoCopy _ -> failwith "not yet implemented"
+  | Cut _ -> []
+  | Split l1 -> [l1 ; l1]
+  | Spawn l1 -> [l1]
+  | Join l1 -> [l1]
 
   (* checks if arity and coarity match in compositions *)
 let rec circuit_typecheck (t : circuit) = match t with

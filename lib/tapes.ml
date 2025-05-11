@@ -12,14 +12,10 @@ type tape =   TId of (Terms.sort list list) (* da vedere *)
             | TCompose of tape * tape
             | Oplus of tape * tape
             | SwapPlus of (Terms.sort list * Terms.sort list)
-            
-            (* not in tech report -- should include?? *)
-            | Ldistr of (Terms.sort list * Terms.sort list * Terms.sort list)
-            
-            | Discard of Terms.sort list
-            | Copy of Terms.sort list
-            | CoDiscard of Terms.sort list
-            | CoCopy of Terms.sort list
+            | Cut of Terms.sort list
+            | Split of Terms.sort list
+            | Spawn of Terms.sort list
+            | Join of Terms.sort list
             [@@deriving show]
 
 (* Pretty-print a list of sorts, e.g. ["a"; "b"] becomes: ["a", "b"] *)
@@ -63,19 +59,14 @@ let rec pp_tape (t : tape) : string =
       Printf.sprintf "(%s ⊕  %s)" (pp_tape t1) (pp_tape t2)
   | SwapPlus (lst1, lst2) ->
       Printf.sprintf "σ⊕(%s, %s)" (pp_sort_list lst1) (pp_sort_list lst2)
-  | Ldistr (lst1, lst2, lst3) ->
-      Printf.sprintf "δl(%s, %s, %s)"
-        (pp_sort_list lst1)
-        (pp_sort_list lst2)
-        (pp_sort_list lst3)
-  | Discard lst ->
-      Printf.sprintf "Discard(%s)" (pp_sort_list lst)
-  | Copy lst ->
-      Printf.sprintf "Copy(%s)" (pp_sort_list lst)
-  | CoDiscard lst ->
-      Printf.sprintf "CoDiscard(%s)" (pp_sort_list lst)
-  | CoCopy lst ->
-      Printf.sprintf "CoCopy(%s)" (pp_sort_list lst)
+  | Cut lst ->
+      Printf.sprintf "Cut(%s)" (pp_sort_list lst)
+  | Split lst ->
+      Printf.sprintf "Split(%s)" (pp_sort_list lst)
+  | Spawn lst ->
+      Printf.sprintf "Spawn(%s)" (pp_sort_list lst)
+  | Join lst ->
+      Printf.sprintf "Join(%s)" (pp_sort_list lst)
 
 (* remove redundant identities *)
 let rec clean_circuit (c : circuit) = match c with

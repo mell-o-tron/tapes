@@ -118,6 +118,25 @@ let rec right_whiskering (u : sort list list) (t : tape) =
   | [] -> TId0
   | a :: rest -> TCompose(dl a rest, TCompose(Oplus (right_whiskering_mon a t, right_whiskering rest t), inv_dl a rest))
 
+(* Using coherence axioms of commutative monoids - FP1 *)
+let rec split_to_tape (l1 : sort list list) = match l1 with
+  | [] -> TId0
+  | x :: xs -> TCompose(Oplus(Split x, split_to_tape xs), Oplus(TId [x], Oplus(swapplus_to_tape([x]) (xs), id_to_tape xs)))
+
+(* Using coherence axioms of cocommutative comonoids - FC1 *)
+let rec join_to_tape (l1 : sort list list) = match l1 with
+  | [] -> TId0
+  | x :: xs -> TCompose(Oplus(TId [x], Oplus(swapplus_to_tape(xs) ([x]), id_to_tape xs)), Oplus(Join x, join_to_tape xs))
+
+(* Using coherence axioms of commutative monoids - FP2 *)
+let rec cut_to_tape (l1 : sort list list) = match l1 with
+  | [] -> TId0
+  | x :: xs -> Oplus(Cut(x), cut_to_tape xs)
+
+(* Using coherence axioms of cocommutative comonoids - FC2 *)
+let rec spawn_to_tape (l1 : sort list list) = match l1 with
+  | [] -> TId0
+  | x :: xs -> Oplus(Spawn(x), spawn_to_tape xs)
 
 let rec otimes_to_tape (t1 : term) (t2 : term) = 
   let t1 = _to_tape t1 in
@@ -135,8 +154,18 @@ and _to_tape (t : term) = match t with
   | Otimes (t1, t2)       -> otimes_to_tape t1 t2
   | Oplus (t1, t2)      -> Oplus(_to_tape(t1), _to_tape(t2))
   | Compose (t1, t2)    -> TCompose(_to_tape(t1), _to_tape(t2))
-  | Gen (_, _, _)       -> failwith("cannot convert SSR generator to tape")
-
+  | Gen (s, ar, coar)   -> (match (ar, coar) with 
+    | [], [] -> Tape(Gen(s, [], []))
+    | [a], [b] -> Tape(Gen(s, a, b))
+    | [a], [] -> Tape(Gen(s, a, []))
+    | [], [b] -> Tape(Gen(s, [], b))
+    | _ -> raise(Errors.RuntimeError "cannot transform non-monomial generator to a tape")
+  )
+  | GenVar v -> raise(Errors.RuntimeError (Printf.sprintf "generator %s not found" v))
+  | Split l -> split_to_tape l
+  | Join l -> join_to_tape l
+  | Spawn l -> spawn_to_tape l
+  | Cut l -> cut_to_tape l
 
   (*  copy & discard etc
       Definitions (20), (21) under theorem 7.3 (for polynomials)
