@@ -37,6 +37,7 @@ let ast_of_channel inchn =
 let sorts = ref []
 let env = Hashtbl.create 10
 let gens = Hashtbl.create 10
+let settings = Hashtbl.create 10
 
 let rec typecheck_command (e : expr) = match e with
   | Tape (t) -> printf [] "Tape typecheck result:\t%s\n" (if tape_typecheck t then (sprintf [green] "true ✅") else (sprintf [red; Bold] ("false ❌")))
@@ -44,14 +45,14 @@ let rec typecheck_command (e : expr) = match e with
   | Var (id) -> if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id) else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
 let rec draw_command (e : expr) (path : string) = (match e with
-  | Tape (t) -> let tc = tape_typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (t))) path else (raise (RuntimeError "Cannot draw tape: does not typecheck."))
-  | Term (t) -> let tc = typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((clean_tape (_to_tape t))) path else (raise (RuntimeError "Cannot draw term: does not typecheck."))
+  | Tape (t) -> let tc = tape_typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((deep_clean_tape (t))) path else (raise (RuntimeError "Cannot draw tape: does not typecheck."))
+  | Term (t) -> let tc = typecheck t in if tc then Ssr_typechecker.Draw.draw_tape ((deep_clean_tape (_to_tape t))) path else (raise (RuntimeError "Cannot draw term: does not typecheck."))
   | Var (id) -> if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path else raise (RuntimeError (Printf.sprintf "Variable %s not found" id)))
 
 let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) : Ssr_typechecker.Terms.term = match t with
   | GenVar v -> if Hashtbl.mem gens v then Hashtbl.find gens v else raise (RuntimeError (Printf.sprintf "generator %s has not been defined prior to its use" v)) 
   | Otimes (t1, t2)       -> Otimes(subst_gen_name_term v t1, subst_gen_name_term v t2)
-  | Oplus (t1, t2)      -> Otimes(subst_gen_name_term v t1, subst_gen_name_term v t2)
+  | Oplus (t1, t2)      -> Oplus(subst_gen_name_term v t1, subst_gen_name_term v t2)
   | Compose (t1, t2)    -> Compose(subst_gen_name_term v t1, subst_gen_name_term v t2)
   | _ -> t
 
@@ -72,6 +73,11 @@ let rec exec (p : program) = match p with
       | GenDecl (id, ob1, ob2) -> Hashtbl.add gens id (Gen (id, Ssr_typechecker.Terms.obj_to_polynomial ob1, Ssr_typechecker.Terms.obj_to_polynomial ob2))
   )
   | Seq(p1, p2) -> (exec p1) ; (exec p2)
+  | Set (id, f) -> Hashtbl.add settings id f ; match id with 
+      | "otimesdist" -> Ssr_typechecker.Draw.otimes_dist := f
+      | "oplusdist" -> Ssr_typechecker.Draw.oplus_dist := f
+      | "paddingdist" -> Ssr_typechecker.Draw.tape_padding := f
+      | _ -> ()
 
 
 (* prints the result of the computation *)

@@ -78,7 +78,10 @@ let rec left_whiskering_mon (u : sort list) (t : tape) = match t with
                   | SwapPlus (v, w) -> SwapPlus (u@v, u@w)
                   | TCompose(t1, t2) -> TCompose (left_whiskering_mon u t1, left_whiskering_mon u t2)
                   | Oplus (t1, t2) -> Oplus (left_whiskering_mon u t1, left_whiskering_mon u t2)
-                  | _ -> failwith "not yet implemented (left whiskering)"
+                  | Split v -> Split (u @ v)
+                  | Join v -> Join (u @ v)
+                  | Cut (v) -> Cut (u @ v)
+                  | Spawn (v) -> Spawn (u @ v)
 
 
 let rec right_whiskering_mon (u : sort list) (t : tape) = match t with
@@ -88,7 +91,10 @@ let rec right_whiskering_mon (u : sort list) (t : tape) = match t with
                   | SwapPlus (v, w) -> SwapPlus (v@u, w@u)
                   | TCompose(t1, t2) -> TCompose (right_whiskering_mon u t1, right_whiskering_mon u t2)
                   | Oplus (t1, t2) -> Oplus (right_whiskering_mon u t1, right_whiskering_mon u t2)
-                  | _ -> failwith "not yet implemented (right whiskering)"
+                  | Split v -> Split (v @ u)
+                  | Join v -> Join (v @ u)
+                  | Cut (v) -> Cut (v @ u)
+                  | Spawn (v) -> Spawn (v @ u)
 
 let rec left_whiskering (u : sort list list) (t : tape) = match u with
   | [] -> TId0
@@ -107,7 +113,10 @@ let rec tape_inverse (t : tape) = match t with
   | SwapPlus (a, b) -> SwapPlus (b, a)
   | TCompose (t1, t2) -> TCompose(tape_inverse t2, tape_inverse t1)
   | Oplus (t1, t2) -> Oplus (tape_inverse t1, tape_inverse t2)
-  | _ -> failwith "inverse not yet implemented"
+  | Spawn l -> Cut l
+  | Cut l -> Spawn l
+  | Join l -> Split l
+  | Split l -> Join l
 
 let rec right_whiskering (u : sort list list) (t : tape) = 
   let p = Typecheck.tape_arity t in
@@ -138,20 +147,27 @@ let rec spawn_to_tape (l1 : sort list list) = match l1 with
   | [] -> TId0
   | x :: xs -> Oplus(Spawn(x), spawn_to_tape xs)
 
-let rec otimes_to_tape (t1 : term) (t2 : term) = 
-  let t1 = _to_tape t1 in
-  let t2 = _to_tape t2 in
+let otimes_to_tape (t1 : tape) (t2 : tape) = 
   let p = Typecheck.tape_arity t1 in
   let s = Typecheck.tape_coarity t2 in
   TCompose (left_whiskering p t2, right_whiskering s t1)
 
+let rec copy_monomial_to_circuit (l : sort list) : circuit = match l with
+  | [] -> CId1
+  | x :: xs -> CCompose(Otimes(Gen("copy", [x], [x;x]), copy_monomial_to_circuit xs), Otimes(CId x, Otimes(unwrap_swaptimes_circuit [x] xs, id_to_circuit xs)))
+
+let rec copy_to_tape (l : sort list list) : tape = match l with
+  | [] ->TId0
+  | u :: p1 -> Oplus(Oplus( Tape(copy_monomial_to_circuit u), spawn_to_tape (times_on_objects [u] p1)), 
+                            TCompose(Oplus(spawn_to_tape (times_on_objects p1 [u]), copy_to_tape p1), tape_inverse(ldistr_to_tape p1 [u] p1)))
+
 (* converts term into tape (when possible) *)
-and _to_tape (t : term) = match t with
+let rec _to_tape (t : term) = match t with
   | Id (l)              -> id_to_tape (l)
   | SwapTimes (p, q)    -> swaptimes_to_tape p q
   | SwapPlus (p, q)     -> swapplus_to_tape p q
   | Ldistr (p, q, r)    -> ldistr_to_tape p q r
-  | Otimes (t1, t2)       -> otimes_to_tape t1 t2
+  | Otimes (t1, t2)       -> otimes_to_tape (_to_tape t1) (_to_tape t2)
   | Oplus (t1, t2)      -> Oplus(_to_tape(t1), _to_tape(t2))
   | Compose (t1, t2)    -> TCompose(_to_tape(t1), _to_tape(t2))
   | Gen (s, ar, coar)   -> (match (ar, coar) with 
@@ -166,6 +182,9 @@ and _to_tape (t : term) = match t with
   | Join l -> join_to_tape l
   | Spawn l -> spawn_to_tape l
   | Cut l -> cut_to_tape l
+
+  | Copy l -> copy_to_tape l
+  | _ -> failwith "not yet implemented"
 
   (*  copy & discard etc
       Definitions (20), (21) under theorem 7.3 (for polynomials)

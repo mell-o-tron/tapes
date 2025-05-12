@@ -1,9 +1,12 @@
 open Terms
 open Tapes
 
+let rec arity_of_copy l = match l with
+  | [] -> []
+  | u :: p1 -> [u] @ arity (Spawn (times_on_objects [u] p1)) @ arity (Spawn (times_on_objects p1 [u])) @ arity_of_copy p1
 
 (* returns the arity of a term *)
-let rec arity (t : term) = match t with
+and arity (t : term) = match t with
   | Id (l1)             -> l1
   | Gen (_, l1, _)      -> l1
   | SwapTimes (l1, l2)  -> obj_to_polynomial ( Obtimes (obj_of_polynomial l1, obj_of_polynomial l2) ) 
@@ -22,12 +25,17 @@ let rec arity (t : term) = match t with
   | Split l1            -> l1
   | Spawn _             -> []
   | Join l1             -> l1 @ l1 (* IDK TODO check*)
-
+  | Copy l1             -> arity_of_copy l1
+  | _ -> failwith "not yet implemented"
   
 (*  | _ -> failwith("arity not yet implemented")*)
 
+let rec coarity_of_copy l = match l with
+  | [] -> []
+  | u :: p1 -> [u ; u] @ coarity (Spawn (times_on_objects [u] p1)) @ arity (Ldistr(p1, [u], p1))    (* arity because it's the coarity of the inverse ldistr*)
+
 (* returns the coarity of a term *)
-let rec coarity (t : term) = match t with
+and coarity (t : term) = match t with
 | Id (l1)             -> l1
 | Gen (_, _, l2)      -> l2
 | SwapTimes (l1, l2)  -> obj_to_polynomial ( Obtimes (obj_of_polynomial l2, obj_of_polynomial l1) ) 
@@ -46,6 +54,8 @@ let rec coarity (t : term) = match t with
 | Split l1            -> l1 @ l1 (* IDK TODO check*)
 | Spawn l1             -> l1
 | Join l1             -> l1
+| Copy l1             -> coarity_of_copy l1
+| _ -> failwith "not yet implemented"
 
 (* checks if arity and coarity match in compositions *)
 let rec typecheck (t : term) = match t with

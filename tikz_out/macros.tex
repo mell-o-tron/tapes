@@ -10,11 +10,9 @@ nodestyle/.style={circle, minimum size=0pt, inner sep=0pt},
 boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 }
 
-% fresh posx posy
-\newcommand{\id}[3]{
-  \node [nodestyle] (ida#1) at (#2,#3) {};
-  \node [nodestyle] (idb#1) at (#2 + 1,#3) {};
-  \draw (ida#1) -- (idb#1);
+% fresh posx posy len
+\newcommand{\id}[4]{
+  \draw (#2,#3) -- (#2 + #4,#3);
 }
 
 % fresh posx posy scaley
@@ -24,8 +22,8 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
  \node [nodestyle] (swapc#1) at (#2+1,#3) {};
  \node [nodestyle] (swapd#1) at (#2+1,#3 + #4) {};
   
- \draw [in=180, out=0] (swapa1) to (swapd1);
- \draw [in=-180, out=0] (swapb1) to (swapc1);
+ \draw [in=180, out=0] (swapa#1) to (swapd#1);
+ \draw [in=-180, out=0] (swapb#1) to (swapc#1);
 }
 
 % fresh posx posy otimesdist

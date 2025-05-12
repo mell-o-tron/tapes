@@ -77,9 +77,14 @@ let rec clean_circuit (c : circuit) = match c with
     | _ -> c
 
 let rec clean_tape (t : tape) = match t with
+    | TCompose (TId0, TId0) -> TId0
     | TCompose (t1, t2) -> TCompose (clean_tape t1, clean_tape t2)
     | Oplus (t1, TId0)  -> clean_tape t1
     | Oplus (TId0, t2)  -> clean_tape t2
     | Oplus (t1, t2)    -> Oplus (clean_tape t1, clean_tape t2)
     | Tape (c)          -> Tape(clean_circuit c)
     | _ -> t
+
+let rec deep_clean_tape (t : tape) = 
+   let t1 = clean_tape t in
+   if t = t1 then t else deep_clean_tape t1

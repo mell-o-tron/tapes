@@ -9,10 +9,11 @@ let remove_first_last s =
     String.sub s 1 (len - 2)
 %}
 
-%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape ARROW
+%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape ARROW Set
 
 %token <string> STRING QSTRING
+%token <float> FLOAT
 
 %left SEMICOLON
 %left Tensor
@@ -26,8 +27,12 @@ main:
 program:
   | c=command {Ast.Comm(c)}
   | d=decl {d}
+  | s = setting {s}
   | p1=program DOT p2=program {Ast.Seq(p1, p2)}
   | program DOT error {raise (Errors.ParseError "further commands expected after \".\". There should be no dot at the end of a program")}
+
+setting:
+  | Set LPAREN s=STRING COLON f=FLOAT RPAREN {Ast.Set(s, f)}
 
 command:
   | Draw e=expr To qs=QSTRING {Ast.Draw(e, remove_first_last qs)}
@@ -73,6 +78,7 @@ term:
   | Split LPAREN t = object_type RPAREN                                                                 { Terms.Split (Terms.obj_to_polynomial t)}
   | Spawn LPAREN t = object_type RPAREN                                                                 { Terms.Spawn (Terms.obj_to_polynomial t)}
   | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
+  | Copy LPAREN t = object_type RPAREN                                                                  { Terms.Copy (Terms.obj_to_polynomial t)}
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
   | error {raise (Errors.ParseError "term expected")}

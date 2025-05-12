@@ -28,10 +28,15 @@ type term = Id of (sort list list)
             | Split of sort list list
             | Spawn of sort list list
             | Join of sort list list
+            | Copy of sort list list
+            | Discard of sort list list
+            | CoCopy of sort list list
+            | CoDiscard of sort list list
             [@@deriving show]
 
 
 let _print_type t = print_string "[" ; List.iter(fun l1 -> print_string "[" ; List.iter(fun x -> print_string " " ; print_string x ; print_string " ") l1 ; print_string "]") t ; print_string "]\n"
+  
 
 (* Otimes on objects, Technical report page 24, section 4.1 *)
 let times_on_objects p q =

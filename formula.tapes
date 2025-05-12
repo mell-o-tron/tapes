@@ -1,8 +1,11 @@
 let A : sort.   let B : sort.   let C : sort.
 let f : A -> B * C.
 
-let t : term =  join(A + (B * Q) + C). // ; cut(A + (B*Q) + C).
+set (otimesdist : 1.0). // for now these have to be float
+set (oplusdist : 1.0).
 
-check t.
+let t1 : term = copy(A + B + C).
 
-draw t to "./result_examples/gen_test"
+check t1.
+
+draw t1 to "./result_examples/distributor"
