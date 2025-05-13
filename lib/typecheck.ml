@@ -25,7 +25,8 @@ and arity (t : term) = match t with
   | Split l1            -> l1
   | Spawn _             -> []
   | Join l1             -> l1 @ l1 (* IDK TODO check*)
-  | Copy l1             -> arity_of_copy l1
+  | Copy l1             -> l1
+  | CoCopy l1           -> times_on_objects l1 l1
   | _ -> failwith "not yet implemented"
   
 (*  | _ -> failwith("arity not yet implemented")*)
@@ -50,12 +51,16 @@ and coarity (t : term) = match t with
     )
 )
 | GenVar v -> raise(Errors.RuntimeError (Printf.sprintf "generator %s not found" v))
-| Cut _              -> []
+| Cut _               -> []
 | Split l1            -> l1 @ l1 (* IDK TODO check*)
-| Spawn l1             -> l1
+| Spawn l1            -> l1
 | Join l1             -> l1
-| Copy l1             -> coarity_of_copy l1
+| Copy l1             -> times_on_objects l1 l1
+| CoCopy l1           -> l1
 | _ -> failwith "not yet implemented"
+
+let print_sll (l : sort list list) = 
+  print_string "[ " ; List.iter(fun l -> print_string "[ " ; (List.iter (fun x -> Printf.printf "%s  " x) l) ; print_string "]") l ; print_string "]\n"
 
 (* checks if arity and coarity match in compositions *)
 let rec typecheck (t : term) = match t with
@@ -63,7 +68,6 @@ let rec typecheck (t : term) = match t with
   | Oplus (t1, t2)    -> typecheck(t1) && typecheck(t2)
   | Otimes (t1, t2)   -> typecheck(t1) && typecheck(t2)
   | _                 -> true
-
 
 
 let rec circuit_arity (c : circuit) = match c with 

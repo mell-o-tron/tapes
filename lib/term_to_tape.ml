@@ -161,6 +161,15 @@ let rec copy_to_tape (l : sort list list) : tape = match l with
   | u :: p1 -> Oplus(Oplus( Tape(copy_monomial_to_circuit u), spawn_to_tape (times_on_objects [u] p1)), 
                             TCompose(Oplus(spawn_to_tape (times_on_objects p1 [u]), copy_to_tape p1), tape_inverse(ldistr_to_tape p1 [u] p1)))
 
+let rec cocopy_monomial_to_circuit (l : sort list) : circuit = match l with
+| [] -> CId1
+| x :: xs -> CCompose(Otimes(CId x, Otimes(unwrap_swaptimes_circuit xs [x], id_to_circuit xs)), Otimes(Gen("cocopy", [x;x], [x]), cocopy_monomial_to_circuit xs))
+                          
+let rec cocopy_to_tape (l : sort list list) : tape = match l with
+  | [] -> TId0
+  | u :: p1 -> Oplus(Oplus( Tape(cocopy_monomial_to_circuit u), cut_to_tape (times_on_objects [u] p1)), 
+                            TCompose(ldistr_to_tape p1 [u] p1, Oplus(cut_to_tape (times_on_objects p1 [u]), cocopy_to_tape p1)))
+
 (* converts term into tape (when possible) *)
 let rec _to_tape (t : term) = match t with
   | Id (l)              -> id_to_tape (l)
@@ -184,6 +193,7 @@ let rec _to_tape (t : term) = match t with
   | Cut l -> cut_to_tape l
 
   | Copy l -> copy_to_tape l
+  | CoCopy l -> cocopy_to_tape l
   | _ -> failwith "not yet implemented"
 
   (*  copy & discard etc

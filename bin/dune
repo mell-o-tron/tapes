@@ -1,8 +1,7 @@
 (executable
+ (name        main)
  (public_name ssr_typechecker)
- (name main)
- (libraries ssr_typechecker menhirLib js_of_ocaml)
- (flags
-  (:standard -g))
-
-(modes byte))
+ (libraries   ssr_typechecker menhirLib js_of_ocaml)
+ (modes       byte native)
+ (flags       (:standard -g))
+ (link_flags  (-g)))

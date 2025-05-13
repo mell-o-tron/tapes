@@ -10,6 +10,7 @@ type circuit_draw_interface =
   [@@deriving show]
   
 type tape_draw_interface = 
+  | EmptyInterface
   | EmptyTape of (float * float) * (float * float) 
   | TapeTens of tape_draw_interface * tape_draw_interface 
   | TapeInterface of (float * float) * (float * float) * circuit_draw_interface
@@ -98,32 +99,38 @@ let rec circuit_interface_height (c : circuit_draw_interface) = match circuit_in
 let rec list_of_tape_interface t = match t with
   | EmptyTape _ | TapeInterface _ -> [t]
   | TapeTens (t1, t2) ->  list_of_tape_interface t1 @ list_of_tape_interface t2
+  | EmptyInterface -> []
 
 let rec tape_interface_of_list t = match t with
   | t1 :: [] -> t1
   | t1 :: rest -> TapeTens (t1, tape_interface_of_list rest)
-  | [] -> failwith "an empty list is not a valid tape"
+  | [] -> EmptyInterface
 
 (* bring a tape interface to a list-like normal form *)
 let tape_interface_normalize (t : tape_draw_interface) = t |> list_of_tape_interface |> tape_interface_of_list
 
 (* NOTE: the empty interface also has information, so we want to apply the function to it as well.*)
-let rec tape_interface_map (f : tape_draw_interface -> tape_draw_interface) (t : tape_draw_interface) = tape_interface_normalize(match tape_interface_normalize t with
+let rec tape_interface_map (f : tape_draw_interface -> tape_draw_interface) (t : tape_draw_interface) = tape_interface_normalize(
+  let t = tape_interface_normalize t in
+  match t with
   | EmptyTape _ -> f(t)
   | TapeInterface _ -> f(t)
-  | TapeTens (t1, t2) -> TapeTens(f(t1),  (tape_interface_map f t2)))
+  | TapeTens (t1, t2) -> TapeTens(f(t1),  (tape_interface_map f t2))
+  | EmptyInterface -> t)
   
 (* returns the lowest position of a tape interface *)
 let rec base_of_tape_interface t = match tape_interface_normalize t with
   | EmptyTape ((x, y), _) -> (x, y)
   | TapeTens(_, t2) -> base_of_tape_interface t2
   | TapeInterface ((x, y), _, _) ->  (x, y)
+  | EmptyInterface -> failwith "tried to get base of empty interface"
 
 (* returns the highest position of a tape interface *)
 let rec top_of_tape_interface t = match tape_interface_normalize t with
   | EmptyTape (_, (x, y)) -> (x, y)
   | TapeTens(t1, _) -> top_of_tape_interface t1
   | TapeInterface (_, (x, y), _) ->  (x, y)
+  | EmptyInterface -> failwith "tried to get top of empty interface"
 
 (* returns the lowest position of a pair of tape interfaces *)
 let base_of_tape_interfaces t1 t2 =
@@ -133,10 +140,11 @@ let base_of_tape_interfaces t1 t2 =
 
 
 let rec tape_interface_to_string_map2 (f : tape_draw_interface -> tape_draw_interface -> string) (t1 : tape_draw_interface) (t2 : tape_draw_interface) =
-
-(match tape_interface_normalize t1, tape_interface_normalize t2 with
+let t1, t2 = tape_interface_normalize t1, tape_interface_normalize t2 in
+(match t1, t2 with
   | (EmptyTape _), (EmptyTape _)  | (TapeInterface _), (TapeInterface _) -> (f t1 t2)
   | TapeTens (t11, t21), TapeTens (t12, t22) -> (f t11 t12) ^ (tape_interface_to_string_map2 f t21 t22)
+  | EmptyInterface, EmptyInterface -> "" (* TODO is this right?*)
   | _ -> print_endline ("failure: \n" ^ show_tape_draw_interface t1 ^ "\n\n" ^ show_tape_draw_interface t2);
   
   failwith "tape_interface_to_string_map2 could not be applied, args have different sizes."
@@ -144,12 +152,33 @@ let rec tape_interface_to_string_map2 (f : tape_draw_interface -> tape_draw_inte
 
 let tape_interface_height (t : tape_draw_interface) = match tape_interface_normalize t with
   | EmptyTape ((_, y1), (_, y2)) -> abs_float(y1 -. y2)
-  | TapeTens(t1, t2) -> 
+  | TapeTens (EmptyInterface, EmptyInterface) -> 0.
+  | TapeTens (EmptyInterface, t2) -> 
+    let _, y_top = top_of_tape_interface t2 in 
+    let _, y_bot = base_of_tape_interface t2 in
+    abs_float(y_top -. y_bot)
+  | TapeTens (t1, EmptyInterface) -> 
+      let _, y_top = top_of_tape_interface t1 in 
+      let _, y_bot = base_of_tape_interface t1 in
+      abs_float(y_top -. y_bot)
+  | TapeTens (t1, t2) -> 
       let _, y_top = top_of_tape_interface t1 in 
       let _, y_bot = base_of_tape_interface t2 in
       abs_float(y_top -. y_bot)
   | TapeInterface ((_, y1), (_, y2), _) ->  abs_float(y1 -. y2)
+  | EmptyInterface -> 0.
     
+
+let rec clean_tape_interface t = match t with
+  | TapeTens (EmptyInterface, t1) -> clean_tape_interface t1
+  | TapeTens (t1, EmptyInterface) -> clean_tape_interface t1
+  | _ -> t
+
+let rec deep_clean_interface t = 
+  let ct = clean_tape_interface t in
+  if t == ct then ct else
+  deep_clean_interface ct
+
 (********************************************************************************************************)
 (* counters used in generating fresh ids for the tikz elements *)
 
@@ -291,7 +320,23 @@ and tikz_of_circuit (t:circuit) (posx:float) (posy:float) (debug:bool) (id_zero_
                             li1, ri2
                           )
   
-  | Gen (name, ar, coar) -> let ar_size =  (List.length ar) in let coar_size =  (List.length coar) in
+  | Gen (name, ar, coar) -> (match name with
+                            | "copy" when coar = ar@ar -> (
+                              ( Printf.sprintf "\\copycirc {%s}{%f}{%f}{%f}\n" (fresh_gen()) posx (posy) (!otimes_dist),
+                              !otimes_dist,
+                              1.,
+                              CircuitPin (posx, posy +. !otimes_dist /. 2.),
+                              CircuitTens (CircuitPin (posx+.1., posy +. !otimes_dist), CircuitPin (posx +. 1., posy))
+                              ))
+                              | "cocopy" when ar = coar@coar -> (
+                                ( Printf.sprintf "\\cocopycirc {%s}{%f}{%f}{%f}\n" (fresh_gen()) posx (posy) (!otimes_dist),
+                                !otimes_dist,
+                                1.,
+                                CircuitTens (CircuitPin (posx, posy +. !otimes_dist), CircuitPin (posx, posy)),
+                                CircuitPin (posx +. 1., posy +. !otimes_dist /. 2.)
+                                ))
+                            | _ -> (
+                            let ar_size =  (List.length ar) in let coar_size =  (List.length coar) in
   
                             let height = (float_of_int)(max (max (ar_size - 1) (coar_size - 1)) (0)) *. !otimes_dist in
                             let arshift = if ar_size < coar_size then float_of_int(coar_size - ar_size) /. 2. *. !otimes_dist else 0. in
@@ -302,7 +347,7 @@ and tikz_of_circuit (t:circuit) (posx:float) (posy:float) (debug:bool) (id_zero_
                               2.,
                               circuit_interface_rev (circuit_interface_init (ar_size)   (fun i -> CircuitPin(posx, (float_of_int (i - 1) *. !otimes_dist) +. posy +. arshift))) |> circuit_interface_normalize,
                               circuit_interface_rev (circuit_interface_init (coar_size) (fun i -> CircuitPin(posx +. 2., (float_of_int (i - 1) *. !otimes_dist) +. posy +. coarshift))) |> circuit_interface_normalize
-                            )
+                            )))
                             
   | CId1                 ->  ("", 0., 0., EmptyCircuit, EmptyCircuit) 
 
@@ -366,6 +411,7 @@ let rec get_max_x_tape t = match t with
   | EmptyTape (_, (x, _)) -> x
   | TapeInterface (_, (x, _), _) -> x
   | TapeTens (t1, t2) -> max (get_max_x_tape t1) (get_max_x_tape t2)
+  | EmptyInterface -> -. infinity
   
 let rec get_summand_list t = match t with
   | Oplus (t1, t2) -> get_summand_list t1 @ get_summand_list  t2
@@ -373,6 +419,8 @@ let rec get_summand_list t = match t with
 
 (* same as circuit align interfaces but for tapes. *)
 let tape_align_interfaces ri1 ri2 = 
+    let ri1 = tape_interface_normalize ri1 in
+    let ri2 = tape_interface_normalize ri2 in
     let max_1 = get_max_x_tape ri1 in
     let max_2 = get_max_x_tape ri2 in
     let max_x = max max_1 max_2 in
@@ -416,19 +464,24 @@ let rec list_sum = function
 (* returns a list of pairs (interface, tape), matched by size *)
 let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) = 
   
-  Printf.printf "====\nis:\n" ; List.iter (fun x -> print_endline (show_tape_draw_interface x)) is ;
-  Printf.printf "\nts:\n====" ; List.iter (fun x -> print_endline (show_tape x)) ts ;
+  (* Printf.printf "====\nis:\n" ; List.iter (fun x -> print_endline (show_tape_draw_interface x)) is ;
+  Printf.printf "\nts:\n====" ; List.iter (fun x -> print_endline (show_tape x)) ts ; *)
 
   if list_sum (List.map get_tape_left_interface_size ts) = List.length is then 
     match ts with
       | [] -> []
-      | t :: xs ->  let n = (get_tape_left_interface_size t) in
-      (tape_interface_of_list (list_take n is), t) :: (pair_intfs_tapes (list_drop n is) xs)
+        | t :: xs ->  let n = (get_tape_left_interface_size t) in
+        if n != 0 then 
+          (tape_interface_of_list (list_take n is), t) :: (pair_intfs_tapes (list_drop n is) xs)
+      else 
+        raise (Errors.RuntimeError "Used alignment procedure on non-alignable summands -- TODO make all summands alignable")
 
   else raise (Errors.TypeError (Printf.sprintf "trying to pair incompatible interface and type (lengths %d vs %d) -- should be impossible" (List.length is) (list_sum (List.map get_tape_left_interface_size ts))))
 
 (* connects two tape interfaces *)
 let tape_connect_interfaces (ina: tape_draw_interface) (inb: tape_draw_interface) = 
+  let ina = deep_clean_interface ina in
+  let inb = deep_clean_interface inb in
   tape_interface_to_string_map2 (fun t1 t2 -> match t1, t2 with
     | EmptyTape _ , EmptyTape _ -> ""
     | TapeInterface (_pos_bot1, _pos_top1, c1), TapeInterface (_pos_bot2, _pos_top2, c2) -> 
@@ -444,26 +497,22 @@ let rec list_max (l : float list) = match  l with
 let max_x_in_diags ds = 
   List.map (fun (_d, _h, _l, _li, ri) -> get_max_x_tape ri) ds |> list_max
 
-let diag_adjust_height (d, _h, l, li, ri) = 
-  let (_, y1) = top_of_tape_interface li in
-  let (_, y2) = base_of_tape_interface li in
-  let hl = abs_float (y2 -. y1) in
-  let (_, y1) = top_of_tape_interface ri in
-  let (_, y2) = base_of_tape_interface ri in
-  let hr = abs_float (y2 -. y1) in
-  (d, max hl hr, l, li, ri)
-  
+let diag_adjust_height (d, h, l, li, ri) = 
+  let hl = tape_interface_height li in
+  let hr = tape_interface_height ri in
+  (d, max h (max hl hr), l, li, ri)
 
 let align_circuit_interface_to_x c x = 
   circuit_interface_map (function
   | CircuitPin (_, y) -> CircuitPin (x, y)
-  | _ -> failwith "should not be called") c
+  | _ -> failwith "should not be called 1") c
 
 let align_tape_interface_to_x t x = 
   tape_interface_map (function
     | EmptyTape ((_, y1), (_, y2)) -> EmptyTape ((x, y1), (x, y2))
     | TapeInterface ((_, y1), (_, y2), c) -> TapeInterface ((x, y1), (x, y2), align_circuit_interface_to_x c x)
-    | _ -> failwith "should not be called") t
+    | EmptyInterface -> t
+    | _ -> failwith "should not be called 2") t
 
 (* returns a string of latex macros representing the tape diagram *)
 let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = (match t with
@@ -486,11 +535,14 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = (match t
     let diag1, h1, l1, li1, ri1 = tikz_of_tape t1 posx posy debug in
     let t2_to_sum = deep_clean_tape (tape_to_sum t2) in
     let summand_list = get_summand_list t2_to_sum in
+
+    let alignable = List.for_all (fun x -> tape_arity (x) != []) summand_list in
+    if alignable then 
     let rintf_list = list_of_tape_interface ri1 in 
     let intf_tape_pair = pair_intfs_tapes rintf_list summand_list in
     
       let draw_on_intf pair = 
-        ( let offset_multiplier = if (tape_interface_height ri1 = get_tape_left_interface_height t2) then 0.25 else 1. in
+        ( let offset_multiplier = abs_float(tape_interface_height ri1 -. get_tape_left_interface_height t2) +. 0.25 in
           let ri1, t = pair in
         let d, h, l, li, ri = tikz_of_tape t (posx +. l1 +. offset *. offset_multiplier) (snd(base_of_tape_interface ri1) +. ((tape_interface_height ri1) /.2.) -. (get_tape_left_interface_height t)/.2.) debug in
         (d ^ tape_connect_interfaces ri1 li, h, l, li, ri)) in
@@ -504,10 +556,21 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = (match t
         | _ -> da, ha, la, Some lia, Some ria) in
       (match List.fold_right stack_diagrams diags ("", 0., 0., None , None) with
         | diag, h, l, Some li, Some ri ->  
-          let offset_multiplier = if (tape_interface_height ri1 = tape_interface_height li) then 0.25 else 1. in
+          let offset_multiplier = abs_float(tape_interface_height ri1 -. tape_interface_height li) +. 0.25 in
           (diag1 ^ diag, max h1 h, l1 +. l +. offset *. offset_multiplier, li1, ri)
         | _ -> failwith "There has been some mistake idk")
-    
+    else
+      let offset_multiplier = abs_float(tape_interface_height ri1 -. get_tape_left_interface_height t2) +. 0.25 in 
+      let diag2, h2, l2, li2, ri2 = tikz_of_tape t2 (posx +. l1 +. offset *. offset_multiplier) (snd(base_of_tape_interface ri1) +. ((tape_interface_height ri1) /.2.) -. (get_tape_left_interface_height t2)/.2.) debug in
+      ( (tape_connect_interfaces ri1 li2 ^ diag1 ^ diag2 ^ "\n"
+      (* ^ (Printf.sprintf "\n\\node () at (%f, %f) {%f};\n" (posx +. l1) (posy +. (tape_interface_height ri1)/.2.) (tape_interface_height ri1))) ^
+      (Printf.sprintf "\n\\node () at (%f, %f) {%f};\n" (posx +. l1 +. offset) (posy +. (tape_interface_height ri1)/.2.) (get_tape_left_interface_height t2)*)) 
+        ,
+        max h1 h2,
+        l1 +. l2 +. offset,
+        li1,
+        ri2
+      )
 
 
   | Oplus (TId0, t2) -> tikz_of_tape(t2)(posx) (posy) (debug)
@@ -557,7 +620,7 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = (match t
       h,
       l,
       TapeInterface ((posx,posy), (posx, posy +. h), circuit_interface_of_list (il)),
-      EmptyTape ((posx +. l,posy), (posx +. l,posy +. h))
+      EmptyInterface
     )
     
     | Spawn l1 -> 
@@ -569,7 +632,7 @@ let rec tikz_of_tape (t:tape)(posx:float) (posy:float) (debug : bool) = (match t
         Printf.sprintf "\\spawntape {%f} {%f} {%d} {%f} {%f}" posx posy n !tape_padding !otimes_dist,
         h,
         l,
-        EmptyTape ((posx,posy), (posx,posy +. h)),
+        EmptyInterface,
         TapeInterface ((posx +. l,posy), (posx +. l, posy +. h), circuit_interface_of_list (il))
       )
 
@@ -614,6 +677,7 @@ let rec flatten_tape (t : tape_draw_interface) = match t with
     | EmptyTape _ -> []
     | TapeInterface (_, _, c) -> flatten_circuit c
     | TapeTens (t1, t2) -> flatten_tape t1 @ flatten_tape t2 
+    | EmptyInterface -> []
 
 let label_tape (ri : tape_draw_interface) (li : tape_draw_interface) (ar : string list list) (coar : string list list) = 
   let ri_flattened = List.map (fun (x, y) -> (x -. 0.5, y)) (flatten_tape ri) in

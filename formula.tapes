@@ -1,10 +1,10 @@
 let A : sort.   let B : sort.   let C : sort.
 let f : A -> B * C.
 
-set (otimesdist : 1.0). // for now these have to be float
-set (oplusdist : 1.0).
+set (otimesdist : 0.5). // for now these have to be float
+set (oplusdist : 0.25).
 
-let t1 : term = copy(A + B + C).
+let t1 : term = copy(A + B + C) ; cocopy(A + B + C) ; (id(A) + gen(f, B, A) + gen(f, C, A)) ; (id(A) + join(A)).
 
 check t1.
 
