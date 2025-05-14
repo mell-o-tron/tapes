@@ -1,13 +1,20 @@
 let A : sort.   let B : sort.   let C : sort.
-let f : A -> B * C.
+let f : A -> C * C * C.
 
 set (otimesdist : 0.5). // for now these have to be float
 set (oplusdist : 0.25).
+set (paddingdist : 0.5).
 
+let test_copy : term = copy((A * B) + C).
+
+let test_gen : term = f.
+
+// BUG!
 let test_alignment : term = split(A) ; (id(A) + gen(f, A, B)) ; copy(A + B) ; cocopy(A + B) ; (gen(g, A, C) + gen(h, B, C)).
 
 check test_alignment.
 
 set (alignsummands : 0.0).
 
-draw test_alignment to "./result_examples/distributor"
+draw test_copy to "./result_examples/copy".
+draw test_gen to "./result_examples/gen"

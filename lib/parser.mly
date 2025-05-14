@@ -16,7 +16,9 @@ let remove_first_last s =
 %token <float> FLOAT
 
 %left SEMICOLON
-%left Tensor
+%left Oplus
+%left Otimes
+%left DOT
 
 %start <Ast.program> main
 %%
@@ -39,7 +41,6 @@ command:
   | Check e=expr {Ast.Check(e)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
-  | error {raise (Errors.ParseError "command expected")}
 
 decl:
   | Let s=STRING COLON o1 = object_type ARROW o2 = object_type {Ast.Decl(Ast.GenDecl(s, o1, o2))}
@@ -48,7 +49,6 @@ decl:
   | Let s=STRING COLON Sort {Ast.Decl(Ast.SortDecl(s))}
   | Let STRING COLON error {raise (Errors.ParseError "expression type (tape or term) expected")}
   | Let STRING EQUALS error {raise (Errors.ParseError "error in declaration. Maybe you forgot to specify the type of the expression")}
-  | error {raise (Errors.ParseError "declaration expected")}
 
 expr:
   | e = tape_expr {e}
@@ -61,7 +61,6 @@ tape_expr:
   | error {raise (Errors.ParseError "tape expression expected")}
 
 term_expr:
-  | s=STRING {Ast.Var(s)}
   | t=term {Ast.Term(t)}
   | error {raise (Errors.ParseError "term expression expected")}
 
@@ -118,19 +117,3 @@ object_type:
   | One                                                           {(Terms.Ob1)}
   | error {raise (Errors.ParseError "object type expected")}
 
-
-/*type_list_list:
-  | LBRACKET RBRACKET                                             {[]}
-  | LBRACKET l = type_list_list_inner RBRACKET                         {l}
-
-type_list_list_inner:
-  | l = type_list                                                    {[l]}
-  | l1 = type_list COMMA l2 = type_list_list_inner                         {l1 :: l2}
-  
-type_list:
-  | LBRACKET RBRACKET                                             {[]}
-  | LBRACKET l = type_list_inner RBRACKET                         {l}
-  
-type_list_inner:
-  | s = STRING                                                    {[s]}
-  | s = STRING COMMA t = type_list_inner                                {s ::t}*/

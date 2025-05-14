@@ -2,6 +2,7 @@
 \usepackage{tikz} 
 \usepackage{framed}
 
+
 \colorlet{tapeBg}{red!30}
 \colorlet{tapeBorder}{red!60}
 
@@ -90,14 +91,27 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 }%
 \let\height\pgfmathresult
 
+\pgfmathparse{%
+  \arminone * \otimesdist * 0.5
+}%
+\let\leftboxheight\pgfmathresult
 
-  \node [boxstyle] (a) at (#2 + 1,#3 + \height / 2) {#6};
+\pgfmathparse{%
+  \coarminone * \otimesdist * 0.5
+}%
+\let\rightboxheight\pgfmathresult
 
-  \pgfmathparse{%
+% this node is the bottom of the left interface of the box
+\node [] (a) at (#2 + 1,#3 + \height / 2 - \leftboxheight / 2) {};
+% this node is the bottom of the right interface of the box
+\node [] (b) at (#2 + 1,#3 + \height / 2 - \rightboxheight / 2) {};
+
+\pgfmathparse{%
   (\arity - 1) / 2 * \otimesdist
 }%
 \let\arshift\pgfmathresult
 
+%draw left connections
 \pgfmathparse{%
   (\coarity - 1) / 2 * \otimesdist
   }%
@@ -108,19 +122,25 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   {
     \node [nodestyle] (#1in\i) at (#2, #3 + \i * \otimesdist + \height / 2 - \arshift) {};
 
-    \draw[in=0, out=180] (a) to (#1in\i);
+    \draw[in=0, out=180] (a) ++ (0,\i * \otimesdist * 0.5) to (#1in\i);
   }
   
   \fi
 
+  %draw right connections
   \ifnum \coarity=0\else
   \foreach \i in {0,...,\coarminone}
   {
     \node [nodestyle] (#1out\i) at (#2 + 2, #3 + \i * \otimesdist + \height / 2 - \coarshift) {};
 
-    \draw[in=180, out=0] (a) to (#1out\i);
+    \draw[in=180, out=0] (b) ++ (0,\i * \otimesdist * 0.5) to (#1out\i);
   }
   \fi
+  
+  \pgfmathsetmacro\boxheight{\height / 2 + \otimesdist}
+  
+  %draw box with name
+  \node [boxstyle, minimum height = \boxheight cm] at (#2 + 1,#3 + \height / 2) {#6};
 }
 
 
@@ -356,8 +376,8 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \pgfmathsetmacro{\otimesdist}{#5}
     \pgfmathparse{%
     (\n>0)
-      ? \n * \otimesdist
-      : 1
+      ? \n * \otimesdist - 0.2
+      : 1 - 0.2
   }%
   \let\l\pgfmathresult
   
