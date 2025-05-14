@@ -4,8 +4,10 @@ let f : A -> B * C.
 set (otimesdist : 0.5). // for now these have to be float
 set (oplusdist : 0.25).
 
-let t1 : term = copy(A + B + C) ; cocopy(A + B + C) ; (id(A) + gen(f, B, A) + gen(f, C, A)) ; (id(A) + join(A)).
+let test_alignment : term = split(A) ; (id(A) + gen(f, A, B)) ; copy(A + B) ; cocopy(A + B) ; (gen(g, A, C) + gen(h, B, C)).
 
-check t1.
+check test_alignment.
 
-draw t1 to "./result_examples/distributor"
+set (alignsummands : 0.0).
+
+draw test_alignment to "./result_examples/distributor"
