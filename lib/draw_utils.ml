@@ -70,7 +70,7 @@ type circuit_block =
 
 type circuit_geometry =
   | CircGeo of {
-      tikz : string;
+      tikz : circuit_block list;
       height : float;
       length : float;
       left_interface : circuit_draw_interface;
