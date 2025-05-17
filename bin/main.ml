@@ -111,10 +111,11 @@ let rec exec (p : program) =
   | Set (id, f) -> (
       Hashtbl.add settings id f;
       match id with
-      | "otimesdist" -> Ssr_typechecker.Draw.otimes_dist := f
-      | "oplusdist" -> Ssr_typechecker.Draw.oplus_dist := f
-      | "paddingdist" -> Ssr_typechecker.Draw.tape_padding := f
-      | "alignsummands" -> Ssr_typechecker.Draw.align_summands := not (f = 0.)
+      | "otimesdist" -> Ssr_typechecker.Draw_utils.otimes_dist := f
+      | "oplusdist" -> Ssr_typechecker.Draw_utils.oplus_dist := f
+      | "paddingdist" -> Ssr_typechecker.Draw_utils.tape_padding := f
+      | "alignsummands" ->
+          Ssr_typechecker.Draw_utils.align_summands := not (f = 0.)
       | _ -> ())
 
 (* prints the result of the computation *)

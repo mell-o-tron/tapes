@@ -17,4 +17,5 @@ check test_alignment.
 set (alignsummands : 0.0).
 
 draw test_copy to "./result_examples/copy".
-draw test_gen to "./result_examples/gen"
+draw test_gen to "./result_examples/gen".
+draw test_alignment to "./result_examples/test_alignment"
