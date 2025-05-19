@@ -66,6 +66,67 @@ type circuit_block =
       pos1 : float * float;
       pos2 : float * float;
     }
+  | EmptyBlock
+[@@deriving show]
+
+type tape_block =
+  | EmptyTBlock
+  | BTape of {
+      pos : float * float;
+      width : float;
+      height : float;
+    }
+  | BFreeStyleTape of {
+      posll : float * float;
+      poslu : float * float;
+      posrl : float * float;
+      posru : float * float;
+    }
+  | BAdapter of {
+      pos : float * float;
+      height1 : float;
+      height2 : float;
+    }
+  | BSwapTape of {
+      pos : float * float;
+      n1 : int;
+      n2 : int;
+      oplusdist : float;
+      otimesdist : float;
+      tapepadding : float;
+      width : float;
+    }
+  | BSplitTape of {
+      pos : float * float;
+      n : int;
+      tapepadding : float;
+      otimesdist : float;
+      oplusdist : float;
+    }
+  | BCutTape of {
+      pos : float * float;
+      n : int;
+      tapepadding : float;
+      otimesdist : float;
+    }
+  | BJoinTape of {
+      pos : float * float;
+      n : int;
+      tapepadding : float;
+      otimesdist : float;
+      oplusdist : float;
+    }
+  | BSpawnTape of {
+      pos : float * float;
+      n : int;
+      tapepadding : float;
+      otimesdist : float;
+    }
+[@@deriving show]
+
+type block =
+  | CB of circuit_block
+  | TB of tape_block
 [@@deriving show]
 
 type circuit_geometry =
@@ -80,13 +141,74 @@ type circuit_geometry =
 
 type tape_geometry =
   | TapeGeo of {
-      tikz : string;
+      tikz : block list;
       height : float;
       length : float;
       left_interface : tape_draw_interface;
       right_interface : tape_draw_interface;
     }
 [@@deriving show]
+
+(********* BLOCKS TO STRINGS **********)
+
+let tikz_of_circuit_block (cb : circuit_block) : string =
+  match cb with
+  | BMeasure { fresh_name; len; pos = x, y } ->
+      Printf.sprintf "\\measuretape {%s} {%f} {%f} {%f}\n" fresh_name len x y
+  | BId { fresh_name; pos = x, y; len; sort = _ } ->
+      let zero_flag = if len = 0. then 0 else 1 in
+      Printf.sprintf "\\id{%s}{%f}{%f}{%d}\n" fresh_name x y zero_flag
+  | BSwap { fresh_name; pos = x, y; scaley; sorts = _ } ->
+      Printf.sprintf "\\swap{%s}{%f}{%f}{%f}\n" fresh_name x y scaley
+  | BCopy { fresh_name; pos = x, y; scaley; sort = _ } ->
+      Printf.sprintf "\\copycirc {%s}{%f}{%f}{%f}\n" fresh_name x y scaley
+  | BDiscard { fresh_name; pos = x, y; sort = _ } ->
+      Printf.sprintf "\\discardcirc {%s}{%f}{%f}\n" fresh_name x y
+  | BCoCopy { fresh_name; pos = x, y; scaley; sort = _ } ->
+      Printf.sprintf "\\cocopycirc {%s}{%f}{%f}{%f}\n" fresh_name x y scaley
+  | BCoDiscard { fresh_name; pos = x, y; sort = _ } ->
+      Printf.sprintf "\\codiscardcirc {%s}{%f}{%f}\n" fresh_name x y
+  | BGen { fresh_name; pos = x, y; arity; coarity; name; otimesdist; sorts = _ }
+    ->
+      Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n" fresh_name x y arity
+        coarity name otimesdist
+  | Connector { pos1 = x1, y1; pos2 = x2, y2 } ->
+      Printf.sprintf "\\draw [in=180, out=0] (%f,%f) to (%f,%f);\n" x1 y1 x2 y2
+  | EmptyBlock -> ""
+
+let tikz_of_tape_block (tb : tape_block) : string =
+  match tb with
+  | EmptyTBlock -> ""
+  | BTape { pos = x, y; width; height } ->
+      Printf.sprintf "\\tape {%f} {%f} {%f} {%f}\n" x y width height
+  | BFreeStyleTape
+      { posll = x1, y1; poslu = x2, y2; posrl = x3, y3; posru = x4, y4 } ->
+      Printf.sprintf "\\freestyletape {%f} {%f} {%f} {%f} {%f} {%f} {%f} {%f}\n"
+        x1 y1 x2 y2 x3 y3 x4 y4
+  | BAdapter { pos = x, y; height1; height2 } ->
+      Printf.sprintf "\\adapter {%f} {%f} {%f} {%f}\n" x y height1 height2
+  | BSwapTape { pos = x, y; n1; n2; oplusdist; otimesdist; tapepadding; width }
+    ->
+      Printf.sprintf "\\swaptape {%f} {%f} {%d} {%d} {%f} {%f} {%f} {%f}\n" x y
+        n1 n2 oplusdist otimesdist tapepadding width
+  | BSplitTape { pos = x, y; n; tapepadding; otimesdist; oplusdist } ->
+      Printf.sprintf "\\splittape {%f} {%f} {%d} {%f} {%f} {%f}\n" x y n
+        tapepadding otimesdist oplusdist
+  | BCutTape { pos = x, y; n; tapepadding; otimesdist } ->
+      Printf.sprintf "\\cuttape {%f} {%f} {%d} {%f} {%f}\n" x y n tapepadding
+        otimesdist
+  | BSpawnTape { pos = x, y; n; tapepadding; otimesdist } ->
+      Printf.sprintf "\\spawntape {%f} {%f} {%d} {%f} {%f}\n" x y n tapepadding
+        otimesdist
+  | BJoinTape { pos = x, y; n; tapepadding; otimesdist; oplusdist } ->
+      Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f}\n" x y n
+        tapepadding otimesdist oplusdist
+
+let rec tikz_of_block_list (b : block list) : string =
+  match b with
+  | [] -> ""
+  | TB tb :: b1 -> tikz_of_tape_block tb ^ "\n" ^ tikz_of_block_list b1
+  | CB cb :: b1 -> tikz_of_circuit_block cb ^ "\n" ^ tikz_of_block_list b1
 
 (********************************************************************************************************)
 
@@ -250,9 +372,9 @@ let base_of_tape_interfaces t1 t2 =
   let x2, y2 = base_of_tape_interface t2 in
   if y1 > y2 then (x1, y1) else (x2, y2)
 
-let rec tape_interface_to_string_map2
-    (f : tape_draw_interface -> tape_draw_interface -> string)
-    (t1 : tape_draw_interface) (t2 : tape_draw_interface) =
+let rec tape_interface_to_block_map2
+    (f : tape_draw_interface -> tape_draw_interface -> block list)
+    (t1 : tape_draw_interface) (t2 : tape_draw_interface) : block list =
   let t1, t2 =
     ( t1 |> deep_clean_interface |> tape_interface_normalize,
       t2 |> deep_clean_interface |> tape_interface_normalize )
@@ -260,8 +382,8 @@ let rec tape_interface_to_string_map2
   match (t1, t2) with
   | EmptyTape _, EmptyTape _ | TapeInterface _, TapeInterface _ -> f t1 t2
   | TapeTens (t11, t21), TapeTens (t12, t22) ->
-      f t11 t12 ^ tape_interface_to_string_map2 f t21 t22
-  | EmptyInterface _, EmptyInterface _ -> "" (* TODO is this right?*)
+      f t11 t12 @ tape_interface_to_block_map2 f t21 t22
+  | EmptyInterface _, EmptyInterface _ -> [] (* TODO is this right?*)
   | _ ->
       print_endline
         ("failure: \n"
@@ -352,17 +474,20 @@ let rec get_circuit_within_tape_left_interface_height (c : circuit) =
   | CCompose (t1, _t2) -> get_circuit_within_tape_left_interface_height t1
 
 let rec circuit_connect_interfaces (ina : circuit_draw_interface)
-    (inb : circuit_draw_interface) =
+    (inb : circuit_draw_interface) : circuit_block list =
   match (circuit_interface_normalize ina, circuit_interface_normalize inb) with
-  | EmptyCircuit, EmptyCircuit -> ""
+  | EmptyCircuit, EmptyCircuit -> [ EmptyBlock ]
   | CircuitPin (x1, y1), CircuitPin (x2, y2) ->
-      Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
-        y2
+      [ Connector { pos1 = (x1, y1); pos2 = (x2, y2) } ]
+      (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
+        y2 *)
   | ( CircuitTens (CircuitPin (x1, y1), ina1),
       CircuitTens (CircuitPin (x2, y2), inb1) ) ->
-      Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
+      [ Connector { pos1 = (x1, y1); pos2 = (x2, y2) } ]
+      @ circuit_connect_interfaces ina1 inb1
+      (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
         y2
-      ^ circuit_connect_interfaces ina1 inb1
+      ^ circuit_connect_interfaces ina1 inb1 *)
   | _ ->
       Printf.printf "======\nina: %s\n////\ninb: %s\n======="
         (show_circuit_draw_interface ina)
@@ -532,9 +657,16 @@ let construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2 =
       (_pos_top1x, _pos_top1y),
       (_pos_bot2x, _pos_bot2y),
       (_pos_top2x, _pos_top2y) ) ->
-      Printf.sprintf "\\freestyletape {%f} {%f} {%f} {%f} {%f} {%f} {%f} {%f}"
-        _pos_bot1x _pos_bot1y _pos_top1x _pos_top1y _pos_bot2x _pos_bot2y
-        _pos_top2x _pos_top2y
+      [
+        TB
+          (BFreeStyleTape
+             {
+               posll = (_pos_bot1x, _pos_bot1y);
+               poslu = (_pos_top1x, _pos_top1y);
+               posrl = (_pos_bot2x, _pos_bot2y);
+               posru = (_pos_top2x, _pos_top2y);
+             });
+      ]
 
 let rec list_take n = function
   | _ when n <= 0 -> []
@@ -584,14 +716,14 @@ let tape_connect_interfaces (ina : tape_draw_interface)
     (show_tape_draw_interface ina)
     (show_tape_draw_interface inb); *)
   let res =
-    tape_interface_to_string_map2
+    tape_interface_to_block_map2
       (fun t1 t2 ->
         match (t1, t2) with
-        | EmptyTape _, EmptyTape _ -> ""
+        | EmptyTape _, EmptyTape _ -> []
         | ( TapeInterface (_pos_bot1, _pos_top1, c1),
             TapeInterface (_pos_bot2, _pos_top2, c2) ) ->
             construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2
-            ^ circuit_connect_interfaces c1 c2
+            @ List.map (fun x -> CB x) (circuit_connect_interfaces c1 c2)
         | _ ->
             Printf.printf "==========\n%s\n//\n%s\n========== "
               (show_tape_draw_interface ina)
@@ -605,22 +737,44 @@ let tape_connect_interfaces (ina : tape_draw_interface)
 let rec list_max (l : float list) =
   match l with [] -> -.infinity | a :: rest -> max a (list_max rest)
 
-let max_x_in_diags ds =
-  List.map (fun (_d, _h, _l, _li, ri) -> get_max_x_tape ri) ds |> list_max
+let max_x_in_diags (ds : tape_geometry list) =
+  ds
+  |> List.map (fun (TapeGeo { right_interface; _ }) ->
+         get_max_x_tape right_interface)
+  |> list_max
 
-let diag_adjust_height (d, h, l, li, ri) =
-  let hl = tape_interface_height li in
-  let hr = tape_interface_height ri in
-  (d, max h (max hl hr), l, li, ri)
+let diag_adjust_height
+    (TapeGeo { tikz; height; length; left_interface; right_interface }) =
+  let hl = tape_interface_height left_interface in
+  let hr = tape_interface_height right_interface in
+  TapeGeo
+    {
+      tikz;
+      height = max height (max hl hr);
+      length;
+      left_interface;
+      right_interface;
+    }
 
-let stack_diagrams (i, (da, ha, la, lia, ria)) (_, db, hb, lb, optlib, optrib) =
+let stack_diagrams
+    ( i,
+      TapeGeo
+        {
+          tikz = da;
+          height = ha;
+          length = la;
+          left_interface = lia;
+          right_interface = ria;
+        } ) (_, db, hb, lb, optlib, optrib) =
   match (optlib, optrib) with
   | Some lib, Some rib ->
       let ria_aligned, rib_aligned = tape_align_interfaces ria rib in
       ( i,
-        da ^ db,
+        da @ db,
         ha +. hb +. !oplus_dist,
         max la lb,
         Some (TapeTens (lia, lib)),
         Some (TapeTens (ria_aligned, rib_aligned)) )
-  | _ -> (i, da, ha, la, Some lia, Some ria)
+  | _ ->
+      (* fallback when one side is missing *)
+      (i, da, ha, la, Some lia, Some ria)

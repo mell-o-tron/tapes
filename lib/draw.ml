@@ -36,10 +36,14 @@ let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
       {
         tikz =
           diag
-          ^ Printf.sprintf "\\measuretape {%s} {%f} {%f} {%f}\n" (fresh_meas ())
-              h
-              (-1. -. float_of_int !meas_counter)
-              base_of_diagram;
+          @ [
+              BMeasure
+                {
+                  fresh_name = fresh_meas ();
+                  len = h;
+                  pos = (-1. -. float_of_int !meas_counter, base_of_diagram);
+                };
+            ];
         height = h;
         length = l;
         left_interface = li;
@@ -50,25 +54,39 @@ let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
 and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
     (id_zero_width : bool) : circuit_geometry =
   match t with
-  | CId _ ->
+  | CId s ->
       let l = if id_zero_width then 0. else 1. in
       CircGeo
         {
           tikz =
-            Printf.sprintf "\\id{%s}{%f}{%f}{%d}\n" (fresh_id ()) posx posy
-              (if id_zero_width then 0 else 1);
+            [
+              BId
+                {
+                  fresh_name = fresh_id ();
+                  pos = (posx, posy);
+                  len = (if id_zero_width then 0. else 1.);
+                  sort = s;
+                };
+            ];
           height = 0.;
           length = l;
           left_interface = CircuitPin (posx, posy);
           right_interface = CircuitPin (posx +. l, posy);
         }
-  | SwapTimes _ ->
+  | SwapTimes (s1, s2) ->
       let swapheight = !otimes_dist in
       CircGeo
         {
           tikz =
-            Printf.sprintf "\\swap{%s}{%f}{%f}{%f}\n" (fresh_swap ()) posx posy
-              !otimes_dist;
+            [
+              BSwap
+                {
+                  fresh_name = fresh_swap ();
+                  pos = (posx, posy);
+                  scaley = !otimes_dist;
+                  sorts = (s1, s2);
+                };
+            ];
           height = swapheight;
           length = 1.;
           left_interface =
@@ -113,9 +131,9 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
       CircGeo
         {
           tikz =
-            diag1 ^ diag2 ^ "% adjusting misaligned tensors:\n"
-            ^ circuit_connect_interfaces ri1 ri1_aligned
-            ^ circuit_connect_interfaces ri2 ri2_aligned;
+            diag1 @ diag2
+            @ circuit_connect_interfaces ri1 ri1_aligned
+            @ circuit_connect_interfaces ri2 ri2_aligned;
           height = h1 +. h2 +. !otimes_dist;
           length = max l1 l2;
           left_interface = CircuitTens (li1, li2);
@@ -153,9 +171,7 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
       in
       CircGeo
         {
-          tikz =
-            diag1 ^ diag2 ^ "% composing interfaces:\n"
-            ^ circuit_connect_interfaces ri1 li2;
+          tikz = diag1 @ diag2 @ circuit_connect_interfaces ri1 li2;
           height = max h1 h2;
           length = l1 +. l2;
           left_interface = li1;
@@ -167,8 +183,15 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           CircGeo
             {
               tikz =
-                Printf.sprintf "\\copycirc {%s}{%f}{%f}{%f}\n" (fresh_gen ())
-                  posx posy !otimes_dist;
+                [
+                  BCopy
+                    {
+                      fresh_name = fresh_gen ();
+                      pos = (posx, posy);
+                      scaley = !otimes_dist;
+                      sort = "TODO";
+                    };
+                ];
               height = !otimes_dist;
               length = 1.;
               left_interface = CircuitPin (posx, posy +. (!otimes_dist /. 2.));
@@ -181,8 +204,15 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           CircGeo
             {
               tikz =
-                Printf.sprintf "\\cocopycirc {%s}{%f}{%f}{%f}\n" (fresh_gen ())
-                  posx posy !otimes_dist;
+                [
+                  BCoCopy
+                    {
+                      fresh_name = fresh_gen ();
+                      pos = (posx, posy);
+                      scaley = !otimes_dist;
+                      sort = "TODO";
+                    };
+                ];
               height = !otimes_dist;
               length = 1.;
               left_interface =
@@ -214,8 +244,18 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           CircGeo
             {
               tikz =
-                Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n"
-                  (fresh_gen ()) posx posy ar_size coar_size name !otimes_dist;
+                [
+                  BGen
+                    {
+                      fresh_name = fresh_gen ();
+                      pos = (posx, posy);
+                      arity = ar_size;
+                      coarity = coar_size;
+                      name;
+                      otimesdist = !otimes_dist;
+                      sorts = (ar, coar);
+                    };
+                ];
               height;
               length = 2.;
               left_interface =
@@ -238,7 +278,7 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
   | CId1 ->
       CircGeo
         {
-          tikz = "";
+          tikz = [ EmptyBlock ];
           height = 0.;
           length = 0.;
           left_interface = EmptyCircuit;
@@ -253,7 +293,7 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
   | TId0 ->
       TapeGeo
         {
-          tikz = "";
+          tikz = [ TB EmptyTBlock ];
           height = 0.;
           length = 0.;
           left_interface = EmptyTape ((posx, posy), (posx, posy));
@@ -273,9 +313,14 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\tape {%f} {%f} {%f} {%f}\n" posx posy l
-              (h +. (2. *. !tape_padding))
-            ^ diag;
+            TB
+              (BTape
+                 {
+                   pos = (posx, posy);
+                   width = l;
+                   height = h +. (2. *. !tape_padding);
+                 })
+            :: List.map (fun cb -> CB cb) diag;
           height = h +. (2. *. !tape_padding);
           length = l;
           left_interface =
@@ -349,7 +394,14 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
                 debug
             in
 
-            (tape_connect_interfaces ri1 li ^ d, h, l, li, ri)
+            TapeGeo
+              {
+                tikz = tape_connect_interfaces ri1 li @ d;
+                height = h;
+                length = l;
+                left_interface = li;
+                right_interface = ri;
+              }
           in
 
           (* draw each summand separately *)
@@ -359,21 +411,36 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
           let max_x_d = max_x_in_diags (List.map snd diags) in
           let diags =
             List.map
-              (fun (i, (d, h, l, li, ri)) ->
+              (fun ( i,
+                     TapeGeo
+                       {
+                         tikz = d;
+                         height = h;
+                         length = l;
+                         left_interface = li;
+                         right_interface = ri;
+                       } ) ->
                 let ri_aligned = align_tape_interface_to_x ri max_x_d in
                 ( i,
                   diag_adjust_height
-                    (d ^ tape_connect_interfaces ri ri_aligned, h, l, li, ri) ))
+                    (TapeGeo
+                       {
+                         tikz = d @ tape_connect_interfaces ri ri_aligned;
+                         height = h;
+                         length = l;
+                         left_interface = li;
+                         right_interface = ri;
+                       }) ))
               diags
           in
           match
-            List.fold_right stack_diagrams diags (69, "", 0., 0., None, None)
+            List.fold_right stack_diagrams diags (69, [], 0., 0., None, None)
           with
           | i, diag, h, l, Some _li, Some ri ->
               let offset = Hashtbl.find offset_tbl i in
               TapeGeo
                 {
-                  tikz = diag1 ^ diag;
+                  tikz = diag1 @ diag;
                   height = max h1 h;
                   length = l1 +. l +. offset;
                   left_interface = li1;
@@ -405,7 +472,7 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
 
           TapeGeo
             {
-              tikz = tape_connect_interfaces ri1 li2 ^ diag1 ^ diag2 ^ "\n";
+              tikz = tape_connect_interfaces ri1 li2 @ diag1 @ diag2;
               height = max h1 h2;
               length = l1 +. l2 +. offset;
               left_interface = li1;
@@ -440,9 +507,9 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            diag1 ^ diag2
-            ^ tape_connect_interfaces ri1 ri1_aligned
-            ^ tape_connect_interfaces ri2 ri2_aligned;
+            diag1 @ diag2
+            @ tape_connect_interfaces ri1 ri1_aligned
+            @ tape_connect_interfaces ri2 ri2_aligned;
           height = h1 +. h2 +. !oplus_dist;
           length = max l1 l2;
           left_interface = TapeTens (li1, li2);
@@ -496,8 +563,19 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\swaptape {%f} {%f} {%d} {%d} {%f} {%f} {%f} {%f}"
-              posx posy len1 len2 !oplus_dist !otimes_dist !tape_padding 2.0;
+            [
+              TB
+                (BSwapTape
+                   {
+                     pos = (posx, posy);
+                     n1 = len1;
+                     n2 = len2;
+                     oplusdist = !oplus_dist;
+                     otimesdist = !otimes_dist;
+                     tapepadding = !tape_padding;
+                     width = 2.0;
+                   });
+            ];
           height = h1 +. h2 +. !oplus_dist;
           length = 2.0;
           left_interface =
@@ -546,8 +624,16 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\cuttape {%f} {%f} {%d} {%f} {%f}" posx posy n
-              !tape_padding !otimes_dist;
+            [
+              TB
+                (BCutTape
+                   {
+                     pos = (posx, posy);
+                     n;
+                     tapepadding = !tape_padding;
+                     otimesdist = !otimes_dist;
+                   });
+            ];
           height = h;
           length = l;
           left_interface =
@@ -580,8 +666,16 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\spawntape {%f} {%f} {%d} {%f} {%f}\n" posx posy n
-              !tape_padding !otimes_dist;
+            [
+              TB
+                (BSpawnTape
+                   {
+                     pos = (posx, posy);
+                     n;
+                     tapepadding = !tape_padding;
+                     otimesdist = !otimes_dist;
+                   });
+            ];
           height = h;
           length = l;
           left_interface =
@@ -635,8 +729,17 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\splittape {%f} {%f} {%d} {%f} {%f} {%f}" posx posy
-              n !tape_padding !otimes_dist !oplus_dist;
+            [
+              TB
+                (BSplitTape
+                   {
+                     pos = (posx, posy);
+                     n;
+                     tapepadding = !tape_padding;
+                     otimesdist = !otimes_dist;
+                     oplusdist = !oplus_dist;
+                   });
+            ];
           height = toth;
           length = l;
           left_interface =
@@ -697,8 +800,17 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (debug : bool) :
       TapeGeo
         {
           tikz =
-            Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f}" posx posy
-              n !tape_padding !otimes_dist !oplus_dist;
+            [
+              TB
+                (BJoinTape
+                   {
+                     pos = (posx, posy);
+                     n;
+                     tapepadding = !tape_padding;
+                     otimesdist = !otimes_dist;
+                     oplusdist = !oplus_dist;
+                   });
+            ];
           height = toth;
           length = l;
           left_interface =
@@ -759,7 +871,8 @@ let draw_circuit (ast : circuit) (path : string) =
       try
         let oc = open_out path in
         (* create or truncate file, return channel *)
-        Printf.fprintf oc "%s\n" s;
+        Printf.fprintf oc "%s\n"
+          (String.concat "\n" (List.map tikz_of_circuit_block s));
         (* write something *)
         close_out oc
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
@@ -771,7 +884,7 @@ let draw_tape (ast : tape) (path : string) =
       try
         let oc = open_out path in
         (* create or truncate file, return channel *)
-        Printf.fprintf oc "%s\n%s\n" s
+        Printf.fprintf oc "%s\n%s\n" (tikz_of_block_list s)
           (label_tape li ri (tape_arity ast) (tape_coarity ast));
         Printf.printf "Drawing saved at path: \t'%s'\n"
           (sprintf [ green ] "%s" path);
