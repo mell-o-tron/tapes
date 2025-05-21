@@ -5,17 +5,22 @@ set (otimesdist : 0.5). // for now these have to be float
 set (oplusdist : 0.25).
 set (paddingdist : 0.5).
 
-let test_copy : term = copy((A * B) + C).
+let test_big_split_and_join : term = ( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A).
 
-let test_gen : term = f.
+let big_copy : term = split(A * A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; copy(A + (B * C))).
 
-// BUG!
-let test_alignment : term = split(A) ; (id(A) + gen(f, A, B)) ; copy(A + B) ; cocopy(A + B) ; (gen(g, A, C) + gen(h, B, C)).
+let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
+                                      (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
+                                      (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A)).
 
-check test_alignment.
+let paper_ex_4_14_1 : term = (id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z)).
+let paper_ex_4_14_2 : term = (gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1)).
+let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z))) * 
+                           ((gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1))).
+
+check test_big_split_and_join.
 
 set (alignsummands : 0.0).
+set (zerolenids : 1.0).
 
-draw test_copy to "./result_examples/copy".
-draw test_gen to "./result_examples/gen".
-draw test_alignment to "./result_examples/test_alignment"
+draw big_test_sum to "./result_examples/big_test_sum"

@@ -99,6 +99,7 @@ type tape_block =
   | BSplitTape of {
       pos : float * float;
       n : int;
+      len : float;
       tapepadding : float;
       otimesdist : float;
       oplusdist : float;
@@ -112,6 +113,7 @@ type tape_block =
   | BJoinTape of {
       pos : float * float;
       n : int;
+      len : float;
       tapepadding : float;
       otimesdist : float;
       oplusdist : float;
@@ -127,6 +129,10 @@ type tape_block =
 type block =
   | CB of circuit_block
   | TB of tape_block
+  | DebugNode of {
+      pos : float * float;
+      text : string;
+    }
 [@@deriving show]
 
 type circuit_geometry =
@@ -191,8 +197,8 @@ let tikz_of_tape_block (tb : tape_block) : string =
     ->
       Printf.sprintf "\\swaptape {%f} {%f} {%d} {%d} {%f} {%f} {%f} {%f}\n" x y
         n1 n2 oplusdist otimesdist tapepadding width
-  | BSplitTape { pos = x, y; n; tapepadding; otimesdist; oplusdist } ->
-      Printf.sprintf "\\splittape {%f} {%f} {%d} {%f} {%f} {%f}\n" x y n
+  | BSplitTape { pos = x, y; n; len = l; tapepadding; otimesdist; oplusdist } ->
+      Printf.sprintf "\\splittape {%f} {%f} {%d} {%f} {%f} {%f} {%f}\n" x y n l
         tapepadding otimesdist oplusdist
   | BCutTape { pos = x, y; n; tapepadding; otimesdist } ->
       Printf.sprintf "\\cuttape {%f} {%f} {%d} {%f} {%f}\n" x y n tapepadding
@@ -200,8 +206,8 @@ let tikz_of_tape_block (tb : tape_block) : string =
   | BSpawnTape { pos = x, y; n; tapepadding; otimesdist } ->
       Printf.sprintf "\\spawntape {%f} {%f} {%d} {%f} {%f}\n" x y n tapepadding
         otimesdist
-  | BJoinTape { pos = x, y; n; tapepadding; otimesdist; oplusdist } ->
-      Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f}\n" x y n
+  | BJoinTape { pos = x, y; n; len = l; tapepadding; otimesdist; oplusdist } ->
+      Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f} {%f}\n" x y n l
         tapepadding otimesdist oplusdist
 
 let rec tikz_of_block_list (b : block list) : string =
@@ -209,6 +215,9 @@ let rec tikz_of_block_list (b : block list) : string =
   | [] -> ""
   | TB tb :: b1 -> tikz_of_tape_block tb ^ "\n" ^ tikz_of_block_list b1
   | CB cb :: b1 -> tikz_of_circuit_block cb ^ "\n" ^ tikz_of_block_list b1
+  | DebugNode { pos = posx, posy; text = s } :: b1 ->
+      Printf.sprintf "\\node () at (%f, %f) {%s};\n" posx posy s
+      ^ tikz_of_block_list b1
 
 (********************************************************************************************************)
 
@@ -217,6 +226,8 @@ let oplus_dist = ref 0.25
 let otimes_dist = ref 0.5
 let tape_padding = ref 0.25
 let align_summands = ref true
+let zero_len_ids = ref false
+
 (* Circuit interface utils *)
 
 (* Flatten the circuit tree into a list of CircuitPin nodes *)
@@ -359,11 +370,16 @@ let rec base_of_tape_interface t =
 
 (* returns the highest position of a tape interface *)
 let rec top_of_tape_interface t =
+  Printf.printf "\n COMPUTING TOP OF: %s\n" (show_tape_draw_interface t);
   match tape_interface_normalize t with
   | EmptyTape (_, (x, y)) -> (x, y)
   | TapeTens (t1, _) -> top_of_tape_interface t1
   | TapeInterface (_, (x, y), _) -> (x, y)
-  | EmptyInterface (_, Some (x, y)) -> (x, y)
+  | EmptyInterface (_, Some (x, y)) ->
+      Printf.printf "\nAAAAAAAAAAAAAAAAA %s, top is: %f\n"
+        (show_tape_draw_interface t)
+        y;
+      (x, y)
   | _ -> failwith "tried to get top of empty interface"
 
 (* returns the lowest position of a pair of tape interfaces *)
@@ -396,7 +412,8 @@ let rec tape_interface_to_block_map2
          different sizes."
 
 let rec tape_interface_height (t : tape_draw_interface) =
-  match tape_interface_normalize t with
+  (* used NORMALIZED t, but this would eliminate all empty interfaces. *)
+  match t with
   | EmptyTape ((_, y1), (_, y2)) -> abs_float (y1 -. y2)
   | EmptyInterface (Some (_, y1), Some (_, y2)) -> abs_float (y1 -. y2)
   | EmptyInterface (None, None) -> 0.
@@ -778,3 +795,192 @@ let stack_diagrams
   | _ ->
       (* fallback when one side is missing *)
       (i, da, ha, la, Some lia, Some ria)
+
+let debug_get_circuit_interface (ci : circuit_draw_interface) (color : string) :
+    block list =
+  circuit_interface_to_list_map
+    (fun c ->
+      match c with
+      | EmptyCircuit -> []
+      | CircuitPin (x, y) ->
+          [
+            DebugNode
+              {
+                pos = (x, y);
+                text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+              };
+          ]
+      | _ -> failwith "should not happen I guess")
+    ci
+
+let debug_get_tape_interface (ti : tape_draw_interface) (color : string) :
+    block list =
+  List.map
+    (function
+      | EmptyTape _ | EmptyInterface _ -> []
+      | TapeInterface (pos1, pos2, _) ->
+          [
+            DebugNode
+              {
+                pos = pos1;
+                text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+              };
+            DebugNode
+              {
+                pos = pos2;
+                text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+              };
+          ]
+      | _ -> failwith "should not happen")
+    (list_of_tape_interface ti)
+  |> List.concat
+
+let move_circuit_block (cb : circuit_block) (dx, dy) =
+  let move (x, y) = (x +. dx, y +. dy) in
+  match cb with
+  | BMeasure b -> BMeasure { b with pos = move b.pos }
+  | BId b -> BId { b with pos = move b.pos }
+  | BSwap b -> BSwap { b with pos = move b.pos }
+  | BCopy b -> BCopy { b with pos = move b.pos }
+  | BDiscard b -> BDiscard { b with pos = move b.pos }
+  | BCoCopy b -> BCoCopy { b with pos = move b.pos }
+  | BCoDiscard b -> BCoDiscard { b with pos = move b.pos }
+  | BGen b -> BGen { b with pos = move b.pos }
+  | Connector c -> Connector { pos1 = move c.pos1; pos2 = move c.pos2 }
+  | EmptyBlock -> cb
+
+let move_tape_block (tb : tape_block) (dx, dy) =
+  let move (x, y) = (x +. dx, y +. dy) in
+  match tb with
+  | EmptyTBlock -> EmptyTBlock
+  | BTape b -> BTape { b with pos = move b.pos }
+  | BFreeStyleTape b ->
+      BFreeStyleTape
+        {
+          posll = move b.posll;
+          poslu = move b.poslu;
+          posrl = move b.posrl;
+          posru = move b.posru;
+        }
+  | BAdapter b -> BAdapter { b with pos = move b.pos }
+  | BSwapTape b -> BSwapTape { b with pos = move b.pos }
+  | BSplitTape b -> BSplitTape { b with pos = move b.pos }
+  | BCutTape b -> BCutTape { b with pos = move b.pos }
+  | BJoinTape b -> BJoinTape { b with pos = move b.pos }
+  | BSpawnTape b -> BSpawnTape { b with pos = move b.pos }
+
+let move_block (b : block) (dx, dy) : block =
+  let move (x, y) = (x +. dx, y +. dy) in
+  match b with
+  | CB cb -> CB (move_circuit_block cb (dx, dy))
+  | TB tb -> TB (move_tape_block tb (dx, dy))
+  | DebugNode d -> DebugNode { d with pos = move d.pos }
+
+let rec move_circuit_interface (dx, dy) = function
+  | EmptyCircuit -> EmptyCircuit
+  | CircuitTens (i1, i2) ->
+      CircuitTens
+        (move_circuit_interface (dx, dy) i1, move_circuit_interface (dx, dy) i2)
+  | CircuitPin (x, y) -> CircuitPin (x +. dx, y +. dy)
+
+let rec move_tape_interface (dx, dy) = function
+  | EmptyInterface (opt1, opt2) ->
+      let move_opt = function
+        | None -> None
+        | Some (x, y) -> Some (x +. dx, y +. dy)
+      in
+      EmptyInterface (move_opt opt1, move_opt opt2)
+  | EmptyTape ((x1, y1), (x2, y2)) ->
+      EmptyTape ((x1 +. dx, y1 +. dy), (x2 +. dx, y2 +. dy))
+  | TapeTens (t1, t2) ->
+      TapeTens (move_tape_interface (dx, dy) t1, move_tape_interface (dx, dy) t2)
+  | TapeInterface ((x1, y1), (x2, y2), ci) ->
+      TapeInterface
+        ( (x1 +. dx, y1 +. dy),
+          (x2 +. dx, y2 +. dy),
+          move_circuit_interface (dx, dy) ci )
+
+let move_circuit_geometry (CircGeo cg) (dx, dy) : circuit_geometry =
+  let move_cb_list = List.map (fun cb -> move_circuit_block cb (dx, dy)) in
+  CircGeo
+    {
+      cg with
+      tikz = move_cb_list cg.tikz;
+      left_interface = move_circuit_interface (dx, dy) cg.left_interface;
+      right_interface = move_circuit_interface (dx, dy) cg.right_interface;
+    }
+
+let move_tape_geometry (TapeGeo tg) (dx, dy) : tape_geometry =
+  let move_block_list = List.map (fun b -> move_block b (dx, dy)) in
+  TapeGeo
+    {
+      tg with
+      tikz = move_block_list tg.tikz;
+      left_interface = move_tape_interface (dx, dy) tg.left_interface;
+      right_interface = move_tape_interface (dx, dy) tg.right_interface;
+    }
+
+let max_by_y pairs =
+  match pairs with
+  | [] -> invalid_arg "max_by_y: empty list"
+  | hd :: tl ->
+      List.fold_left
+        (fun ((_, y_max) as best) ((_, y) as p) ->
+          if y > y_max then p else best)
+        hd tl
+
+let min_by_y pairs =
+  match pairs with
+  | [] -> invalid_arg "min_by_y: empty list"
+  | hd :: tl ->
+      List.fold_left
+        (fun ((_, y_min) as best) ((_, y) as p) ->
+          if y < y_min then p else best)
+        hd tl
+
+let is_interface_nonempty (ti : tape_draw_interface) =
+  match ti with
+  | EmptyInterface _ ->
+      (* print_endline ("false: " ^ show_tape_draw_interface ti); *)
+      false
+  | _ ->
+      (* print_endline ("true: " ^ show_tape_draw_interface ti); *)
+      true
+
+let nonempty_interface_top (ti : tape_draw_interface) =
+  let l = list_of_tape_interface ti in
+  l
+  |> List.filter is_interface_nonempty
+  |> List.map top_of_tape_interface
+  |> max_by_y
+
+let nonempty_interface_base (ti : tape_draw_interface) =
+  let l = list_of_tape_interface ti in
+  l
+  |> List.filter is_interface_nonempty
+  |> List.map base_of_tape_interface
+  |> min_by_y
+
+let nonempty_interface_center (ti : tape_draw_interface) =
+  let x_top, y_top = nonempty_interface_top ti in
+  let _, y_bot = nonempty_interface_base ti in
+  (x_top, (y_top +. y_bot) /. 2.)
+
+let nonempty_interface_diff_centers (ti1 : tape_draw_interface)
+    (ti2 : tape_draw_interface) =
+  let _, y1 = nonempty_interface_center ti1 in
+  let _, y2 = nonempty_interface_center ti2 in
+  y1 -. y2
+
+let is_interface_binary (ti : tape_draw_interface) =
+  let l = ti |> list_of_tape_interface |> List.filter is_interface_nonempty in
+  let summand_number = l |> List.length in
+  summand_number = 2
+
+let get_space_between_nonempty_summands (ti : tape_draw_interface) =
+  let l = ti |> list_of_tape_interface |> List.filter is_interface_nonempty in
+  if is_interface_binary ti then
+    let base0 = List.nth l 0 |> nonempty_interface_base in
+    let top1 = List.nth l 1 |> nonempty_interface_top in
+    snd base0 -. snd top1
+  else failwith "Interface has invalid number of summands"

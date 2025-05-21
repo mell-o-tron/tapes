@@ -116,6 +116,7 @@ let rec exec (p : program) =
       | "paddingdist" -> Ssr_typechecker.Draw_utils.tape_padding := f
       | "alignsummands" ->
           Ssr_typechecker.Draw_utils.align_summands := not (f = 0.)
+      | "zerolenids" -> Ssr_typechecker.Draw_utils.zero_len_ids := not (f = 0.)
       | _ -> ())
 
 (* prints the result of the computation *)

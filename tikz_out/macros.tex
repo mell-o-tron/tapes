@@ -250,14 +250,15 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 }
 
 
-% posx, posy, n, paddingdist, otimesdist, oplusdist
-\newcommand{\splittape}[6] {
+% posx, posy, n, lminone, paddingdist, otimesdist, oplusdist
+\newcommand{\splittape}[7] {
   \pgfmathsetmacro{\posx}{#1}
   \pgfmathsetmacro{\posy}{#2}
   \pgfmathsetmacro{\n}{#3}
-  \pgfmathsetmacro{\paddingdist}{#4}
-  \pgfmathsetmacro{\otimesdist}{#5}
-  \pgfmathsetmacro{\oplusdist}{#6}
+  \pgfmathsetmacro{\l}{#4}
+  \pgfmathsetmacro{\paddingdist}{#5}
+  \pgfmathsetmacro{\otimesdist}{#6}
+  \pgfmathsetmacro{\oplusdist}{#7}
   
   \pgfmathparse{%
     (\n>0)
@@ -266,7 +267,6 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   }%
   \let\h\pgfmathresult
   
-  \pgfmathsetmacro{\l}{(2*\h + \oplusdist)/2}
   \pgfmathsetmacro{\diff}{(\oplusdist - \h) / 2}
   
    \draw [fill=tapeBg, tapeBg] (\posx, \posy + \h + \diff) -- (\posx + 1, \posy + \h + \diff) [out = 270, in = 180] to (\posx +1 + \l, \posy) [in = 270, out = 90] to (\posx +1 + \l, \posy + \h) to [out = 180, in = 270] (\posx + 1 + 2 * \l/3, \posy + \h + \h/2 + \diff) to [out = 90, in = 180] (\posx +1 + \l, \posy + \h + \oplusdist) -- (\posx +1 + \l, \posy + 2*\h + \oplusdist) to [out = 180, in = 90] (\posx + 1, \posy + 2*\h + \diff) -- (\posx, \posy + 2 * \h + \diff) -- cycle;
@@ -331,14 +331,16 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \draw [tapeBorder] (\posx, \posy + \h) -- (\posx + \l / 2, \posy + \h)  [out = 0, in = 90] to (\posx + \l, \posy + \h/2) [out = 270, in = 0] to (\posx + \l / 2, \posy) -- (\posx, \posy);
 }
 
-% posx, posy, n, paddingdist, otimesdist, oplusdist
-\newcommand{\jointape}[6] {
+% posx, posy, n, lminone, paddingdist, otimesdist, oplusdist
+\newcommand{\jointape}[7] {
   \pgfmathsetmacro{\posx}{#1}
   \pgfmathsetmacro{\posy}{#2}
   \pgfmathsetmacro{\n}{#3}
-  \pgfmathsetmacro{\paddingdist}{#4}
-  \pgfmathsetmacro{\otimesdist}{#5}
-  \pgfmathsetmacro{\oplusdist}{#6}
+  \pgfmathsetmacro{\l}{#4}
+  \pgfmathsetmacro{\paddingdist}{#5}
+  \pgfmathsetmacro{\otimesdist}{#6}
+  \pgfmathsetmacro{\oplusdist}{#7}
+  
   \pgfmathparse{%
     (\n>0)
       ? 2 * \paddingdist + (\n - 1) * \otimesdist
@@ -346,14 +348,12 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   }%
   \let\h\pgfmathresult
   
-  \pgfmathsetmacro{\l}{(2*\h + \oplusdist)/2}
-  
   \pgfmathsetmacro{\centerposx}{\posx + (\l + 1) / 2}
   \pgfmathsetmacro{\centerposy}{\posy + (2 * \h + \oplusdist)/2}
   
   \node() at (\centerposx, \centerposy) {
     \reflectbox{\begin{tikzpicture}
-     \splittape{#1}{#2}{#3}{#4}{#5}{#6}
+     \splittape{#1}{#2}{#3}{#4}{#5}{#6}{#7}
     \end{tikzpicture}}
 
   };
