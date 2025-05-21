@@ -352,7 +352,7 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \pgfmathsetmacro{\centerposy}{\posy + (2 * \h + \oplusdist)/2}
   
   \node() at (\centerposx, \centerposy) {
-    \reflectbox{\begin{tikzpicture}
+    \reflectbox{\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale] 
      \splittape{#1}{#2}{#3}{#4}{#5}{#6}{#7}
     \end{tikzpicture}}
 
@@ -385,7 +385,7 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \pgfmathsetmacro{\centerposy}{\posy + (\h) /2}
   
   \node() at (\centerposx, \centerposy) {
-    \reflectbox{\begin{tikzpicture}
+    \reflectbox{\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale] 
      \cuttape{#1}{#2}{#3}{#4}{#5}
     \end{tikzpicture}}
 

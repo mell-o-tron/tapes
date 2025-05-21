@@ -117,6 +117,10 @@ let rec exec (p : program) =
       | "alignsummands" ->
           Ssr_typechecker.Draw_utils.align_summands := not (f = 0.)
       | "zerolenids" -> Ssr_typechecker.Draw_utils.zero_len_ids := not (f = 0.)
+      | "oldalignment" ->
+          Ssr_typechecker.Draw_utils.old_alignment := not (f = 0.)
+      | "scalex" -> Ssr_typechecker.Draw_utils.scale_x := f
+      | "scaley" -> Ssr_typechecker.Draw_utils.scale_y := f
       | _ -> ())
 
 (* prints the result of the computation *)

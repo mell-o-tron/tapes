@@ -227,6 +227,9 @@ let otimes_dist = ref 0.5
 let tape_padding = ref 0.25
 let align_summands = ref true
 let zero_len_ids = ref false
+let old_alignment = ref false
+let scale_x = ref 1.
+let scale_y = ref 1.
 
 (* Circuit interface utils *)
 
@@ -370,16 +373,11 @@ let rec base_of_tape_interface t =
 
 (* returns the highest position of a tape interface *)
 let rec top_of_tape_interface t =
-  Printf.printf "\n COMPUTING TOP OF: %s\n" (show_tape_draw_interface t);
   match tape_interface_normalize t with
   | EmptyTape (_, (x, y)) -> (x, y)
   | TapeTens (t1, _) -> top_of_tape_interface t1
   | TapeInterface (_, (x, y), _) -> (x, y)
-  | EmptyInterface (_, Some (x, y)) ->
-      Printf.printf "\nAAAAAAAAAAAAAAAAA %s, top is: %f\n"
-        (show_tape_draw_interface t)
-        y;
-      (x, y)
+  | EmptyInterface (_, Some (x, y)) -> (x, y)
   | _ -> failwith "tried to get top of empty interface"
 
 (* returns the lowest position of a pair of tape interfaces *)
@@ -754,6 +752,9 @@ let tape_connect_interfaces (ina : tape_draw_interface)
 let rec list_max (l : float list) =
   match l with [] -> -.infinity | a :: rest -> max a (list_max rest)
 
+let rec list_min (l : float list) : float =
+  match l with [] -> infinity | a :: rest -> min a (list_min rest)
+
 let max_x_in_diags (ds : tape_geometry list) =
   ds
   |> List.map (fun (TapeGeo { right_interface; _ }) ->
@@ -984,3 +985,55 @@ let get_space_between_nonempty_summands (ti : tape_draw_interface) =
     let top1 = List.nth l 1 |> nonempty_interface_top in
     snd base0 -. snd top1
   else failwith "Interface has invalid number of summands"
+
+let tape_block_height (tb : tape_block) =
+  match tb with
+  | EmptyTBlock -> 0.
+  | BTape { height; _ } -> height
+  | BFreeStyleTape { posll; poslu; posrl; posru } ->
+      max (snd poslu) (snd posru) -. min (snd posll) (snd posrl)
+  | BAdapter { height1; height2; _ } -> max height1 height2
+  | BSwapTape { n1; n2; oplusdist; otimesdist; tapepadding; _ } ->
+      (tapepadding *. 4.)
+      +. (float_of_int (max 0 (n1 + n2 - 2)) *. otimesdist)
+      +. oplusdist
+  | BSplitTape { n; oplusdist; otimesdist; tapepadding; _ } ->
+      let h =
+        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
+      in
+      (2. *. h) +. oplusdist
+  | BCutTape { n; tapepadding; otimesdist; _ } ->
+      (float_of_int n *. otimesdist) +. (2. *. tapepadding)
+  | BJoinTape { n; oplusdist; otimesdist; tapepadding; _ } ->
+      let h =
+        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
+      in
+      (2. *. h) +. oplusdist
+  | BSpawnTape { n; tapepadding; otimesdist; _ } ->
+      (float_of_int n *. otimesdist) +. (2. *. tapepadding)
+
+let y_pos_of_tape_block (tb : tape_block) : float =
+  match tb with
+  | EmptyTBlock -> failwith "tried to get position of empty block"
+  | BTape { pos; _ }
+  | BAdapter { pos; _ }
+  | BSwapTape { pos; _ }
+  | BSplitTape { pos; _ }
+  | BCutTape { pos; _ }
+  | BJoinTape { pos; _ }
+  | BSpawnTape { pos; _ } ->
+      snd pos
+  | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
+
+let tape_block_top_y (t : tape_block) =
+  y_pos_of_tape_block t +. tape_block_height t
+
+let base_of_tape_blocks (t : tape_block list) =
+  let t = List.filter (fun x -> x != EmptyTBlock) t in
+  let l = List.map (fun x -> y_pos_of_tape_block x) t in
+  list_min l
+
+let top_of_tape_blocks (t : tape_block list) =
+  let t = List.filter (fun x -> x != EmptyTBlock) t in
+  let l = List.map (fun x -> tape_block_top_y x) t in
+  list_max l

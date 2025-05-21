@@ -548,15 +548,21 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
         tikz_of_tape t1 posx (posy +. geo2.height +. !oplus_dist) max_len debug
       in
 
+      let get_tape_blocks bl = match bl with TB tb -> Some tb | _ -> None in
+
       let top_of_below =
-        max
-          (snd (top_of_tape_interface geo2.left_interface))
-          (snd (top_of_tape_interface geo2.right_interface))
+        if !old_alignment then
+          max
+            (snd (top_of_tape_interface geo2.left_interface))
+            (snd (top_of_tape_interface geo2.right_interface))
+        else top_of_tape_blocks (List.filter_map get_tape_blocks geo2.tikz)
       in
       let base_of_above =
-        min
-          (snd (base_of_tape_interface geo1.left_interface))
-          (snd (base_of_tape_interface geo1.right_interface))
+        if !old_alignment then
+          min
+            (snd (base_of_tape_interface geo1.left_interface))
+            (snd (base_of_tape_interface geo1.right_interface))
+        else base_of_tape_blocks (List.filter_map get_tape_blocks geo1.tikz)
       in
 
       let (TapeGeo geo1) =
@@ -948,7 +954,15 @@ let draw_tape (ast : tape) (path : string) =
       try
         let oc = open_out path in
         (* create or truncate file, return channel *)
-        Printf.fprintf oc "%s\n%s\n" (tikz_of_block_list s)
+        let header =
+          Printf.sprintf
+            "\\def\\xscale{%f}\n\
+             \\def\\yscale{%f}\n\
+             \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, \
+             yscale = \\yscale]"
+            !scale_x !scale_y
+        in
+        Printf.fprintf oc "%s\n%s\n%s\n" header (tikz_of_block_list s)
           (label_tape li ri (tape_arity ast) (tape_coarity ast));
         Printf.printf "Drawing saved at path: \t'%s'\n"
           (sprintf [ green ] "%s" path);
