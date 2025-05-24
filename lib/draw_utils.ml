@@ -155,7 +155,80 @@ type tape_geometry =
     }
 [@@deriving show]
 
-(********* BLOCKS TO STRINGS **********)
+(********* List utils ***********)
+
+let rec list_max (l : float list) =
+  match l with [] -> -.infinity | a :: rest -> max a (list_max rest)
+
+let rec list_min (l : float list) : float =
+  match l with [] -> infinity | a :: rest -> min a (list_min rest)
+
+(********* BLOCK LOGIC **********)
+
+let tape_block_height (tb : tape_block) =
+  match tb with
+  | EmptyTBlock -> 0.
+  | BTape { height; _ } -> height
+  | BFreeStyleTape { posll; poslu; posrl; posru } ->
+      max (snd poslu) (snd posru) -. min (snd posll) (snd posrl)
+  | BAdapter { height1; height2; _ } -> max height1 height2
+  | BSwapTape { n1; n2; oplusdist; otimesdist; tapepadding; _ } ->
+      (tapepadding *. 4.)
+      +. (float_of_int (max 0 (n1 + n2 - 2)) *. otimesdist)
+      +. oplusdist
+  | BSplitTape { n; oplusdist; otimesdist; tapepadding; _ } ->
+      let h =
+        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
+      in
+      (2. *. h) +. oplusdist
+  | BCutTape { n; tapepadding; otimesdist; _ } ->
+      (float_of_int (max 0 n - 1) *. otimesdist) +. (2. *. tapepadding)
+  | BJoinTape { n; oplusdist; otimesdist; tapepadding; _ } ->
+      let h =
+        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
+      in
+      (2. *. h) +. oplusdist
+  | BSpawnTape { n; tapepadding; otimesdist; _ } ->
+      (float_of_int (max 0 n - 1) *. otimesdist) +. (2. *. tapepadding)
+
+let y_pos_of_tape_block (tb : tape_block) : float =
+  match tb with
+  | EmptyTBlock -> failwith "tried to get position of empty block"
+  | BTape { pos; _ }
+  | BAdapter { pos; _ }
+  | BSwapTape { pos; _ }
+  | BSplitTape { pos; _ }
+  | BCutTape { pos; _ }
+  | BJoinTape { pos; _ }
+  | BSpawnTape { pos; _ } ->
+      snd pos
+  | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
+
+let x_pos_of_tape_block (tb : tape_block) : float =
+  match tb with
+  | EmptyTBlock -> failwith "tried to get position of empty block"
+  | BTape { pos; _ }
+  | BAdapter { pos; _ }
+  | BSwapTape { pos; _ }
+  | BSplitTape { pos; _ }
+  | BCutTape { pos; _ }
+  | BJoinTape { pos; _ }
+  | BSpawnTape { pos; _ } ->
+      fst pos
+  | BFreeStyleTape { posll; _ } -> fst posll
+
+let tape_block_top_y (t : tape_block) =
+  y_pos_of_tape_block t +. tape_block_height t
+
+let base_of_tape_blocks (t : tape_block list) =
+  let t = List.filter (fun x -> x != EmptyTBlock) t in
+  let l = List.map (fun x -> y_pos_of_tape_block x) t in
+  list_min l
+
+let top_of_tape_blocks (t : tape_block list) =
+  let t = List.filter (fun x -> x != EmptyTBlock) t in
+  let l = List.map (fun x -> tape_block_top_y x) t in
+  list_max l
 
 let tikz_of_circuit_block (cb : circuit_block) : string =
   match cb with
@@ -182,8 +255,20 @@ let tikz_of_circuit_block (cb : circuit_block) : string =
       Printf.sprintf "\\draw [in=180, out=0] (%f,%f) to (%f,%f);\n" x1 y1 x2 y2
   | EmptyBlock -> ""
 
-let tikz_of_tape_block (tb : tape_block) : string =
-  match tb with
+let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
+  let debug_bounds tb =
+    if debug then
+      let x = x_pos_of_tape_block tb in
+      let top = top_of_tape_blocks [ tb ] in
+      let base = base_of_tape_blocks [ tb ] in
+      Printf.sprintf
+        "\\node () at (%f, %f) {\\color{green}$-$};\n\
+        \ \\node () at (%f, %f) {\\color{blue}$-$};"
+        x top x base
+    else ""
+  in
+
+  (match tb with
   | EmptyTBlock -> ""
   | BTape { pos = x, y; width; height } ->
       Printf.sprintf "\\tape {%f} {%f} {%f} {%f}\n" x y width height
@@ -208,12 +293,13 @@ let tikz_of_tape_block (tb : tape_block) : string =
         otimesdist
   | BJoinTape { pos = x, y; n; len = l; tapepadding; otimesdist; oplusdist } ->
       Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f} {%f}\n" x y n l
-        tapepadding otimesdist oplusdist
+        tapepadding otimesdist oplusdist)
+  ^ debug_bounds tb
 
 let rec tikz_of_block_list (b : block list) : string =
   match b with
   | [] -> ""
-  | TB tb :: b1 -> tikz_of_tape_block tb ^ "\n" ^ tikz_of_block_list b1
+  | TB tb :: b1 -> tikz_of_tape_block tb false ^ "\n" ^ tikz_of_block_list b1
   | CB cb :: b1 -> tikz_of_circuit_block cb ^ "\n" ^ tikz_of_block_list b1
   | DebugNode { pos = posx, posy; text = s } :: b1 ->
       Printf.sprintf "\\node () at (%f, %f) {%s};\n" posx posy s
@@ -749,12 +835,6 @@ let tape_connect_interfaces (ina : tape_draw_interface)
   (* printf [] "\n-----\noutput: %s\n-----\n" res; *)
   res
 
-let rec list_max (l : float list) =
-  match l with [] -> -.infinity | a :: rest -> max a (list_max rest)
-
-let rec list_min (l : float list) : float =
-  match l with [] -> infinity | a :: rest -> min a (list_min rest)
-
 let max_x_in_diags (ds : tape_geometry list) =
   ds
   |> List.map (fun (TapeGeo { right_interface; _ }) ->
@@ -985,55 +1065,3 @@ let get_space_between_nonempty_summands (ti : tape_draw_interface) =
     let top1 = List.nth l 1 |> nonempty_interface_top in
     snd base0 -. snd top1
   else failwith "Interface has invalid number of summands"
-
-let tape_block_height (tb : tape_block) =
-  match tb with
-  | EmptyTBlock -> 0.
-  | BTape { height; _ } -> height
-  | BFreeStyleTape { posll; poslu; posrl; posru } ->
-      max (snd poslu) (snd posru) -. min (snd posll) (snd posrl)
-  | BAdapter { height1; height2; _ } -> max height1 height2
-  | BSwapTape { n1; n2; oplusdist; otimesdist; tapepadding; _ } ->
-      (tapepadding *. 4.)
-      +. (float_of_int (max 0 (n1 + n2 - 2)) *. otimesdist)
-      +. oplusdist
-  | BSplitTape { n; oplusdist; otimesdist; tapepadding; _ } ->
-      let h =
-        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
-      in
-      (2. *. h) +. oplusdist
-  | BCutTape { n; tapepadding; otimesdist; _ } ->
-      (float_of_int n *. otimesdist) +. (2. *. tapepadding)
-  | BJoinTape { n; oplusdist; otimesdist; tapepadding; _ } ->
-      let h =
-        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
-      in
-      (2. *. h) +. oplusdist
-  | BSpawnTape { n; tapepadding; otimesdist; _ } ->
-      (float_of_int n *. otimesdist) +. (2. *. tapepadding)
-
-let y_pos_of_tape_block (tb : tape_block) : float =
-  match tb with
-  | EmptyTBlock -> failwith "tried to get position of empty block"
-  | BTape { pos; _ }
-  | BAdapter { pos; _ }
-  | BSwapTape { pos; _ }
-  | BSplitTape { pos; _ }
-  | BCutTape { pos; _ }
-  | BJoinTape { pos; _ }
-  | BSpawnTape { pos; _ } ->
-      snd pos
-  | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
-
-let tape_block_top_y (t : tape_block) =
-  y_pos_of_tape_block t +. tape_block_height t
-
-let base_of_tape_blocks (t : tape_block list) =
-  let t = List.filter (fun x -> x != EmptyTBlock) t in
-  let l = List.map (fun x -> y_pos_of_tape_block x) t in
-  list_min l
-
-let top_of_tape_blocks (t : tape_block list) =
-  let t = List.filter (fun x -> x != EmptyTBlock) t in
-  let l = List.map (fun x -> tape_block_top_y x) t in
-  list_max l
