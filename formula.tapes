@@ -18,7 +18,11 @@ let paper_ex_4_14_2 : term = (gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1,
 let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z))) * 
                            ((gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1))).
 
-check test_big_split_and_join.
+let simple : term = gen(f , A, A) + gen(g, A*B, B).
+
+let gioco_dell_oca : tape = trace(trace(trace((spawn(A) ; [gen(haiVinto, A, A)]) + [gen(ciao, A, A)] + id(A))) + id(A)).
+
+check gioco_dell_oca.
 
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
@@ -27,11 +31,13 @@ set (zerolenids : 1.0).
 set (scalex : 1.0).
 
 // show scaling controls scalex = 0.5
-draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
+// draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
 
 
-draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
-draw big_copy to "./result_examples/big_copy".
+// draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
+// draw big_copy to "./result_examples/big_copy".
 
-// wrong with old alignment!
-draw big_test_sum to "./result_examples/big_test_sum"
+// // wrong with old alignment!
+// draw big_test_sum to "./result_examples/big_test_sum"
+
+draw gioco_dell_oca to "./result_examples/trace"

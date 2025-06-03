@@ -392,6 +392,60 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   };
 }
 
+% lx, ly, rx, ry, n, maxy, tapepadding, otimesdist, oplusdist
+\newcommand{\trace}[9]{
+\pgfmathsetmacro{\lx} {#1}
+\pgfmathsetmacro{\rx} {#3}
+\pgfmathsetmacro{\ly} {#2}
+\pgfmathsetmacro{\ry} {#4}
+
+\pgfmathsetmacro{\n} {#5}
+
+\pgfmathsetmacro{\maxy} {#6}
+
+\pgfmathsetmacro{\tapepadding} {#7}
+\pgfmathsetmacro{\otimesdist} {#8}
+\pgfmathsetmacro{\oplusdist} {#9}
+
+\pgfmathparse{%
+  ((\n>0)
+    ? (\n - 1 
+    : 1 )) * \otimesdist + 2 * \tapepadding
+}%
+\let\height\pgfmathresult
+
+\pgfmathsetmacro{\toplanebase}{\maxy + \oplusdist}
+\pgfmathsetmacro{\toplanetop}{\maxy + \oplusdist + \height}
+
+\pgfmathsetmacro{\arclenr}{(\toplanetop - \ry) / 2}
+\pgfmathsetmacro{\innerarclenr}{\arclenr - \h}
+
+\pgfmathsetmacro{\arclenl}{(\toplanetop - \ly) / 2}
+\pgfmathsetmacro{\innerarclenl}{\arclenl - \h}
+
+\pgfmathsetmacro{\wirearclenl}{(\toplanebase - \ly) / 2}
+\pgfmathsetmacro{\wirearclenr}{(\toplanebase - \ry) / 2}
+
+\draw [fill=tapeBg, tapeBg] (\rx, \ry) arc (-90 : 90 : \arclenr) -- (\lx, \maxy + \oplusdist + \height) arc (90 : 270 : \arclenl) -- (\lx, \ly + \height) arc (270 : 90: \innerarclenl) -- (\rx, \maxy + \oplusdist) arc (90 : -90 : \innerarclenr) -- cycle;
+
+\draw [tapeBorder] (\rx, \ry) arc (-90 : 90 : \arclenr) -- (\lx, \maxy + \oplusdist + \height) arc (90 : 270 : \arclenl);
+
+\draw [tapeBorder] (\lx, \ly + \height) arc (270 : 90: \innerarclenl) -- (\rx, \maxy + \oplusdist) arc (90 : -90 : \innerarclenr);
+
+     \foreach \i in {0,...,\n}
+    {
+      \ifnum\i=0
+    \else
+     \pgfmathsetmacro{\ishift}{\tapepadding + (\i - 1) * \otimesdist}
+      
+      \draw (\rx, \ry + \ishift) arc (-90 : 90 : \wirearclenr) -- (\lx, \maxy + \oplusdist + \ishift) arc (90 : 270 : \wirearclenl);
+      
+    \fi
+    }
+
+}
+
+
 % fresh name, len, posx, posy
 \newcommand{\measuretape}[4]{
   \pgfmathsetmacro{\len}{#2 * 1}

@@ -10,7 +10,7 @@ let remove_first_last s =
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy CoCopy
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape DOT Let Sort Draw Check To ToTape ARROW Set
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -79,6 +79,7 @@ term:
   | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
   | Copy LPAREN t = object_type RPAREN                                                                  { Terms.Copy (Terms.obj_to_polynomial t)}
   | CoCopy LPAREN t = object_type RPAREN                                                                { Terms.CoCopy (Terms.obj_to_polynomial t)}
+  | Trace LPAREN t = term RPAREN                                                                 { Terms.Trace(t) }
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
   | error {raise (Errors.ParseError "term expected")}
@@ -104,6 +105,7 @@ tape:
   | t1 = tape Oplus t2 = tape                                                                           { Tapes.Oplus    (t1, t2) }
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
+  | Trace LPAREN t = tape RPAREN                                                                 { Tapes.Trace(t) }
   | LPAREN t = tape RPAREN
   { t }
   | error {raise (Errors.ParseError "tape expected")}

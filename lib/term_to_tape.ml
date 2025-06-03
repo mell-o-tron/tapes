@@ -94,6 +94,7 @@ let rec left_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (u @ v)
   | Cut v -> Cut (u @ v)
   | Spawn v -> Spawn (u @ v)
+  | _ -> failwith "left whiskering not yet implemented"
 
 let rec right_whiskering_mon (u : sort list) (t : tape) =
   match t with
@@ -111,6 +112,7 @@ let rec right_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (v @ u)
   | Cut v -> Cut (v @ u)
   | Spawn v -> Spawn (v @ u)
+  | _ -> failwith "right whiskering not yet implemented"
 
 let rec left_whiskering (u : sort list list) (t : tape) =
   match u with
@@ -136,6 +138,7 @@ let rec tape_inverse (t : tape) =
   | Cut l -> Spawn l
   | Join l -> Split l
   | Split l -> Join l
+  | Trace t1 -> Trace (tape_inverse t1)
 
 let rec right_whiskering (u : sort list list) (t : tape) =
   let p = Typecheck.tape_arity t in

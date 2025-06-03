@@ -124,6 +124,16 @@ type tape_block =
       tapepadding : float;
       otimesdist : float;
     }
+  | BTraceTape of {
+      pos_l : float * float;
+      pos_r : float * float;
+      n : int;
+      len : int;
+      tapepadding : float;
+      otimesdist : float;
+      oplusdist : float;
+      max_y : float;
+    }
 [@@deriving show]
 
 type block =
@@ -154,6 +164,13 @@ type tape_geometry =
       right_interface : tape_draw_interface;
     }
 [@@deriving show]
+
+(********** Tape utils ***********)
+
+let wrap_in_ids (t : tape) =
+  let ar = Typecheck.tape_arity t in
+  let coar = Typecheck.tape_coarity t in
+  TCompose (TCompose (TId ar, t), TId coar)
 
 (********* List utils ***********)
 
@@ -190,6 +207,13 @@ let tape_block_height (tb : tape_block) =
       (2. *. h) +. oplusdist
   | BSpawnTape { n; tapepadding; otimesdist; _ } ->
       (float_of_int (max 0 n - 1) *. otimesdist) +. (2. *. tapepadding)
+  | BTraceTape { n; oplusdist; otimesdist; tapepadding; max_y; pos_r; pos_l; _ }
+    ->
+      (* THIS IS WRONG!! *)
+      let h =
+        (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
+      in
+      max_y +. oplusdist +. h -. min (snd pos_r) (snd pos_l)
 
 let y_pos_of_tape_block (tb : tape_block) : float =
   match tb with
@@ -203,6 +227,7 @@ let y_pos_of_tape_block (tb : tape_block) : float =
   | BSpawnTape { pos; _ } ->
       snd pos
   | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
+  | BTraceTape { pos_l; pos_r; _ } -> min (snd pos_l) (snd pos_r)
 
 let x_pos_of_tape_block (tb : tape_block) : float =
   match tb with
@@ -216,6 +241,7 @@ let x_pos_of_tape_block (tb : tape_block) : float =
   | BSpawnTape { pos; _ } ->
       fst pos
   | BFreeStyleTape { posll; _ } -> fst posll
+  | BTraceTape { pos_l; _ } -> fst pos_l
 
 let tape_block_top_y (t : tape_block) =
   y_pos_of_tape_block t +. tape_block_height t
@@ -229,6 +255,10 @@ let top_of_tape_blocks (t : tape_block list) =
   let t = List.filter (fun x -> x != EmptyTBlock) t in
   let l = List.map (fun x -> tape_block_top_y x) t in
   list_max l
+
+let get_tape_blocks (t : block list) =
+  List.filter (function TB _ -> true | _ -> false) t
+  |> List.map (fun x -> match x with TB x -> x | _ -> failwith "unreachable")
 
 let tikz_of_circuit_block (cb : circuit_block) : string =
   match cb with
@@ -293,7 +323,20 @@ let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
         otimesdist
   | BJoinTape { pos = x, y; n; len = l; tapepadding; otimesdist; oplusdist } ->
       Printf.sprintf "\\jointape {%f} {%f} {%d} {%f} {%f} {%f} {%f}\n" x y n l
-        tapepadding otimesdist oplusdist)
+        tapepadding otimesdist oplusdist
+  | BTraceTape
+      {
+        pos_l = xl, yl;
+        pos_r = xr, yr;
+        n;
+        len = _;
+        tapepadding;
+        otimesdist;
+        oplusdist;
+        max_y;
+      } ->
+      Printf.sprintf "\\trace{%f}{%f}{%f}{%f}{%n}{%f}{%f}{%f}{%f}" xl yl xr yr n
+        max_y tapepadding otimesdist oplusdist)
   ^ debug_bounds tb
 
 let rec tikz_of_block_list (b : block list) : string =
@@ -456,6 +499,37 @@ let rec base_of_tape_interface t =
   | TapeInterface ((x, y), _, _) -> (x, y)
   | EmptyInterface (Some (x, y), _) -> (x, y)
   | _ -> failwith "tried to get base of empty interface"
+
+let get_highest_nonempty_interface t =
+  let l =
+    list_of_tape_interface t
+    |> List.filter (function EmptyInterface _ -> false | _ -> true)
+  in
+  match l with [] -> failwith "no highest interface" | a :: _ -> a
+
+let get_lowest_nonempty_interface t =
+  let t = list_of_tape_interface t |> List.rev |> tape_interface_of_list in
+  get_highest_nonempty_interface t
+
+let is_interface_nonempty (ti : tape_draw_interface) =
+  match ti with
+  | EmptyInterface _ ->
+      (* print_endline ("false: " ^ show_tape_draw_interface ti); *)
+      false
+  | _ ->
+      (* print_endline ("true: " ^ show_tape_draw_interface ti); *)
+      true
+
+let rec chop_off_highest_nonempty_intf t =
+  let l = list_of_tape_interface t in
+  match l with
+  | [] -> failwith "no highest interface to chop off"
+  | a :: rest ->
+      if is_interface_nonempty a then rest |> tape_interface_of_list
+      else
+        TapeTens
+          (a, chop_off_highest_nonempty_intf (rest |> tape_interface_of_list))
+        |> tape_interface_normalize
 
 (* returns the highest position of a tape interface *)
 let rec top_of_tape_interface t =
@@ -634,7 +708,7 @@ let rec is_tape_identity (t : tape) =
   | _ -> false
 
 (* returns height of tape *)
-let rec get_tape_height (t : tape) =
+and get_tape_height (t : tape) =
   match t with
   | TId l -> get_tape_height (tid_to_normal_form l)
   | TId0 -> !tape_padding *. 2.
@@ -666,6 +740,17 @@ let rec get_tape_height (t : tape) =
       (!tape_padding *. 4.)
       +. (2. *. float_of_int (max 0 (n - 1)) *. !otimes_dist)
       +. !oplus_dist
+  | Trace t ->
+      let n =
+        try
+          Typecheck.tape_arity t |> List.hd
+          (* Is first element right or is it last? *) |> List.length
+        with _ ->
+          raise (Errors.TypeError "Tried to draw trace of incompatible tape. 1")
+      in
+      get_tape_height t
+      +. (float_of_int (n - 1) *. !otimes_dist)
+      +. (2. *. !tape_padding) +. !oplus_dist
 
 let rec get_tape_left_interface_height (t : tape) =
   match t with
@@ -676,7 +761,7 @@ let rec get_tape_left_interface_height (t : tape) =
       get_tape_left_interface_height t1
       +. get_tape_left_interface_height t2
       +. !oplus_dist
-  | _ -> get_tape_height t
+  | _ -> get_tape_height t (* TODO this is wrong! *)
 
 (* counts summands in left interface *)
 let rec get_tape_left_interface_size (t : tape) =
@@ -692,6 +777,15 @@ let rec get_tape_left_interface_size (t : tape) =
   | TCompose (t1, _) -> get_tape_left_interface_size t1
   | Oplus (t1, t2) ->
       get_tape_left_interface_size t1 + get_tape_left_interface_size t2
+  | Trace t1 ->
+      let n =
+        try
+          Typecheck.tape_arity t1 |> List.hd
+          (* Is first element right or is it last? *) |> List.length
+        with _ ->
+          raise (Errors.TypeError "Tried to draw trace of incompatible tape.")
+      in
+      get_tape_left_interface_size t1 - n
 
 let rec get_max_x_tape t =
   match t with
@@ -949,6 +1043,8 @@ let move_tape_block (tb : tape_block) (dx, dy) =
   | BCutTape b -> BCutTape { b with pos = move b.pos }
   | BJoinTape b -> BJoinTape { b with pos = move b.pos }
   | BSpawnTape b -> BSpawnTape { b with pos = move b.pos }
+  | BTraceTape b ->
+      BTraceTape { b with pos_r = move b.pos_r; pos_l = move b.pos_l }
 
 let move_block (b : block) (dx, dy) : block =
   let move (x, y) = (x +. dx, y +. dy) in
@@ -1018,15 +1114,6 @@ let min_by_y pairs =
         (fun ((_, y_min) as best) ((_, y) as p) ->
           if y < y_min then p else best)
         hd tl
-
-let is_interface_nonempty (ti : tape_draw_interface) =
-  match ti with
-  | EmptyInterface _ ->
-      (* print_endline ("false: " ^ show_tape_draw_interface ti); *)
-      false
-  | _ ->
-      (* print_endline ("true: " ^ show_tape_draw_interface ti); *)
-      true
 
 let nonempty_interface_top (ti : tape_draw_interface) =
   let l = list_of_tape_interface ti in

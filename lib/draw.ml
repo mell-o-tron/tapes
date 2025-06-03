@@ -899,6 +899,66 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
                 (posx +. l, posy +. h +. base_left),
                 circuit_interface_of_list lil );
         }
+  | Trace t ->
+      let (TapeGeo diag) =
+        tikz_of_tape (wrap_in_ids t) posx posy max_len debug
+      in
+
+      let posl =
+        get_highest_nonempty_interface diag.left_interface
+        |> base_of_tape_interface
+      in
+      let posr =
+        get_highest_nonempty_interface diag.right_interface
+        |> base_of_tape_interface
+      in
+      let maxy = top_of_tape_blocks (get_tape_blocks diag.tikz) in
+      let n =
+        get_highest_nonempty_interface diag.left_interface
+        |> list_of_tape_interface |> List.length
+      in
+      let h =
+        (2. *. !tape_padding) +. (float_of_int (max (n - 1) 0) *. !otimes_dist)
+      in
+      let trace_block =
+        BTraceTape
+          {
+            pos_l = posl;
+            pos_r = posr;
+            n;
+            len = 6969;
+            tapepadding = !tape_padding;
+            otimesdist = !otimes_dist;
+            oplusdist = !oplus_dist;
+            max_y = maxy;
+          }
+      in
+      let radius_right = (maxy +. !oplus_dist +. h -. snd posr) /. 2. in
+      let radius_left = (maxy +. !oplus_dist +. h -. snd posl) /. 2. in
+      let ri_chopped = chop_off_highest_nonempty_intf diag.right_interface in
+      let li_chopped = chop_off_highest_nonempty_intf diag.left_interface in
+      let ri_aligned =
+        align_tape_interface_to_x ri_chopped (fst posr +. radius_right)
+      in
+      let li_aligned =
+        align_tape_interface_to_x li_chopped (fst posl -. radius_left)
+      in
+
+      let res =
+        TapeGeo
+          {
+            diag with
+            tikz =
+              diag.tikz @ [ TB trace_block ]
+              @ tape_connect_interfaces ri_chopped ri_aligned
+              @ tape_connect_interfaces li_aligned li_chopped;
+            left_interface = li_aligned;
+            right_interface = ri_aligned;
+            length = diag.length +. radius_left +. radius_right;
+          }
+      in
+      (* print_endline (show_tape_geometry res); *)
+      move_tape_geometry res (0., 0.)
 
 (********************************************************************************************************)
 

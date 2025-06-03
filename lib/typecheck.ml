@@ -121,6 +121,11 @@ let rec tape_arity (t : tape) =
   | Split l1 -> [ l1 ]
   | Spawn _ -> []
   | Join l1 -> [ l1; l1 ]
+  | Trace t1 -> (
+      let art1 = tape_arity t1 in
+      match art1 with
+      | _ :: b -> b
+      | [] -> raise (Errors.TypeError "Applied trace to tape of empty arity"))
 
 let rec tape_coarity (t : tape) =
   match t with
@@ -134,6 +139,11 @@ let rec tape_coarity (t : tape) =
   | Split l1 -> [ l1; l1 ]
   | Spawn l1 -> [ l1 ]
   | Join l1 -> [ l1 ]
+  | Trace t1 -> (
+      let coart1 = tape_coarity t1 in
+      match coart1 with
+      | _ :: b -> b
+      | [] -> raise (Errors.TypeError "Applied trace to tape of empty coarity"))
 
 (* checks if arity and coarity match in compositions *)
 let rec circuit_typecheck (t : circuit) =
@@ -142,10 +152,20 @@ let rec circuit_typecheck (t : circuit) =
   | Otimes (t1, t2) -> circuit_typecheck t1 && circuit_typecheck t2
   | _ -> true
 
+let string_of_sort_list_list l =
+  String.concat "," (List.map (fun x -> "[" ^ String.concat "," x ^ "]") l)
+
 (* checks if arity and coarity match in compositions *)
 let rec tape_typecheck (t : tape) =
   match t with
   | TCompose (t1, t2) -> tape_arity t2 = tape_coarity t1
   | Oplus (t1, t2) -> tape_typecheck t1 && tape_typecheck t2
   | Tape c1 -> circuit_typecheck c1
+  | Trace t1 -> (
+      let ar = tape_arity t1 in
+      (* Printf.printf "ar: [%s]\n" (string_of_sort_list_list ar); *)
+      let coar = tape_coarity t1 in
+      (* Printf.printf "coar: [%s]\n" (string_of_sort_list_list coar); *)
+      try if List.hd ar = List.hd coar then tape_typecheck t1 else false
+      with _ -> false)
   | _ -> true

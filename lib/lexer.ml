@@ -3,22 +3,26 @@ open Parser
 let digit = [%sedlex.regexp? '0' .. '9']
 let hexNumber = [%sedlex.regexp? Plus hex_digit]
 let number = [%sedlex.regexp? Plus digit]
-let floatnum = [%sedlex.regexp? Plus digit , '.' , Plus digit]
+let floatnum = [%sedlex.regexp? Plus digit, '.', Plus digit]
 let character = [%sedlex.regexp? 0x20 .. 0x7E]
 let quoted_string = [%sedlex.regexp? '"', Star (Compl (Chars "\"")), '"']
-let variable_name = [%sedlex.regexp? ('a'..'z' | 'A'..'Z' | '_'), Star ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')]
+
+let variable_name =
+  [%sedlex.regexp?
+    ( ('a' .. 'z' | 'A' .. 'Z' | '_'),
+      Star ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_') )]
 
 let rec token lexbuf =
   match%sedlex lexbuf with
-  | "id"               -> Id
-  | "s*" | "σ⊗"       -> SwapTimes
-  | "s+" | "σ⊕"       -> SwapPlus
-  | "*"  | "⊗"        -> Otimes
-  | "+"  | "⊕"        -> Oplus
-  | "dl" | "δl"        -> Ldistr
-  | "gen"             -> Gen
-  | "0"               -> Zero
-  | "1"               -> One
+  | "id" -> Id
+  | "s*" | "σ⊗" -> SwapTimes
+  | "s+" | "σ⊕" -> SwapPlus
+  | "*" | "⊗" -> Otimes
+  | "+" | "⊕" -> Oplus
+  | "dl" | "δl" -> Ldistr
+  | "gen" -> Gen
+  | "0" -> Zero
+  | "1" -> One
   | "(" -> LPAREN
   | ")" -> RPAREN
   | "[" -> LBRACKET
@@ -32,12 +36,13 @@ let rec token lexbuf =
   | "let" -> Let
   | "term" -> Term
   | "tape" -> Tape
+  | "trace" -> Trace
   | "draw" -> Draw
   | "check" -> Check
   | "to" -> To
   | "to_tape" -> ToTape
   | "split" -> Split
-  | "cut" ->  Cut  
+  | "cut" -> Cut
   | "join" -> Join
   | "spawn" -> Spawn
   | "copy" -> Copy
@@ -45,13 +50,16 @@ let rec token lexbuf =
   | "set" -> Set
   | white_space -> token lexbuf
   | "," -> COMMA
-(*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)
+  (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)
   | variable_name ->
-      let lexeme = Sedlexing.Latin1.lexeme lexbuf in STRING lexeme
+      let lexeme = Sedlexing.Latin1.lexeme lexbuf in
+      STRING lexeme
   | quoted_string ->
-      let lexeme = Sedlexing.Latin1.lexeme lexbuf in QSTRING lexeme
+      let lexeme = Sedlexing.Latin1.lexeme lexbuf in
+      QSTRING lexeme
   | floatnum ->
-        let lexeme = Sedlexing.Latin1.lexeme lexbuf in FLOAT (float_of_string lexeme)
+      let lexeme = Sedlexing.Latin1.lexeme lexbuf in
+      FLOAT (float_of_string lexeme)
   | "//" -> comment lexbuf
   | eof -> EOF
   | any ->
@@ -67,6 +75,5 @@ and comment lexbuf =
   | eof -> EOF
   | any -> comment lexbuf
   | _ -> failwith "Impossible!"
-
 
 let tokenize (lexbuf : Sedlexing.lexbuf) = token lexbuf
