@@ -820,6 +820,13 @@ let align_tape_interface_to_x t x =
       | _ -> failwith "should not be called 2")
     t
 
+let rec flatten_tape (t : tape_draw_interface) =
+  match t with
+  | EmptyTape _ -> []
+  | TapeInterface (_, _, c) -> flatten_circuit c
+  | TapeTens (t1, t2) -> flatten_tape t1 @ flatten_tape t2
+  | EmptyInterface _ -> []
+
 (* same as circuit align interfaces but for tapes. *)
 let tape_align_interfaces ri1 ri2 =
   let ri1 = ri1 |> deep_clean_interface |> tape_interface_normalize in
@@ -1044,7 +1051,13 @@ let move_tape_block (tb : tape_block) (dx, dy) =
   | BJoinTape b -> BJoinTape { b with pos = move b.pos }
   | BSpawnTape b -> BSpawnTape { b with pos = move b.pos }
   | BTraceTape b ->
-      BTraceTape { b with pos_r = move b.pos_r; pos_l = move b.pos_l }
+      BTraceTape
+        {
+          b with
+          pos_r = move b.pos_r;
+          pos_l = move b.pos_l;
+          max_y = b.max_y +. dy;
+        }
 
 let move_block (b : block) (dx, dy) : block =
   let move (x, y) = (x +. dx, y +. dy) in

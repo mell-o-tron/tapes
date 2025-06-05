@@ -222,6 +222,40 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
               right_interface =
                 CircuitPin (posx +. 1., posy +. (!otimes_dist /. 2.));
             }
+      | "discard" when coar = [] ->
+          CircGeo
+            {
+              tikz =
+                [
+                  BDiscard
+                    {
+                      fresh_name = fresh_gen ();
+                      pos = (posx, posy);
+                      sort = "TODO";
+                    };
+                ];
+              height = 0.;
+              length = 1.;
+              left_interface = CircuitPin (posx, posy);
+              right_interface = EmptyCircuit;
+            }
+      | "codiscard" when ar = [] ->
+          CircGeo
+            {
+              tikz =
+                [
+                  BCoDiscard
+                    {
+                      fresh_name = fresh_gen ();
+                      pos = (posx, posy);
+                      sort = "TODO";
+                    };
+                ];
+              height = 0.;
+              length = 1.;
+              left_interface = EmptyCircuit;
+              right_interface = CircuitPin (posx +. 1., posy);
+            }
       | _ ->
           let ar_size = List.length ar in
           let coar_size = List.length coar in
@@ -915,7 +949,7 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
       let maxy = top_of_tape_blocks (get_tape_blocks diag.tikz) in
       let n =
         get_highest_nonempty_interface diag.left_interface
-        |> list_of_tape_interface |> List.length
+        |> flatten_tape |> List.length
       in
       let h =
         (2. *. !tape_padding) +. (float_of_int (max (n - 1) 0) *. !otimes_dist)
@@ -963,12 +997,6 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
 (********************************************************************************************************)
 
 (* loses tape information, gets only circuit pins *)
-let rec flatten_tape (t : tape_draw_interface) =
-  match t with
-  | EmptyTape _ -> []
-  | TapeInterface (_, _, c) -> flatten_circuit c
-  | TapeTens (t1, t2) -> flatten_tape t1 @ flatten_tape t2
-  | EmptyInterface _ -> []
 
 let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
     (ar : string list list) (coar : string list list) =
@@ -1008,7 +1036,10 @@ let draw_circuit (ast : circuit) (path : string) =
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
 let draw_tape (ast : tape) (path : string) =
-  match tikz_of_tape (tape_to_sum ast) 0. 0. infinity false with
+  print_endline (pp_tape ast);
+  match
+    tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) 0. 0. infinity false
+  with
   | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } -> (
       (* Write message to file *)
       try

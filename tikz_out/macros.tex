@@ -43,7 +43,8 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 % fresh posx posy
 \newcommand{\discardcirc}[3]{
   \node [nodestyle] (cpa#1) at (#2,#3) {};
-  \node [circle, minimum size=3pt, fill=black] (cpb#1) at (#2+1,#3) {};
+  \node [] () at (#2+1,#3) {};
+    \node [circle, minimum size=3pt, fill=black] (cpb#1) at (#2+0.5,#3) {};
   \draw (cpa#1) to (cpb#1);
 }
 
@@ -63,7 +64,8 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 % fresh posx posy
 \newcommand{\codiscardcirc}[3]{
   \node [nodestyle] (cpa#1) at (#2+1,#3) {};
-  \node [circle, minimum size=3pt, fill=black] (cpb#1) at (#2,#3) {};
+  \node [circle, minimum size=3pt, fill=black] (cpb#1) at (#2 + 0.5,#3) {};
+  \node [] () at (#2,#3) {};
   \draw (cpb#1) to (cpa#1);
 }
 
@@ -407,24 +409,21 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 \pgfmathsetmacro{\otimesdist} {#8}
 \pgfmathsetmacro{\oplusdist} {#9}
 
-\pgfmathparse{%
-  ((\n>0)
-    ? (\n - 1 
-    : 1 )) * \otimesdist + 2 * \tapepadding
-}%
-\let\height\pgfmathresult
+    \pgfmathparse{%
+    (\n>0)
+      ? 2 * \tapepadding + (\n - 1) * \otimesdist
+      : 2 * \tapepadding
+  }%
+  \let\height\pgfmathresult
 
 \pgfmathsetmacro{\toplanebase}{\maxy + \oplusdist}
 \pgfmathsetmacro{\toplanetop}{\maxy + \oplusdist + \height}
 
 \pgfmathsetmacro{\arclenr}{(\toplanetop - \ry) / 2}
-\pgfmathsetmacro{\innerarclenr}{\arclenr - \h}
+\pgfmathsetmacro{\innerarclenr}{\arclenr - \height}
 
 \pgfmathsetmacro{\arclenl}{(\toplanetop - \ly) / 2}
-\pgfmathsetmacro{\innerarclenl}{\arclenl - \h}
-
-\pgfmathsetmacro{\wirearclenl}{(\toplanebase - \ly) / 2}
-\pgfmathsetmacro{\wirearclenr}{(\toplanebase - \ry) / 2}
+\pgfmathsetmacro{\innerarclenl}{\arclenl - \height}
 
 \draw [fill=tapeBg, tapeBg] (\rx, \ry) arc (-90 : 90 : \arclenr) -- (\lx, \maxy + \oplusdist + \height) arc (90 : 270 : \arclenl) -- (\lx, \ly + \height) arc (270 : 90: \innerarclenl) -- (\rx, \maxy + \oplusdist) arc (90 : -90 : \innerarclenr) -- cycle;
 
@@ -437,8 +436,12 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
       \ifnum\i=0
     \else
      \pgfmathsetmacro{\ishift}{\tapepadding + (\i - 1) * \otimesdist}
-      
-      \draw (\rx, \ry + \ishift) arc (-90 : 90 : \wirearclenr) -- (\lx, \maxy + \oplusdist + \ishift) arc (90 : 270 : \wirearclenl);
+     \pgfmathsetmacro{\nminishift}{\tapepadding + (\n - \i) * \otimesdist}
+
+      \pgfmathsetmacro{\wirearclenl}{(\arclenl - \ishift)}
+      \pgfmathsetmacro{\wirearclenr}{(\arclenr - \ishift)}
+
+      \draw (\rx, \ry + \ishift) arc (-90 : 90 : \wirearclenr) -- (\lx, \maxy + \oplusdist + \nminishift) arc (90 : 270 : \wirearclenl);
       
     \fi
     }

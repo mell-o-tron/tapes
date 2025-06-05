@@ -94,7 +94,7 @@ let rec left_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (u @ v)
   | Cut v -> Cut (u @ v)
   | Spawn v -> Spawn (u @ v)
-  | _ -> failwith "left whiskering not yet implemented"
+  | Trace t -> Trace (left_whiskering_mon u t)
 
 let rec right_whiskering_mon (u : sort list) (t : tape) =
   match t with
@@ -112,7 +112,7 @@ let rec right_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (v @ u)
   | Cut v -> Cut (v @ u)
   | Spawn v -> Spawn (v @ u)
-  | _ -> failwith "right whiskering not yet implemented"
+  | Trace t -> Trace (right_whiskering_mon u t)
 
 let rec left_whiskering (u : sort list list) (t : tape) =
   match u with
@@ -230,6 +230,22 @@ let rec cocopy_to_tape (l : sort list list) : tape =
               Oplus (cut_to_tape (times_on_objects p1 [ u ]), cocopy_to_tape p1)
             ) )
 
+let discard_to_tape_mon (l : sort list) : circuit =
+  let l = List.map (fun x -> Gen ("discard", [ x ], [])) l in
+  List.fold_right (fun x y -> Otimes (x, y)) l CId1
+
+let discard_to_tape (l : sort list list) : tape =
+  let l = List.map (fun x -> Tape (discard_to_tape_mon x)) l in
+  List.fold_right (fun x y -> Oplus (x, y)) l TId0 |> deep_clean_tape
+
+let codiscard_to_tape_mon (l : sort list) : circuit =
+  let l = List.map (fun x -> Gen ("codiscard", [], [ x ])) l in
+  List.fold_right (fun x y -> Otimes (x, y)) l CId1
+
+let codiscard_to_tape (l : sort list list) : tape =
+  let l = List.map (fun x -> Tape (codiscard_to_tape_mon x)) l in
+  List.fold_right (fun x y -> Oplus (x, y)) l TId0 |> deep_clean_tape
+
 (* converts term into tape (when possible) *)
 let rec _to_tape (t : term) =
   match t with
@@ -258,7 +274,9 @@ let rec _to_tape (t : term) =
   | Cut l -> cut_to_tape l
   | Copy l -> copy_to_tape l
   | CoCopy l -> cocopy_to_tape l
-  | _ -> failwith "not yet implemented"
+  | Trace t -> Trace (_to_tape t)
+  | Discard l -> discard_to_tape l
+  | CoDiscard l -> codiscard_to_tape l
 
 (*  copy & discard etc
       Definitions (20), (21) under theorem 7.3 (for polynomials)

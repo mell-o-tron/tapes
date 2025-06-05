@@ -34,7 +34,13 @@ and arity (t : term) =
   | Join l1 -> l1 @ l1 (* IDK TODO check*)
   | Copy l1 -> l1
   | CoCopy l1 -> times_on_objects l1 l1
-  | _ -> failwith "not yet implemented"
+  | Trace t1 -> (
+      let art1 = arity t1 in
+      match art1 with
+      | _ :: b -> b
+      | [] -> raise (Errors.TypeError "Applied trace to term of empty arity"))
+  | Discard l1 -> l1
+  | CoDiscard _ -> []
 
 (*  | _ -> failwith("arity not yet implemented")*)
 
@@ -71,7 +77,13 @@ and coarity (t : term) =
   | Join l1 -> l1
   | Copy l1 -> times_on_objects l1 l1
   | CoCopy l1 -> l1
-  | _ -> failwith "not yet implemented"
+  | Trace t1 -> (
+      let art1 = coarity t1 in
+      match art1 with
+      | _ :: b -> b
+      | [] -> raise (Errors.TypeError "Applied trace to term of empty coarity"))
+  | Discard _ -> []
+  | CoDiscard l1 -> l1
 
 let print_sll (l : sort list list) =
   print_string "[ ";
@@ -89,6 +101,13 @@ let rec typecheck (t : term) =
   | Compose (t1, t2) -> arity t2 = coarity t1
   | Oplus (t1, t2) -> typecheck t1 && typecheck t2
   | Otimes (t1, t2) -> typecheck t1 && typecheck t2
+  | Trace t1 -> (
+      let ar = arity t1 in
+      (* Printf.printf "ar: [%s]\n" (string_of_sort_list_list ar); *)
+      let coar = coarity t1 in
+      (* Printf.printf "coar: [%s]\n" (string_of_sort_list_list coar); *)
+      try if List.hd ar = List.hd coar then typecheck t1 else false
+      with _ -> false)
   | _ -> true
 
 let rec circuit_arity (c : circuit) =

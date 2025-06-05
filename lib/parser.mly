@@ -9,7 +9,7 @@ let remove_first_last s =
     String.sub s 1 (len - 2)
 %}
 
-%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy CoCopy
+%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set
 
 %token <string> STRING QSTRING
@@ -79,7 +79,9 @@ term:
   | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
   | Copy LPAREN t = object_type RPAREN                                                                  { Terms.Copy (Terms.obj_to_polynomial t)}
   | CoCopy LPAREN t = object_type RPAREN                                                                { Terms.CoCopy (Terms.obj_to_polynomial t)}
-  | Trace LPAREN t = term RPAREN                                                                 { Terms.Trace(t) }
+  | Discard LPAREN t = object_type RPAREN                                                               { Terms.Discard (Terms.obj_to_polynomial t)}
+  | CoDiscard LPAREN t = object_type RPAREN                                                             { Terms.CoDiscard (Terms.obj_to_polynomial t)}
+  | Trace LPAREN t = term RPAREN                                                                        { Terms.Trace(t) }
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
   | error {raise (Errors.ParseError "term expected")}

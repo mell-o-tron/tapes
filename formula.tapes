@@ -20,9 +20,12 @@ let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; sp
 
 let simple : term = gen(f , A, A) + gen(g, A*B, B).
 
-let gioco_dell_oca : tape = trace(trace(trace((spawn(A) ; [gen(haiVinto, A, A)]) + [gen(ciao, A, A)] + id(A))) + id(A)).
+let gioco_dell_oca : term = split(A) ; (id(A) + (copy(A) ; trace(cut(A*A) + id(A*A)))).
 
 check gioco_dell_oca.
+
+let discard_test : term = discard (A).
+let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B + A * A) ; discard (B + A * A).
 
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
@@ -40,4 +43,5 @@ set (scalex : 1.0).
 // // wrong with old alignment!
 // draw big_test_sum to "./result_examples/big_test_sum"
 
-draw gioco_dell_oca to "./result_examples/trace"
+draw discard_test to "./result_examples/discard".
+draw codiscard_test to "./result_examples/codiscard"

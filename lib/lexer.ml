@@ -47,6 +47,8 @@ let rec token lexbuf =
   | "spawn" -> Spawn
   | "copy" -> Copy
   | "cocopy" -> CoCopy
+  | "discard" -> Discard
+  | "codiscard" -> CoDiscard
   | "set" -> Set
   | white_space -> token lexbuf
   | "," -> COMMA
