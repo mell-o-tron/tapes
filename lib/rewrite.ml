@@ -1,19 +1,10 @@
 open Tapes
 open Typecheck
 
-type tape_atom =
-  | ATId of Terms.sort list list (* da vedere *)
-  | ATId0
-  | ATape of circuit
-  | ASwapPlus of (Terms.sort list * Terms.sort list)
-  | ACut of Terms.sort list
-  | ASplit of Terms.sort list
-  | ASpawn of Terms.sort list
-  | AJoin of Terms.sort list
-  | ATrace of assoc_tape
-
-and comp = Comp of tape_atom list
-and assoc_tape = Sum of comp list
+let rec tape_to_summand_list (t : tape) : tape list =
+  match t with
+  | Oplus (t1, t2) -> tape_to_summand_list t1 @ tape_to_summand_list t2
+  | _ -> [ t ]
 
 (* turns a circuit to product form *)
 let rec circuit_to_product (t : circuit) =
@@ -31,7 +22,57 @@ let rec circuit_to_product (t : circuit) =
   | Otimes (t1, t2) -> Otimes (circuit_to_product t1, circuit_to_product t2)
   | _ -> t
 
+let consume_sum_in_list l =
+  match l with
+  | [] -> []
+  | [ t ] -> [ t ]
+  | t1 :: t2 :: rest -> Oplus (t1, t2) :: rest
+
+let tape_list_to_sum (l : tape list) =
+  List.fold_right (fun t1 t2 -> Oplus (t1, t2)) l TId0 |> deep_clean_tape
+
+let rec match_tapes_by_interface (l1 : tape list) (l2 : tape list) =
+  match (l1, l2) with
+  | [], [] -> []
+  | [ t1 ], l2 ->
+      let t2 = tape_list_to_sum l2 in
+      if tape_typecheck (TCompose (t1, t2)) then [ TCompose (t1, t2) ]
+      else failwith "incompatible interfaces in matching"
+  | l1, [ t2 ] ->
+      let t1 = tape_list_to_sum l1 in
+      if tape_typecheck (TCompose (t1, t2)) then [ TCompose (t1, t2) ]
+      else failwith "incompatible interfaces in matching"
+  | t1 :: r1, t2 :: r2 ->
+      let coar1 = tape_coarity t1 in
+      let ar2 = tape_arity t2 in
+
+      if coar1 = [] then t1 :: match_tapes_by_interface r1 l2
+      else if ar2 = [] then t2 :: match_tapes_by_interface l1 r2
+      else if tape_typecheck (TCompose (t1, t2)) then
+        TCompose (t1, t2) :: match_tapes_by_interface r1 r2
+      else if coar1 > ar2 then
+        match_tapes_by_interface l1 (consume_sum_in_list l2)
+      else match_tapes_by_interface (consume_sum_in_list l1) l2
+  | _ -> failwith "should be unreachable"
+
 (* turns a tape to sum form *)
+let rec tape_to_sum_new (t : tape) =
+  let rec tape_to_sum_aux (t : tape) =
+    match t with
+    | TCompose (Oplus (t1, t2), Oplus (t3, t4)) ->
+        match_tapes_by_interface
+          (Oplus (t1, t2) |> tape_to_summand_list)
+          (Oplus (t3, t4) |> tape_to_summand_list)
+        |> tape_list_to_sum
+    | TCompose (t1, t2) -> TCompose (tape_to_sum_aux t1, tape_to_sum_aux t2)
+    | Oplus (t1, t2) -> Oplus (tape_to_sum_aux t1, tape_to_sum_aux t2)
+    | Trace t1 -> Trace (tape_to_sum_aux t1)
+    | _ -> t
+  in
+  (* this is probably not needed, but "meglio ave' paura che buscanne" *)
+  let res = tape_to_sum_aux t in
+  if res = t then res else tape_to_sum_new res
+
 let rec tape_to_sum (t : tape) =
   let rec tape_to_sum_aux (t : tape) =
     match t with
@@ -45,39 +86,8 @@ let rec tape_to_sum (t : tape) =
             (tape_to_sum_aux (Oplus (t1, t2)), tape_to_sum_aux (Oplus (t3, t4)))
     | TCompose (t1, t2) -> TCompose (tape_to_sum_aux t1, tape_to_sum_aux t2)
     | Oplus (t1, t2) -> Oplus (tape_to_sum_aux t1, tape_to_sum_aux t2)
-    | Trace t1 -> Trace (tape_to_sum_aux t1)
     | _ -> t
   in
   (* this is probably not needed, but "meglio ave' paura che buscanne" *)
   let res = tape_to_sum_aux t in
-  if res = t then res else tape_to_sum res
-
-let rec atom_of_tape (t : tape) =
-  match t with
-  | TId l -> ATId l
-  | TId0 -> ATId0
-  | Tape c -> ATape c
-  | SwapPlus l -> ASwapPlus l
-  | Cut l -> ACut l
-  | Split l -> ASplit l
-  | Spawn l -> ASpawn l
-  | Join l -> AJoin l
-  | Trace t -> ATrace (assoc_tape_of_tape t)
-  | _ -> failwith "atom or trace expected"
-
-and comp_of_tape (t : tape) =
-  match t with
-  | TCompose (t1, t2) ->
-      let (Comp res1) = comp_of_tape t1 in
-      let (Comp res2) = comp_of_tape t2 in
-      Comp (res1 @ res2)
-  | _ -> Comp [ atom_of_tape t ]
-
-and assoc_tape_of_tape (t : tape) =
-  let t = tape_to_sum t in
-  match t with
-  | Oplus (t1, t2) ->
-      let (Sum res1) = assoc_tape_of_tape t1 in
-      let (Sum res2) = assoc_tape_of_tape t2 in
-      Sum (res1 @ res2)
-  | _ -> Sum [ comp_of_tape t ]
+  if res = t then t else tape_to_sum res

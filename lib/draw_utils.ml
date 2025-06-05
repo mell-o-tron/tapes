@@ -357,6 +357,7 @@ let tape_padding = ref 0.25
 let align_summands = ref true
 let zero_len_ids = ref false
 let old_alignment = ref false
+let wrap_trace_ids = ref false
 let scale_x = ref 1.
 let scale_y = ref 1.
 
@@ -792,8 +793,17 @@ let rec get_max_x_tape t =
   | EmptyTape (_, (x, _)) -> x
   | TapeInterface (_, (x, _), _) -> x
   | TapeTens (t1, t2) -> max (get_max_x_tape t1) (get_max_x_tape t2)
-  | EmptyInterface (Some (x, _), _) -> x
+  | EmptyInterface (_, Some (x, _)) -> x
   | EmptyInterface (None, None) -> -.infinity
+  | _ -> failwith "malformed empty interface?"
+
+let rec get_min_x_tape t =
+  match t with
+  | EmptyTape ((x, _), _) -> x
+  | TapeInterface ((x, _), _, _) -> x
+  | TapeTens (t1, t2) -> min (get_min_x_tape t1) (get_min_x_tape t2)
+  | EmptyInterface (Some (x, _), _) -> x
+  | EmptyInterface (None, None) -> infinity
   | _ -> failwith "malformed empty interface?"
 
 let rec get_summand_list t =
@@ -884,8 +894,10 @@ let rec list_sum = function [] -> 0 | x :: xs -> x + list_sum xs
 
 (* returns a list of pairs (interface, tape), matched by size *)
 let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) =
-  (* Printf.printf "====\nis:\n" ; List.iter (fun x -> print_endline (show_tape_draw_interface x)) is ;
-  Printf.printf "\nts:\n====" ; List.iter (fun x -> print_endline (show_tape x)) ts ; *)
+  Printf.printf "====\nis:\n";
+  List.iter (fun x -> print_endline (show_tape_draw_interface x)) is;
+  Printf.printf "\nts:\n====";
+  List.iter (fun x -> print_endline (show_tape x)) ts;
   if list_sum (List.map get_tape_left_interface_size ts) = List.length is then
     match ts with
     | [] -> []
@@ -941,6 +953,12 @@ let max_x_in_diags (ds : tape_geometry list) =
   |> List.map (fun (TapeGeo { right_interface; _ }) ->
          get_max_x_tape right_interface)
   |> list_max
+
+let min_x_in_diags (ds : tape_geometry list) =
+  ds
+  |> List.map (fun (TapeGeo { left_interface; _ }) ->
+         get_min_x_tape left_interface)
+  |> list_min
 
 let diag_adjust_height
     (TapeGeo { tikz; height; length; left_interface; right_interface }) =

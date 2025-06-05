@@ -1,6 +1,3 @@
-\input{./tikz_out/macros}
-\begin{document}
-
 \def\xscale{1.000000}
 \def\yscale{1.000000}
 \begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
@@ -35,7 +32,3 @@
 
 \node () at (-4.000000, 0.500000) {A};
 
-
- \end{tikzpicture}
-
-\end{document} 

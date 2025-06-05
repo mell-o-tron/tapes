@@ -121,6 +121,8 @@ let rec exec (p : program) =
           Ssr_typechecker.Draw_utils.old_alignment := not (f = 0.)
       | "scalex" -> Ssr_typechecker.Draw_utils.scale_x := f
       | "scaley" -> Ssr_typechecker.Draw_utils.scale_y := f
+      | "wrap_trace_ids" ->
+          Ssr_typechecker.Draw_utils.wrap_trace_ids := not (f = 0.)
       | _ -> ())
 
 (* prints the result of the computation *)

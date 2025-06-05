@@ -20,7 +20,9 @@ let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; sp
 
 let simple : term = gen(f , A, A) + gen(g, A*B, B).
 
-let gioco_dell_oca : term = split(A) ; (id(A) + (copy(A) ; trace(cut(A*A) + id(A*A)))).
+let gioco_dell_oca : term = trace(trace (spawn(A) + gen(f, A, A)) + gen(g, A, A)).
+
+let gioco_dell_oca_counter : term = trace(trace (cut(A) + gen(f, A, A)) + gen(g, A, A)).
 
 check gioco_dell_oca.
 
@@ -31,17 +33,23 @@ set (alignsummands : 0.0).
 set (oldalignment : 0.0).
 set (zerolenids : 1.0).
 
+set (wrap_trace_ids : 0.0).  // TODO fix bug when this is on
+
 set (scalex : 1.0).
 
+
+draw gioco_dell_oca to "./result_examples/oca".
+draw gioco_dell_oca_counter to "./result_examples/counter_oca".
+
 // show scaling controls scalex = 0.5
-// draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
+draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
 
 
-// draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
-// draw big_copy to "./result_examples/big_copy".
+draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
+draw big_copy to "./result_examples/big_copy".
 
 // // wrong with old alignment!
-// draw big_test_sum to "./result_examples/big_test_sum"
+draw big_test_sum to "./result_examples/big_test_sum".
 
 draw discard_test to "./result_examples/discard".
 draw codiscard_test to "./result_examples/codiscard"

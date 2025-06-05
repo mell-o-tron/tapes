@@ -518,7 +518,7 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
               let prev_opldist = !oplus_dist in
               oplus_dist :=
                 get_space_between_nonempty_summands geo2.left_interface;
-              let res = tikz_of_tape t1 posx posy geo1.length debug in
+              let res = tikz_of_tape t1 posx posy max_len debug in
               (* Constrain len to <= geo1.length *)
               oplus_dist := prev_opldist;
               res)
@@ -542,13 +542,19 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
                     with Failure _ -> posx)
                   +. (tape_interface_height geo1.right_interface /. 2.)
                   -. (get_tape_left_interface_height t2 /. 2.))
-                  geo2.length debug
-                (* no need to constrain length here, but appears to be better for aesthetic reasons *)
+                  max_len debug
               in
               oplus_dist := prev_opldist;
               res)
             else TapeGeo geo2
           in
+          let diff =
+            min_x_in_diags [ TapeGeo geo1 ]
+            -. min_x_in_diags [ TapeGeo geo2 ]
+            +. geo1.length
+          in
+          let diff = if diff > 0. then diff else 0. in
+          let (TapeGeo geo2) = move_tape_geometry (TapeGeo geo2) (diff, 0.0) in
 
           let adj =
             nonempty_interface_diff_centers geo1.right_interface
@@ -935,7 +941,9 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
         }
   | Trace t ->
       let (TapeGeo diag) =
-        tikz_of_tape (wrap_in_ids t) posx posy max_len debug
+        tikz_of_tape
+          (if !wrap_trace_ids then wrap_in_ids t else t)
+          posx posy max_len debug
       in
 
       let posl =
