@@ -377,11 +377,23 @@ let rec rebuild_circuit (pins : (float * float) list) : circuit_draw_interface =
   | (x, y) :: [] -> CircuitPin (x, y)
   | (x, y) :: rest -> CircuitTens (CircuitPin (x, y), rebuild_circuit rest)
 
+let rec clean_circuit_interface (c : circuit_draw_interface) =
+  match c with
+  | CircuitTens (EmptyCircuit, c1) -> clean_circuit_interface c1
+  | CircuitTens (c1, EmptyCircuit) -> clean_circuit_interface c1
+  | CircuitTens (c1, c2) ->
+      CircuitTens (clean_circuit_interface c1, clean_circuit_interface c2)
+  | CircuitPin _ | EmptyCircuit -> c
+
+let rec deep_clean_circuit_interface (c : circuit_draw_interface) =
+  let cleaned = clean_circuit_interface c in
+  if c = cleaned then cleaned else deep_clean_circuit_interface cleaned
+
 (* The normalization function: flatten then rebuild *)
 let circuit_interface_normalize (c : circuit_draw_interface) :
     circuit_draw_interface =
   let pins = flatten_circuit c in
-  rebuild_circuit pins
+  rebuild_circuit pins |> deep_clean_circuit_interface
 
 (* circuit operations: init, rev *)
 let rec circuit_interface_init (n : int) (f : int -> circuit_draw_interface) =
@@ -665,6 +677,7 @@ let rec circuit_connect_interfaces (ina : circuit_draw_interface)
         y2
       ^ circuit_connect_interfaces ina1 inb1 *)
   | _ ->
+      (* TODO maybe this is not always an error *)
       Printf.printf "======\nina: %s\n////\ninb: %s\n======="
         (show_circuit_draw_interface ina)
         (show_circuit_draw_interface inb);
@@ -687,7 +700,12 @@ let circuit_align_interfaces ri1 ri2 =
         match c with CircuitPin (_, y) -> CircuitPin (max_x, y) | _ -> c
       in
       (circuit_interface_map f ri1, circuit_interface_map f ri2)
-  | _ -> failwith "malformed circuit interface 2"
+  | _ ->
+      print_endline "error:";
+      print_endline (show_circuit_draw_interface ri1);
+      print_endline "---";
+      print_endline (show_circuit_draw_interface ri2);
+      failwith "malformed circuit interface 2"
 
 (********************************************************************************************************)
 (* Drawing Tapes *)
@@ -741,14 +759,8 @@ and get_tape_height (t : tape) =
       (!tape_padding *. 4.)
       +. (2. *. float_of_int (max 0 (n - 1)) *. !otimes_dist)
       +. !oplus_dist
-  | Trace t ->
-      let n =
-        try
-          Typecheck.tape_arity t |> List.hd
-          (* Is first element right or is it last? *) |> List.length
-        with _ ->
-          raise (Errors.TypeError "Tried to draw trace of incompatible tape. 1")
-      in
+  | Trace (l, t) ->
+      let n = l |> List.length in
       get_tape_height t
       +. (float_of_int (n - 1) *. !otimes_dist)
       +. (2. *. !tape_padding) +. !oplus_dist
@@ -778,14 +790,8 @@ let rec get_tape_left_interface_size (t : tape) =
   | TCompose (t1, _) -> get_tape_left_interface_size t1
   | Oplus (t1, t2) ->
       get_tape_left_interface_size t1 + get_tape_left_interface_size t2
-  | Trace t1 ->
-      let n =
-        try
-          Typecheck.tape_arity t1 |> List.hd
-          (* Is first element right or is it last? *) |> List.length
-        with _ ->
-          raise (Errors.TypeError "Tried to draw trace of incompatible tape.")
-      in
+  | Trace (l, t1) ->
+      let n = l |> List.length in
       get_tape_left_interface_size t1 - n
 
 let rec get_max_x_tape t =
@@ -894,10 +900,10 @@ let rec list_sum = function [] -> 0 | x :: xs -> x + list_sum xs
 
 (* returns a list of pairs (interface, tape), matched by size *)
 let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) =
-  Printf.printf "====\nis:\n";
+  (* Printf.printf "====\nis:\n";
   List.iter (fun x -> print_endline (show_tape_draw_interface x)) is;
   Printf.printf "\nts:\n====";
-  List.iter (fun x -> print_endline (show_tape x)) ts;
+  List.iter (fun x -> print_endline (show_tape x)) ts; *)
   if list_sum (List.map get_tape_left_interface_size ts) = List.length is then
     match ts with
     | [] -> []
@@ -912,13 +918,12 @@ let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) =
                "Used alignment procedure on non-alignable summands -- TODO \
                 make all summands alignable")
   else
-    raise
-      (Errors.TypeError
-         (Printf.sprintf
-            "trying to pair incompatible interface and type (lengths %d vs %d) \
-             -- should be impossible"
-            (List.length is)
-            (list_sum (List.map get_tape_left_interface_size ts))))
+    failwith
+      (Printf.sprintf
+         "trying to pair incompatible interface and type (lengths %d vs %d) -- \
+          there might be some undetected empty interfaces"
+         (List.length is)
+         (list_sum (List.map get_tape_left_interface_size ts)))
 
 (* connects two tape interfaces *)
 let tape_connect_interfaces (ina : tape_draw_interface)

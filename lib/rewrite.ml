@@ -66,7 +66,7 @@ let rec tape_to_sum_new (t : tape) =
         |> tape_list_to_sum
     | TCompose (t1, t2) -> TCompose (tape_to_sum_aux t1, tape_to_sum_aux t2)
     | Oplus (t1, t2) -> Oplus (tape_to_sum_aux t1, tape_to_sum_aux t2)
-    | Trace t1 -> Trace (tape_to_sum_aux t1)
+    | Trace (l1, t1) -> Trace (l1, tape_to_sum_aux t1)
     | _ -> t
   in
   (* this is probably not needed, but "meglio ave' paura che buscanne" *)

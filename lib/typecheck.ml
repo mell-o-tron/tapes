@@ -1,6 +1,21 @@
 open Terms
 open Tapes
 
+let rec is_prefix prefix lst =
+  match (prefix, lst) with
+  | [], _ -> true (* empty list is always a prefix *)
+  | _, [] -> false (* non‐empty prefix but main list is empty *)
+  | x :: xs, y :: ys when x = y ->
+      is_prefix xs ys (* heads match: keep checking tails *)
+  | _ -> false (* mismatch *)
+
+let rec remainder_of_prefix prefix lst =
+  match (prefix, lst) with
+  | [], ys -> ys
+  | _, [] -> [] (* prefix is longer than lst → nothing left *)
+  | x :: xs, y :: ys when x = y -> remainder_of_prefix xs ys
+  | _ -> invalid_arg "remainder_of_prefix: first argument is not a prefix"
+
 let rec arity_of_copy l =
   match l with
   | [] -> []
@@ -31,16 +46,16 @@ and arity (t : term) =
   | Cut l1 -> l1
   | Split l1 -> l1
   | Spawn _ -> []
-  | Join l1 -> l1 @ l1 (* IDK TODO check*)
+  | Join l1 -> l1 @ l1
   | Copy l1 -> l1
   | CoCopy l1 -> times_on_objects l1 l1
-  | Trace t1 -> (
+  | Trace (l1, t1) ->
       let art1 = arity t1 in
-      match art1 with
-      | _ :: b -> b
-      | [] -> raise (Errors.TypeError "Applied trace to term of empty arity"))
+      if is_prefix l1 art1 then remainder_of_prefix l1 art1
+      else
+        raise (Errors.TypeError "Applied trace to term of incompatible arity")
   | Discard l1 -> l1
-  | CoDiscard _ -> []
+  | CoDiscard _ -> [ [] ]
 
 (*  | _ -> failwith("arity not yet implemented")*)
 
@@ -77,12 +92,12 @@ and coarity (t : term) =
   | Join l1 -> l1
   | Copy l1 -> times_on_objects l1 l1
   | CoCopy l1 -> l1
-  | Trace t1 -> (
+  | Trace (l1, t1) ->
       let art1 = coarity t1 in
-      match art1 with
-      | _ :: b -> b
-      | [] -> raise (Errors.TypeError "Applied trace to term of empty coarity"))
-  | Discard _ -> []
+      if is_prefix l1 art1 then remainder_of_prefix l1 art1
+      else
+        raise (Errors.TypeError "Applied trace to term of incompatible coarity")
+  | Discard _ -> [ [] ]
   | CoDiscard l1 -> l1
 
 let print_sll (l : sort list list) =
@@ -101,13 +116,14 @@ let rec typecheck (t : term) =
   | Compose (t1, t2) -> arity t2 = coarity t1
   | Oplus (t1, t2) -> typecheck t1 && typecheck t2
   | Otimes (t1, t2) -> typecheck t1 && typecheck t2
-  | Trace t1 -> (
-      let ar = arity t1 in
-      (* Printf.printf "ar: [%s]\n" (string_of_sort_list_list ar); *)
-      let coar = coarity t1 in
-      (* Printf.printf "coar: [%s]\n" (string_of_sort_list_list coar); *)
-      try if List.hd ar = List.hd coar then typecheck t1 else false
-      with _ -> false)
+  | Trace (l, t1) ->
+      (* if the arity and coarity computations can be carried out without errors, the trace can be applied *)
+      (try
+         let _ar = arity (Trace (l, t1)) in
+         let _coar = coarity (Trace (l, t1)) in
+         true
+       with _ -> false)
+      && typecheck t1
   | _ -> true
 
 let rec circuit_arity (c : circuit) =
@@ -140,10 +156,16 @@ let rec tape_arity (t : tape) =
   | Split l1 -> [ l1 ]
   | Spawn _ -> []
   | Join l1 -> [ l1; l1 ]
-  | Trace t1 -> (
+  | Trace (l1, t1) -> (
       let art1 = tape_arity t1 in
       match art1 with
-      | _ :: b -> b
+      | u :: b ->
+          if u = l1 then b
+          else
+            raise
+              (Errors.TypeError
+                 (Printf.sprintf "Incompatible trace types %s and %s"
+                    (pp_sort_list u) (pp_sort_list l1)))
       | [] -> raise (Errors.TypeError "Applied trace to tape of empty arity"))
 
 let rec tape_coarity (t : tape) =
@@ -158,10 +180,16 @@ let rec tape_coarity (t : tape) =
   | Split l1 -> [ l1; l1 ]
   | Spawn l1 -> [ l1 ]
   | Join l1 -> [ l1 ]
-  | Trace t1 -> (
+  | Trace (l1, t1) -> (
       let coart1 = tape_coarity t1 in
       match coart1 with
-      | _ :: b -> b
+      | u :: b ->
+          if u = l1 then b
+          else
+            raise
+              (Errors.TypeError
+                 (Printf.sprintf "Incompatible trace types %s and %s"
+                    (pp_sort_list u) (pp_sort_list l1)))
       | [] -> raise (Errors.TypeError "Applied trace to tape of empty coarity"))
 
 (* checks if arity and coarity match in compositions *)
@@ -180,11 +208,13 @@ let rec tape_typecheck (t : tape) =
   | TCompose (t1, t2) -> tape_arity t2 = tape_coarity t1
   | Oplus (t1, t2) -> tape_typecheck t1 && tape_typecheck t2
   | Tape c1 -> circuit_typecheck c1
-  | Trace t1 -> (
+  | Trace (l1, t1) -> (
       let ar = tape_arity t1 in
       (* Printf.printf "ar: [%s]\n" (string_of_sort_list_list ar); *)
       let coar = tape_coarity t1 in
       (* Printf.printf "coar: [%s]\n" (string_of_sort_list_list coar); *)
-      try if List.hd ar = List.hd coar then tape_typecheck t1 else false
+      try
+        if List.hd ar = List.hd coar && List.hd coar = l1 then tape_typecheck t1
+        else false
       with _ -> false)
   | _ -> true

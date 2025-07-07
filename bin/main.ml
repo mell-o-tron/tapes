@@ -2,7 +2,9 @@
 open Ssr_typechecker.Typecheck
 open Ssr_typechecker.Term_to_tape
 open Ssr_typechecker.Tapes
+open Ssr_typechecker.Terms
 open Ssr_typechecker.Ast
+open Ssr_typechecker.Imp
 open Ssr_typechecker.Errors
 open ANSITerminal
 
@@ -41,11 +43,17 @@ let rec typecheck_command (e : expr) =
   match e with
   | Tape t ->
       printf [] "Tape typecheck result:\t%s\n"
-        (if tape_typecheck t then sprintf [ green ] "true ✅"
+        (if tape_typecheck t then
+           sprintf [ green ] "true ✅ -- %s 🡒 %s"
+             (tape_arity t |> obj_of_polynomial |> pp_object)
+             (tape_coarity t |> obj_of_polynomial |> pp_object)
          else sprintf [ red; Bold ] "false ❌")
   | Term t ->
       printf [] "Term typecheck result:\t%s\n"
-        (if typecheck t then sprintf [ green ] "true ✅"
+        (if typecheck t then
+           sprintf [ green ] "true ✅ -- %s 🡒 %s"
+             (arity t |> obj_of_polynomial |> pp_object)
+             (coarity t |> obj_of_polynomial |> pp_object)
          else sprintf [ red; Bold ] "false ❌")
   | Var id ->
       if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id)
@@ -128,6 +136,12 @@ let rec exec (p : program) =
 (* prints the result of the computation *)
 
 let main () =
+  let t =
+    eval_pred
+      [ ("x", "int"); ("y", "int") ]
+      (Or (Rel ("R", [ Var "x"; Var "y" ], false), Bottom))
+  in
+  let _ = Hashtbl.add env "pred_test" (Term t) in
   try
     let p = ast_of_channel inchn in
     exec p

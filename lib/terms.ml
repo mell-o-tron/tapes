@@ -19,6 +19,26 @@ type obj =
   | Ob1
 [@@deriving show]
 
+let rec clean_obj = function
+  | Obtimes (x, y) -> (
+      let x = clean_obj x and y = clean_obj y in
+      match (x, y) with _, Ob1 -> x | Ob1, _ -> y | _ -> Obtimes (x, y))
+  | Obplus (x, y) -> (
+      let x = clean_obj x and y = clean_obj y in
+      match (x, y) with _, Ob0 -> x | Ob0, _ -> y | _ -> Obplus (x, y))
+  | S s -> S s
+  | Ob0 -> Ob0
+  | Ob1 -> Ob1
+
+let rec pp_object ob =
+  let ob = clean_obj ob in
+  match ob with
+  | S s -> s
+  | Ob0 -> "0"
+  | Ob1 -> "1"
+  | Obtimes (a, b) -> "(" ^ pp_object a ^ " ⊗  " ^ pp_object b ^ ")"
+  | Obplus (a, b) -> "(" ^ pp_object a ^ " ⊕  " ^ pp_object b ^ ")"
+
 type term =
   | Id of sort list list
   | GenVar of string
@@ -37,7 +57,7 @@ type term =
   | Discard of sort list list
   | CoCopy of sort list list
   | CoDiscard of sort list list
-  | Trace of term
+  | Trace of sort list list * term
 [@@deriving show]
 
 let _print_type t =
@@ -105,9 +125,6 @@ let rec sort_prod_to_list (ob : obj) =
   | Obplus _ | Ob0 ->
       raise (Errors.TypeError "expected product of sorts, got non-product type")
 
-(*
- - def 4.5 distributore
- - 4.6 swap del * (su polinomi - su monomi è come il multiSwap di prima)
- - funzione multiswap -> swap polimorfa
- -
-*)
+let rec multi_copy n u =
+  if n = 0 then Discard u
+  else Compose (Copy u, Otimes (multi_copy (n - 1) u, Id u))

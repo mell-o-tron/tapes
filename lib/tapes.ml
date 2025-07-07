@@ -13,7 +13,7 @@ type tape =
   | Tape of circuit
   | TCompose of tape * tape
   | Oplus of tape * tape
-  | Trace of tape
+  | Trace of Terms.sort list * tape
   | SwapPlus of (Terms.sort list * Terms.sort list)
   | Cut of Terms.sort list
   | Split of Terms.sort list
@@ -55,7 +55,8 @@ let rec pp_tape (t : tape) : string =
   | Split lst -> Printf.sprintf "Split(%s)" (pp_sort_list lst)
   | Spawn lst -> Printf.sprintf "Spawn(%s)" (pp_sort_list lst)
   | Join lst -> Printf.sprintf "Join(%s)" (pp_sort_list lst)
-  | Trace t -> Printf.sprintf "Tr(%s)" (pp_tape t)
+  | Trace (lst, t) ->
+      Printf.sprintf "Tr_{%s}(%s)" (pp_sort_list lst) (pp_tape t)
 
 (* remove redundant identities *)
 let rec clean_circuit (c : circuit) =

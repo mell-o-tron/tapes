@@ -94,7 +94,7 @@ let rec left_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (u @ v)
   | Cut v -> Cut (u @ v)
   | Spawn v -> Spawn (u @ v)
-  | Trace t -> Trace (left_whiskering_mon u t)
+  | Trace (v, t) -> Trace (u @ v, left_whiskering_mon u t)
 
 let rec right_whiskering_mon (u : sort list) (t : tape) =
   match t with
@@ -112,7 +112,7 @@ let rec right_whiskering_mon (u : sort list) (t : tape) =
   | Join v -> Join (v @ u)
   | Cut v -> Cut (v @ u)
   | Spawn v -> Spawn (v @ u)
-  | Trace t -> Trace (right_whiskering_mon u t)
+  | Trace (v, t) -> Trace (v @ u, right_whiskering_mon u t)
 
 let rec left_whiskering (u : sort list list) (t : tape) =
   match u with
@@ -138,7 +138,7 @@ let rec tape_inverse (t : tape) =
   | Cut l -> Spawn l
   | Join l -> Split l
   | Split l -> Join l
-  | Trace t1 -> Trace (tape_inverse t1)
+  | Trace (l, t1) -> Trace (l, tape_inverse t1)
 
 let rec right_whiskering (u : sort list list) (t : tape) =
   let p = Typecheck.tape_arity t in
@@ -246,7 +246,11 @@ let codiscard_to_tape (l : sort list list) : tape =
   let l = List.map (fun x -> Tape (codiscard_to_tape_mon x)) l in
   List.fold_right (fun x y -> Oplus (x, y)) l TId0 |> deep_clean_tape
 
-(* converts term into tape (when possible) *)
+(** Transforms polynomial trace of term to nested monomial trace of tape *)
+let iterate_trace (l : sort list list) (t : tape) : tape =
+  List.fold_left (fun t1 u -> Trace (u, t1)) t (List.rev l)
+
+(** converts term into tape (when possible) *)
 let rec _to_tape (t : term) =
   match t with
   | Id l -> id_to_tape l
@@ -274,7 +278,7 @@ let rec _to_tape (t : term) =
   | Cut l -> cut_to_tape l
   | Copy l -> copy_to_tape l
   | CoCopy l -> cocopy_to_tape l
-  | Trace t -> Trace (_to_tape t)
+  | Trace (l, t) -> iterate_trace l (_to_tape t)
   | Discard l -> discard_to_tape l
   | CoDiscard l -> codiscard_to_tape l
 

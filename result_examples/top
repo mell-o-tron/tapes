@@ -1,0 +1,8 @@
+\def\xscale{1.000000}
+\def\yscale{1.000000}
+\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
+\cuttape {0.000000} {0.000000} {1} {0.500000} {0.500000}
+
+
+\node () at (-0.500000, 0.500000) {X};
+

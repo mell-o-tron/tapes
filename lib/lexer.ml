@@ -46,6 +46,7 @@ let rec token lexbuf =
   | "join" -> Join
   | "spawn" -> Spawn
   | "copy" -> Copy
+  | "multicopy" -> MultiCopy
   | "cocopy" -> CoCopy
   | "discard" -> Discard
   | "codiscard" -> CoDiscard

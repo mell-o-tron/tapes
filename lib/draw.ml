@@ -125,15 +125,35 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           debug id_zero_width
       in
 
-      let ri1_aligned, ri2_aligned = circuit_align_interfaces ri1 ri2 in
+      (* print_endline "===";
+      print_endline (pp_circuit t1);
+      print_endline "---";
+      print_endline (pp_circuit t2);
+      print_endline "==="; *)
+      let rec is_all_empty intf =
+        match intf with
+        | EmptyCircuit -> true
+        | CircuitTens (intf1, EmptyCircuit) -> is_all_empty intf1
+        | CircuitTens (EmptyCircuit, intf1) -> is_all_empty intf1
+        | CircuitTens (intf1, intf2) -> is_all_empty intf1 && is_all_empty intf2
+        | _ -> false
+      in
 
+      let ri1_aligned, ri2_aligned =
+        if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
+          circuit_align_interfaces ri1 ri2
+        else (ri1, ri2)
+      in
+      let connections =
+        if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
+          circuit_connect_interfaces ri1 ri1_aligned
+          @ circuit_connect_interfaces ri2 ri2_aligned
+        else []
+      in
       (* TODO perform check to avoid redundant connections *)
       CircGeo
         {
-          tikz =
-            diag1 @ diag2
-            @ circuit_connect_interfaces ri1 ri1_aligned
-            @ circuit_connect_interfaces ri2 ri2_aligned;
+          tikz = diag1 @ diag2 @ connections;
           height = h1 +. h2 +. !otimes_dist;
           length = max l1 l2;
           left_interface = CircuitTens (li1, li2);
@@ -319,8 +339,261 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           right_interface = EmptyCircuit;
         }
 
-(* returns a string of latex macros representing the tape diagram *)
-let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
+let rec draw_oplus t1 t2 posx posy max_len debug =
+  let (TapeGeo geo2) = tikz_of_tape t2 posx posy max_len debug in
+  let (TapeGeo geo1) =
+    tikz_of_tape t1 posx (posy +. geo2.height +. !oplus_dist) max_len debug
+  in
+
+  let get_tape_blocks bl = match bl with TB tb -> Some tb | _ -> None in
+
+  let top_of_below =
+    if !old_alignment then
+      max
+        (snd (top_of_tape_interface geo2.left_interface))
+        (snd (top_of_tape_interface geo2.right_interface))
+    else top_of_tape_blocks (List.filter_map get_tape_blocks geo2.tikz)
+  in
+  let base_of_above =
+    if !old_alignment then
+      min
+        (snd (base_of_tape_interface geo1.left_interface))
+        (snd (base_of_tape_interface geo1.right_interface))
+    else base_of_tape_blocks (List.filter_map get_tape_blocks geo1.tikz)
+  in
+
+  (* check for intersection of drawn diagrams *)
+  let (TapeGeo geo1) =
+    if top_of_below +. !oplus_dist > base_of_above then
+      let adj = top_of_below +. !oplus_dist -. base_of_above in
+      move_tape_geometry (TapeGeo geo1) (0., adj)
+    else TapeGeo geo1
+  in
+
+  let ri1_aligned, ri2_aligned =
+    tape_align_interfaces geo1.right_interface geo2.right_interface
+  in
+
+  TapeGeo
+    {
+      tikz =
+        geo1.tikz @ geo2.tikz
+        @ tape_connect_interfaces geo1.right_interface ri1_aligned
+        @ tape_connect_interfaces geo2.right_interface ri2_aligned;
+      height = geo1.height +. geo2.height +. !oplus_dist;
+      length = max geo1.length geo2.length;
+      left_interface = TapeTens (geo1.left_interface, geo2.left_interface);
+      right_interface = TapeTens (ri1_aligned, ri2_aligned);
+    }
+
+and draw_tape_composition t1 t2 posx posy max_len debug =
+  if is_tape_identity t1 then tikz_of_tape t2 posx posy max_len debug
+  else if is_tape_identity t2 then tikz_of_tape t1 posx posy max_len debug
+  else
+    let offset = 0.5 in
+    (* draw the left diagram *)
+    let (TapeGeo geo1) = tikz_of_tape t1 posx posy max_len debug in
+
+    (* bring the right tape to sum form, then get a list of the summands*)
+    let t2_to_sum = deep_clean_tape (tape_to_sum t2) in
+    let summand_list = get_summand_list t2_to_sum in
+
+    (* check if the summand list is alignable, i.e. (for now) if all summands have non-void arity *)
+    let alignable = List.for_all (fun x -> tape_arity x != []) summand_list in
+
+    if alignable && !align_summands then (
+      try
+        aligned_tape_composition posy (TapeGeo geo1) offset summand_list max_len
+          debug
+      with Failure _ ->
+        printf [ yellow ]
+          "Could not apply aligned composition, reverting to non-aligned.\n";
+        non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset
+          max_len debug)
+    else
+      non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
+        debug
+(* let _ = printf [ red ] "debug: NON aligned composition\n" in *)
+
+and align_interface_centers intf1 intf2 posx =
+  (try snd (base_of_tape_interface intf1) with Failure _ -> posx)
+  +. (tape_interface_height intf1 /. 2.)
+  -. (tape_interface_height intf2 /. 2.)
+
+and aligned_tape_composition posy (TapeGeo geo1) offset summand_list max_len
+    debug =
+  let _ = printf [ blue ] "debug: aligned composition\n" in
+
+  let rintf_list = list_of_tape_interface geo1.right_interface in
+  let intf_tape_pair = pair_intfs_tapes rintf_list summand_list in
+  let intf_geo_pair =
+    List.map
+      (fun (intf, t) ->
+        (intf, tikz_of_tape t (get_max_x_tape intf) 0. max_len debug))
+      intf_tape_pair
+  in
+
+  let offset_multipliers =
+    List.map
+      (fun (intf, TapeGeo geo) ->
+        abs_float
+          (tape_interface_height intf
+          -. tape_interface_height geo.left_interface)
+        +. 0.25)
+      intf_geo_pair
+  in
+
+  let max_in_float_list = List.fold_left (fun m1 m2 -> max m1 m2) min_float in
+  let min_in_float_list = List.fold_left (fun m1 m2 -> min m1 m2) max_float in
+
+  let offset_multiplier = max_in_float_list offset_multipliers in
+
+  let intf_geo_pair =
+    List.map
+      (fun (intf, TapeGeo geo) ->
+        ( intf,
+          move_tape_geometry (TapeGeo geo)
+            ( offset_multiplier,
+              align_interface_centers intf geo.left_interface posy ) ))
+      intf_geo_pair
+  in
+
+  let diag_top =
+    List.map
+      (fun (_, TapeGeo geo) -> top_of_tape_blocks (get_tape_blocks geo.tikz))
+      intf_geo_pair
+    |> max_in_float_list
+  in
+
+  let diag_bot =
+    List.map
+      (fun (_, TapeGeo geo) -> base_of_tape_blocks (get_tape_blocks geo.tikz))
+      intf_geo_pair
+    |> min_in_float_list
+  in
+
+  let diag_height = diag_top -. diag_bot in
+
+  let diag_len =
+    List.map (fun (_, TapeGeo geo) -> geo.length) intf_geo_pair
+    |> min_in_float_list
+  in
+
+  let diag_rintf =
+    List.map (fun (_, TapeGeo geo) -> geo.right_interface) intf_geo_pair
+    |> tape_interface_of_list
+  in
+
+  (* ADD INTERSECTION CHECK HERE *)
+  TapeGeo
+    {
+      tikz =
+        (List.map
+           (fun (intf, TapeGeo geo) ->
+             tape_connect_interfaces intf geo.left_interface)
+           intf_geo_pair
+        |> List.flatten)
+        @ geo1.tikz
+        @ (List.map (fun (_, TapeGeo geo) -> geo.tikz) intf_geo_pair
+          |> List.flatten);
+      height = max geo1.height diag_height;
+      length = geo1.length +. diag_len +. (offset *. offset_multiplier);
+      left_interface = geo1.left_interface;
+      right_interface = diag_rintf;
+    }
+
+and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
+    debug =
+  (* draw geo2 in dummy position, to gather its interface height *)
+  let (TapeGeo geo2) = tikz_of_tape t2 0.0 0.0 max_len debug in
+
+  let offset_multiplier =
+    abs_float
+      (tape_interface_height geo1.right_interface
+      -. tape_interface_height geo2.left_interface)
+    +. 0.25
+  in
+
+  (* redraw geo2, with correct tape alignment *)
+  let (TapeGeo geo2) =
+    tikz_of_tape t2
+      (posx +. geo1.length +. (offset *. offset_multiplier))
+      (align_interface_centers geo1.right_interface geo2.left_interface posy)
+      max_len debug
+  in
+
+  (* align spacing between binary tape: case spacing(t1) < spacing(t2) *)
+  let (TapeGeo geo1) =
+    if
+      is_interface_binary geo1.right_interface
+      && is_interface_binary geo2.left_interface
+      && get_space_between_nonempty_summands geo1.right_interface
+         < get_space_between_nonempty_summands geo2.left_interface
+    then (
+      let prev_opldist = !oplus_dist in
+      oplus_dist := get_space_between_nonempty_summands geo2.left_interface;
+      let res = tikz_of_tape t1 posx posy max_len debug in
+      (* Constrain len to <= geo1.length ? *)
+      oplus_dist := prev_opldist;
+      res)
+    else TapeGeo geo1
+  in
+
+  (* align spacing between binary tape: case spacing(t1) > spacing(t2) *)
+  let (TapeGeo geo2) =
+    if
+      is_interface_binary geo1.right_interface
+      && is_interface_binary geo2.left_interface
+      && get_space_between_nonempty_summands geo1.right_interface
+         > get_space_between_nonempty_summands geo2.left_interface
+    then (
+      let prev_opldist = !oplus_dist in
+      oplus_dist := get_space_between_nonempty_summands geo1.right_interface;
+      let res =
+        tikz_of_tape t2
+          (posx +. geo1.length +. (offset *. offset_multiplier))
+          ((try snd (base_of_tape_interface geo1.right_interface)
+            with Failure _ -> posx)
+          +. (tape_interface_height geo1.right_interface /. 2.)
+          -. (get_tape_left_interface_height t2 /. 2.))
+          max_len debug
+      in
+      oplus_dist := prev_opldist;
+      res)
+    else TapeGeo geo2
+  in
+
+  (* horizontal adjustment *)
+  let diff =
+    min_x_in_diags [ TapeGeo geo1 ]
+    -. min_x_in_diags [ TapeGeo geo2 ]
+    +. geo1.length
+  in
+  let diff = if diff > 0. then diff else 0. in
+  let (TapeGeo geo2) = move_tape_geometry (TapeGeo geo2) (diff, 0.0) in
+
+  (* vertical adjustment *)
+  let adj =
+    if
+      is_interface_nonempty geo1.right_interface
+      && is_interface_nonempty geo1.left_interface
+    then
+      nonempty_interface_diff_centers geo1.right_interface geo2.left_interface
+    else 0.
+  in
+  let (TapeGeo geo2) = move_tape_geometry (TapeGeo geo2) (0., adj) in
+  TapeGeo
+    {
+      tikz =
+        tape_connect_interfaces geo1.right_interface geo2.left_interface
+        @ geo1.tikz @ geo2.tikz;
+      height = max geo1.height geo2.height;
+      length = geo1.length +. geo2.length +. (offset *. offset_multiplier);
+      left_interface = geo1.left_interface;
+      right_interface = geo2.right_interface;
+    }
+
+and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
   let t = tape_to_sum t in
   match t with
@@ -367,266 +640,10 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
                 (posx +. l, posy +. h +. (2. *. !tape_padding)),
                 ri );
         }
-  | TCompose (t1, t2) ->
-      if is_tape_identity t1 then tikz_of_tape t2 posx posy max_len debug
-      else if is_tape_identity t2 then tikz_of_tape t1 posx posy max_len debug
-      else
-        let offset = 0.5 in
-        (* draw the left diagram *)
-        let (TapeGeo geo1) = tikz_of_tape t1 posx posy max_len debug in
-
-        (* bring the right tape to sum form, then get a list of the summands*)
-        let t2_to_sum = deep_clean_tape (tape_to_sum t2) in
-        let summand_list = get_summand_list t2_to_sum in
-
-        (* check if the summand list is alignable, i.e. (for now) if all summands have non-void arity *)
-        let alignable =
-          List.for_all (fun x -> tape_arity x != []) summand_list
-        in
-        if alignable && !align_summands then
-          let _ = printf [ blue ] "debug: aligned composition\n" in
-
-          let rintf_list = list_of_tape_interface geo1.right_interface in
-          let intf_tape_pair = pair_intfs_tapes rintf_list summand_list in
-
-          (* assigns summand index with associated horizontal offset *)
-          let offset_tbl = Hashtbl.create 10 in
-
-          let draw_on_intf (i : int) pair =
-            (* the distance between the componends is proportional to the difference between the two tape heights *)
-            let offset_multiplier =
-              abs_float
-                (tape_interface_height geo1.right_interface
-                -. get_tape_left_interface_height t2)
-              +. 0.25
-            in
-            (* Adds offset to offset table - this is used to compute the length later *)
-            Hashtbl.add offset_tbl i (offset *. offset_multiplier);
-            (* ri1 is the right interface to which we want to align the drawing of tape t *)
-            let ri1, t = pair in
-            let (TapeGeo
-                   {
-                     tikz = d;
-                     height = h;
-                     length = l;
-                     left_interface = li;
-                     right_interface = ri;
-                   }) =
-              tikz_of_tape t
-                (posx +. geo1.length +. (offset *. offset_multiplier))
-                (* some interfaces don't have a base, e.g. the empty ones. TODO they should right? *)
-                ((try snd (base_of_tape_interface ri1) with Failure _ -> posx)
-                +. (tape_interface_height ri1 /. 2.)
-                -. (get_tape_left_interface_height t /. 2.))
-                max_len debug
-            in
-
-            TapeGeo
-              {
-                tikz = tape_connect_interfaces ri1 li @ d;
-                height = h;
-                length = l;
-                left_interface = li;
-                right_interface = ri;
-              }
-          in
-
-          (* draw each summand separately *)
-          let diags =
-            List.mapi (fun i x -> (i, draw_on_intf i x)) intf_tape_pair
-          in
-          let max_x_d = max_x_in_diags (List.map snd diags) in
-          let diags =
-            List.map
-              (fun ( i,
-                     TapeGeo
-                       {
-                         tikz = d;
-                         height = h;
-                         length = l;
-                         left_interface = li;
-                         right_interface = ri;
-                       } ) ->
-                let ri_aligned = align_tape_interface_to_x ri max_x_d in
-                ( i,
-                  diag_adjust_height
-                    (TapeGeo
-                       {
-                         tikz = d @ tape_connect_interfaces ri ri_aligned;
-                         height = h;
-                         length = l;
-                         left_interface = li;
-                         right_interface = ri;
-                       }) ))
-              diags
-          in
-          match
-            List.fold_right stack_diagrams diags (69, [], 0., 0., None, None)
-          with
-          | i, diag, h, l, Some _li, Some ri ->
-              let offset = Hashtbl.find offset_tbl i in
-              TapeGeo
-                {
-                  tikz = geo1.tikz @ diag;
-                  height = max geo1.height h;
-                  length = geo1.length +. l +. offset;
-                  left_interface = geo1.left_interface;
-                  right_interface = ri;
-                }
-          | _ -> failwith "There has been some mistake idk"
-        else
-          let _ = printf [ red ] "debug: NON aligned composition\n" in
-          let offset_multiplier =
-            abs_float
-              (tape_interface_height geo1.right_interface
-              -. get_tape_left_interface_height t2)
-            +. 0.25
-          in
-          let (TapeGeo geo2) =
-            tikz_of_tape t2
-              (posx +. geo1.length +. (offset *. offset_multiplier))
-              ((try snd (base_of_tape_interface geo1.right_interface)
-                with Failure _ -> posx)
-              +. (tape_interface_height geo1.right_interface /. 2.)
-              -. (get_tape_left_interface_height t2 /. 2.))
-              max_len debug
-          in
-          (* redraw geo2, with correct tape alignment *)
-          let (TapeGeo geo2) =
-            tikz_of_tape t2
-              (posx +. geo1.length +. (offset *. offset_multiplier))
-              ((try snd (base_of_tape_interface geo1.right_interface)
-                with Failure _ -> posx)
-              +. (tape_interface_height geo1.right_interface /. 2.)
-              -. (tape_interface_height geo2.left_interface /. 2.))
-              max_len debug
-          in
-          (* let c1 = nonempty_interface_center ri1 in
-          let c2 = nonempty_interface_center geo2.left_interface in
-          let t1 = nonempty_interface_top ri1 in
-          let b1 = nonempty_interface_base ri1 in
-          let t2 = nonempty_interface_top geo2.left_interface in
-          let b2 = nonempty_interface_base geo2.left_interface in *)
-
-          let (TapeGeo geo1) =
-            if
-              is_interface_binary geo1.right_interface
-              && is_interface_binary geo2.left_interface
-              && get_space_between_nonempty_summands geo1.right_interface
-                 < get_space_between_nonempty_summands geo2.left_interface
-            then (
-              let prev_opldist = !oplus_dist in
-              oplus_dist :=
-                get_space_between_nonempty_summands geo2.left_interface;
-              let res = tikz_of_tape t1 posx posy max_len debug in
-              (* Constrain len to <= geo1.length *)
-              oplus_dist := prev_opldist;
-              res)
-            else TapeGeo geo1
-          in
-
-          let (TapeGeo geo2) =
-            if
-              is_interface_binary geo1.right_interface
-              && is_interface_binary geo2.left_interface
-              && get_space_between_nonempty_summands geo1.right_interface
-                 > get_space_between_nonempty_summands geo2.left_interface
-            then (
-              let prev_opldist = !oplus_dist in
-              oplus_dist :=
-                get_space_between_nonempty_summands geo1.right_interface;
-              let res =
-                tikz_of_tape t2
-                  (posx +. geo1.length +. (offset *. offset_multiplier))
-                  ((try snd (base_of_tape_interface geo1.right_interface)
-                    with Failure _ -> posx)
-                  +. (tape_interface_height geo1.right_interface /. 2.)
-                  -. (get_tape_left_interface_height t2 /. 2.))
-                  max_len debug
-              in
-              oplus_dist := prev_opldist;
-              res)
-            else TapeGeo geo2
-          in
-          let diff =
-            min_x_in_diags [ TapeGeo geo1 ]
-            -. min_x_in_diags [ TapeGeo geo2 ]
-            +. geo1.length
-          in
-          let diff = if diff > 0. then diff else 0. in
-          let (TapeGeo geo2) = move_tape_geometry (TapeGeo geo2) (diff, 0.0) in
-
-          let adj =
-            nonempty_interface_diff_centers geo1.right_interface
-              geo2.left_interface
-          in
-          let (TapeGeo geo2) = move_tape_geometry (TapeGeo geo2) (0., adj) in
-          TapeGeo
-            {
-              tikz =
-                tape_connect_interfaces geo1.right_interface geo2.left_interface
-                @ geo1.tikz @ geo2.tikz
-                (* @ debug_get_tape_interface ri1 "red"
-                @ debug_get_tape_interface geo2.left_interface "blue"
-                @ [ DebugNode { pos = c1; text = "c1" } ]
-                @ [ DebugNode { pos = c2; text = "c2" } ]
-                @ [ DebugNode { pos = t1; text = "t1" } ]
-                @ [ DebugNode { pos = b1; text = "b1" } ]
-                @ [ DebugNode { pos = t2; text = "t2" } ]
-                @ [ DebugNode { pos = b2; text = "b2" } ]; *);
-              height = max geo1.height geo2.height;
-              length =
-                geo1.length +. geo2.length +. (offset *. offset_multiplier);
-              left_interface = geo1.left_interface;
-              right_interface = geo2.right_interface;
-            }
+  | TCompose (t1, t2) -> draw_tape_composition t1 t2 posx posy max_len debug
   | Oplus (TId0, t2) -> tikz_of_tape t2 posx posy max_len debug
   | Oplus (t1, TId0) -> tikz_of_tape t1 posx posy max_len debug
-  | Oplus (t1, t2) ->
-      let (TapeGeo geo2) = tikz_of_tape t2 posx posy max_len debug in
-      let (TapeGeo geo1) =
-        tikz_of_tape t1 posx (posy +. geo2.height +. !oplus_dist) max_len debug
-      in
-
-      let get_tape_blocks bl = match bl with TB tb -> Some tb | _ -> None in
-
-      let top_of_below =
-        if !old_alignment then
-          max
-            (snd (top_of_tape_interface geo2.left_interface))
-            (snd (top_of_tape_interface geo2.right_interface))
-        else top_of_tape_blocks (List.filter_map get_tape_blocks geo2.tikz)
-      in
-      let base_of_above =
-        if !old_alignment then
-          min
-            (snd (base_of_tape_interface geo1.left_interface))
-            (snd (base_of_tape_interface geo1.right_interface))
-        else base_of_tape_blocks (List.filter_map get_tape_blocks geo1.tikz)
-      in
-
-      let (TapeGeo geo1) =
-        if top_of_below +. !oplus_dist > base_of_above then
-          let adj = top_of_below +. !oplus_dist -. base_of_above in
-          move_tape_geometry (TapeGeo geo1) (0., adj)
-        else TapeGeo geo1
-      in
-
-      let ri1_aligned, ri2_aligned =
-        tape_align_interfaces geo1.right_interface geo2.right_interface
-      in
-
-      TapeGeo
-        {
-          tikz =
-            geo1.tikz @ geo2.tikz
-            @ tape_connect_interfaces geo1.right_interface ri1_aligned
-            @ tape_connect_interfaces geo2.right_interface ri2_aligned;
-          height = geo1.height +. geo2.height +. !oplus_dist;
-          length = max geo1.length geo2.length;
-          left_interface = TapeTens (geo1.left_interface, geo2.left_interface);
-          right_interface = TapeTens (ri1_aligned, ri2_aligned);
-        }
+  | Oplus (t1, t2) -> draw_oplus t1 t2 posx posy max_len debug
   | SwapPlus (l1, l2) ->
       let len1, len2 = (List.length l1, List.length l2) in
       (* TODO check if this works correctly *)
@@ -939,7 +956,7 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
                 (posx +. l, posy +. h +. base_left),
                 circuit_interface_of_list lil );
         }
-  | Trace t ->
+  | Trace (_l, t) ->
       let (TapeGeo diag) =
         tikz_of_tape
           (if !wrap_trace_ids then wrap_in_ids t else t)
@@ -1008,8 +1025,12 @@ let rec tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
 
 let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
     (ar : string list list) (coar : string list list) =
-  let ri_flattened = List.map (fun (x, y) -> (x -. 0.5, y)) (flatten_tape ri) in
-  let li_flattened = List.map (fun (x, y) -> (x +. 0.5, y)) (flatten_tape li) in
+  let ri_flattened =
+    List.map (fun (x, y) -> (x -. (0.5 /. !scale_x), y)) (flatten_tape ri)
+  in
+  let li_flattened =
+    List.map (fun (x, y) -> (x +. (0.5 /. !scale_x), y)) (flatten_tape li)
+  in
   let ar_flattened = List.flatten ar in
   let coar_flattened = List.flatten coar in
 
@@ -1044,7 +1065,7 @@ let draw_circuit (ast : circuit) (path : string) =
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
 let draw_tape (ast : tape) (path : string) =
-  print_endline (pp_tape ast);
+  (* print_endline (pp_tape ast); *)
   match
     tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) 0. 0. infinity false
   with

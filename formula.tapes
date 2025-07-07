@@ -20,36 +20,48 @@ let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; sp
 
 let simple : term = gen(f , A, A) + gen(g, A*B, B).
 
-let gioco_dell_oca : term = trace(trace (spawn(A) + gen(f, A, A)) + gen(g, A, A)).
-
-let gioco_dell_oca_counter : term = trace(trace (cut(A) + gen(f, A, A)) + gen(g, A, A)).
-
-check gioco_dell_oca.
+let banana : term = trace(A*B, (spawn(A*B) + id(A*B) + id(A*B)) ; s+(A*B + A*B, A*B)).
 
 let discard_test : term = discard (A).
 let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B + A * A) ; discard (B + A * A).
 
+
+let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
+let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).
+
+// ===
+// (Gen(discard, [int], []) ⊗  Gen(discard, [int], []))
+// ---
+// (Id("int") ⊗  Id("int"))
+// ===
+
+// let does_this_work : term = multicopy(5.0, A).
+// check does_this_work.
+
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
-set (zerolenids : 1.0).
+set (zerolenids : 0.0).
 
 set (wrap_trace_ids : 0.0).  // TODO fix bug when this is on
 
-set (scalex : 1.0).
+set (scalex : 0.5).
 
+// draw does_this_work to "./result_examples/does_this_work"
 
-draw gioco_dell_oca to "./result_examples/oca".
-draw gioco_dell_oca_counter to "./result_examples/counter_oca".
+check pred_test.
+draw pred_test to "./result_examples/pred_test"
 
 // show scaling controls scalex = 0.5
-draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
+// draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
 
 
-draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
-draw big_copy to "./result_examples/big_copy".
+// draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
+// draw big_copy to "./result_examples/big_copy".
 
-// // wrong with old alignment!
-draw big_test_sum to "./result_examples/big_test_sum".
+// // // wrong with old alignment!
+// draw big_test_sum to "./result_examples/big_test_sum"
 
-draw discard_test to "./result_examples/discard".
-draw codiscard_test to "./result_examples/codiscard"
+// draw discard_test to "./result_examples/discard".
+// draw codiscard_test to "./result_examples/codiscard"
+
+// draw banana to "./result_examples/banana"

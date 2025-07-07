@@ -9,7 +9,7 @@ let remove_first_last s =
     String.sub s 1 (len - 2)
 %}
 
-%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy CoCopy Discard CoDiscard
+%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set
 
 %token <string> STRING QSTRING
@@ -78,10 +78,11 @@ term:
   | Spawn LPAREN t = object_type RPAREN                                                                 { Terms.Spawn (Terms.obj_to_polynomial t)}
   | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
   | Copy LPAREN t = object_type RPAREN                                                                  { Terms.Copy (Terms.obj_to_polynomial t)}
+  | MultiCopy LPAREN n = FLOAT COMMA t = object_type RPAREN                                                   { Terms.multi_copy (int_of_float n) (Terms.obj_to_polynomial t)}
   | CoCopy LPAREN t = object_type RPAREN                                                                { Terms.CoCopy (Terms.obj_to_polynomial t)}
   | Discard LPAREN t = object_type RPAREN                                                               { Terms.Discard (Terms.obj_to_polynomial t)}
   | CoDiscard LPAREN t = object_type RPAREN                                                             { Terms.CoDiscard (Terms.obj_to_polynomial t)}
-  | Trace LPAREN t = term RPAREN                                                                        { Terms.Trace(t) }
+  | Trace LPAREN l = object_type COMMA t = term RPAREN                                                  { Terms.Trace(Terms.obj_to_polynomial l, t) }
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
   | error {raise (Errors.ParseError "term expected")}
@@ -107,7 +108,7 @@ tape:
   | t1 = tape Oplus t2 = tape                                                                           { Tapes.Oplus    (t1, t2) }
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
-  | Trace LPAREN t = tape RPAREN                                                                 { Tapes.Trace(t) }
+  | Trace LPAREN l = object_type COMMA t = tape RPAREN                                                  { Tapes.Trace(Terms.obj_to_monomial l, t) }
   | LPAREN t = tape RPAREN
   { t }
   | error {raise (Errors.ParseError "tape expected")}
