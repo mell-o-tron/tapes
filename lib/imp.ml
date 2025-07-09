@@ -73,7 +73,7 @@ let print_context c =
     context *)
 let rec get_sort (c : context) (x : iden) =
   match c with
-  | [] -> failwith "not found"
+  | [] -> raise (ImpError (Printf.sprintf "variable %s not found in context" x))
   | (x1, s) :: rest -> if x = x1 then s else get_sort rest x
 
 (** Given a context and an expression, returns the (return) type of the
@@ -108,7 +108,7 @@ let rec eval_expr (c : context) (e : imp_expr) =
           Compose
             ( args,
               Gen
-                ( f,
+                ( Printf.sprintf "$%s$" f,
                   [ List.map (fun x -> get_type c x) l |> List.flatten ],
                   [ [ coar ] ] ) ) )
 
@@ -141,5 +141,61 @@ let rec eval_pred (c : context) (p : imp_pred) =
   | And (pred1, pred2) ->
       Compose
         (Copy [ eval_context c ], Otimes (eval_pred c pred1, eval_pred c pred2))
+
+let kleene_star (t : term) =
+  let ar = Typecheck.arity t in
+  let coar = Typecheck.coarity t in
+  if ar = coar then
+    Trace (ar, Compose (Oplus (t, Id ar), Compose (Join ar, Split ar)))
+  else
+    raise
+      (ImpError
+         (Printf.sprintf
+            "Tried to apply kleene star to term with ar != coar.\n\
+             Ar = %s\t Coar = %s"
+            (Typecheck.string_of_sort_list_list ar)
+            (Typecheck.string_of_sort_list_list coar)))
+
+let corefl (c : context) (p : imp_pred) =
+  let t = eval_pred c p in
+  let ar = Typecheck.arity t in
+  Compose (Copy ar, Otimes (t, Id ar))
+
+let rec negate (p : imp_pred) =
+  match p with
+  | Rel (r, l, s) -> Rel (r, l, not s)
+  | Top -> Bottom
+  | Bottom -> Top
+  | Or (p1, p2) -> And (negate p1, negate p2)
+  | And (p1, p2) -> Or (negate p1, negate p2)
+
+let rec eval_command (c : context) (com : imp_comm) =
+  match com with
+  | Abort -> Compose (Cut [ eval_context c ], Spawn [ eval_context c ])
+  | Skip -> Id [ eval_context c ]
+  | Seq (com1, com2) -> Compose (eval_command c com1, eval_command c com2)
+  | IfThenElse (p, com1, com2) ->
+      Oplus
+        ( Compose (corefl c p, eval_command c com1),
+          Compose (corefl c (negate p), eval_command c com2) )
+  | WhileDo (p, com1) ->
+      Compose
+        ( kleene_star (Compose (corefl c p, eval_command c com1)),
+          corefl c (negate p) )
+  | Assign (x, e) ->
+      let a = get_sort c x in
+      let sc = split_context c x a in
+      let gamma, delta = (sc.context_before, sc.context_after) in
+      print_string "Gamma: ";
+      print_context gamma;
+      print_string "Delta: ";
+      print_context delta;
+      Compose
+        ( Otimes
+            ( Otimes (Copy [ eval_context gamma ], Id [ [ a ] ]),
+              Copy [ eval_context delta ] ),
+          Otimes
+            ( Id [ eval_context gamma ],
+              Otimes (eval_expr c e, Id [ eval_context delta ]) ) )
 
 (* from section 11 of tapes with traces (bottom of page 42) *)

@@ -1,17 +1,18 @@
 open Tapes
+open Ppx_compare_lib.Builtin
 
 type circuit_draw_interface =
   | EmptyCircuit
   | CircuitTens of circuit_draw_interface * circuit_draw_interface
   | CircuitPin of float * float
-[@@deriving show]
+[@@deriving show, compare]
 
 type tape_draw_interface =
   | EmptyInterface of (float * float) option * (float * float) option
   | EmptyTape of (float * float) * (float * float)
   | TapeTens of tape_draw_interface * tape_draw_interface
   | TapeInterface of (float * float) * (float * float) * circuit_draw_interface
-[@@deriving show]
+[@@deriving show, compare]
 
 type circuit_block =
   | BMeasure of {
@@ -62,12 +63,9 @@ type circuit_block =
       otimesdist : float;
       sorts : string list * string list;
     }
-  | Connector of {
-      pos1 : float * float;
-      pos2 : float * float;
-    }
+  | Connector of { positions : (float * float) list }
   | EmptyBlock
-[@@deriving show]
+[@@deriving show, compare]
 
 type tape_block =
   | EmptyTBlock
@@ -134,7 +132,7 @@ type tape_block =
       oplusdist : float;
       max_y : float;
     }
-[@@deriving show]
+[@@deriving show, compare]
 
 type block =
   | CB of circuit_block
@@ -143,7 +141,7 @@ type block =
       pos : float * float;
       text : string;
     }
-[@@deriving show]
+[@@deriving show, compare]
 
 type circuit_geometry =
   | CircGeo of {
@@ -153,7 +151,7 @@ type circuit_geometry =
       left_interface : circuit_draw_interface;
       right_interface : circuit_draw_interface;
     }
-[@@deriving show]
+[@@deriving show, compare]
 
 type tape_geometry =
   | TapeGeo of {
@@ -164,6 +162,19 @@ type tape_geometry =
       right_interface : tape_draw_interface;
     }
 [@@deriving show]
+
+(* settings: these can be controlled from the language *)
+let oplus_dist = ref 0.25
+let otimes_dist = ref 0.5
+let tape_padding = ref 0.25
+let align_summands = ref true
+let zero_len_ids = ref false
+let old_alignment = ref false
+let wrap_trace_ids = ref false
+let scale_x = ref 1.
+let scale_y = ref 1.
+let join_wires = ref false
+let rounded_wires = ref true
 
 (********** Tape utils ***********)
 
@@ -260,6 +271,10 @@ let get_tape_blocks (t : block list) =
   List.filter (function TB _ -> true | _ -> false) t
   |> List.map (fun x -> match x with TB x -> x | _ -> failwith "unreachable")
 
+let get_circuit_blocks (t : block list) =
+  List.filter (function CB _ -> true | _ -> false) t
+  |> List.map (fun x -> match x with CB x -> x | _ -> failwith "unreachable")
+
 let tikz_of_circuit_block (cb : circuit_block) : string =
   match cb with
   | BMeasure { fresh_name; len; pos = x, y } ->
@@ -281,8 +296,16 @@ let tikz_of_circuit_block (cb : circuit_block) : string =
     ->
       Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n" fresh_name x y arity
         coarity name otimesdist
-  | Connector { pos1 = x1, y1; pos2 = x2, y2 } ->
-      Printf.sprintf "\\draw [in=180, out=0] (%f,%f) to (%f,%f);\n" x1 y1 x2 y2
+  | Connector { positions = l } ->
+      if List.length l = 0 then ""
+      else
+        let s =
+          List.map (fun (x, y) -> Printf.sprintf "(%f,%f)" x y) l
+          |> String.concat " to "
+        in
+        Printf.sprintf "\\draw %s %s;\n"
+          (if !rounded_wires then "[in=180, out=0]" else "")
+          s
   | EmptyBlock -> ""
 
 let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
@@ -304,7 +327,8 @@ let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
       Printf.sprintf "\\tape {%f} {%f} {%f} {%f}\n" x y width height
   | BFreeStyleTape
       { posll = x1, y1; poslu = x2, y2; posrl = x3, y3; posru = x4, y4 } ->
-      Printf.sprintf "\\freestyletape {%f} {%f} {%f} {%f} {%f} {%f} {%f} {%f}\n"
+      Printf.sprintf "\\%s {%f} {%f} {%f} {%f} {%f} {%f} {%f} {%f}\n"
+        (if !rounded_wires then "roundedfreestyletape" else "freestyletape")
         x1 y1 x2 y2 x3 y3 x4 y4
   | BAdapter { pos = x, y; height1; height2 } ->
       Printf.sprintf "\\adapter {%f} {%f} {%f} {%f}\n" x y height1 height2
@@ -339,7 +363,122 @@ let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
         max_y tapepadding otimesdist oplusdist)
   ^ debug_bounds tb
 
+let sort_block_list (b : block list) : block list =
+  let rec aux (b : block list) : block list * block list =
+    match b with
+    | [] -> ([], [])
+    | TB tb :: b1 ->
+        let ts, bs = aux b1 in
+        (TB tb :: ts, bs)
+    | CB cb :: b1 ->
+        let ts, bs = aux b1 in
+        (ts, CB cb :: bs)
+    | DebugNode db :: b1 ->
+        let ts, bs = aux b1 in
+        (ts, DebugNode db :: bs)
+  in
+  let ts, bs = aux b in
+  ts @ bs
+
+let id_to_connector (b : circuit_block) =
+  match b with
+  | BId { pos = x, y; len; _ } ->
+      Connector { positions = [ (x, y); (x +. len, y) ] }
+  | _ -> b
+
+let rec swaps_to_connectors (l : circuit_block list) =
+  match l with
+  | BSwap { pos = x, y; scaley; _ } :: rest ->
+      Connector { positions = [ (x, y); (x +. 1., y +. scaley) ] }
+      :: Connector { positions = [ (x, y +. scaley); (x +. 1., y) ] }
+      :: swaps_to_connectors rest
+  | x :: l1 -> x :: swaps_to_connectors l1
+  | [] -> []
+
+let ids_to_connectors (l : circuit_block list) = List.map id_to_connector l
+
+let is_tape_block_nonzero_width (b : tape_block) =
+  match b with
+  | EmptyTBlock -> false
+  | BTape { width; _ } -> not (width = 0.)
+  | BFreeStyleTape
+      { posll = x1, _; poslu = x2, _; posrl = x3, _; posru = x4, _ } ->
+      (not (x1 = x3)) || not (x2 = x4)
+  | _ -> true
+
+let is_circuit_block_nonzero_width (b : circuit_block) =
+  match b with
+  | Connector { positions = (x, _) :: l } ->
+      List.for_all (fun (x1, _) -> not (x -. x1 = 0.)) l
+  | EmptyBlock -> false
+  | _ -> true
+
+let get_connectors (l : circuit_block list) =
+  List.filter (fun x -> match x with Connector _ -> true | _ -> false) l
+
+let get_non_connectors (l : circuit_block list) =
+  List.filter (fun x -> match x with Connector _ -> false | _ -> true) l
+
+let orient_connector (l : circuit_block) =
+  match l with
+  | Connector { positions = l } ->
+      Connector
+        { positions = List.sort (fun (x1, _) (x2, _) -> compare x1 x2) l }
+  | _ -> failwith "orient_connector applied on non-connector"
+
+let concat_connectors (b : circuit_block) (c : circuit_block) =
+  match (b, c) with
+  | Connector { positions = l1 }, Connector { positions = _ :: l2 } ->
+      Connector { positions = l1 @ l2 }
+  | _ ->
+      failwith
+        "concat_connectors expects two connectors, the second of which non \
+         empty"
+
+let find_matching_connector (b : circuit_block) (l : circuit_block list) =
+  let l = get_connectors l in
+  let matching_block =
+    match b with
+    | Connector { positions = pl } ->
+        let x2, y2 =
+          try List.hd (List.rev pl)
+          with _ -> failwith "expected nonempty list"
+        in
+        List.find
+          (function
+            | Connector { positions = (x1, y1) :: _ } -> x1 = x2 && y1 = y2
+            | _ ->
+                failwith
+                  "find_matching_connector expects nonempty connector list")
+          l
+    | _ -> failwith "find_matching_connector expects connector"
+  in
+  ( List.filter (fun x -> not (x = matching_block)) l,
+    concat_connectors b matching_block )
+
+let sort_connectors = List.sort compare_circuit_block
+
+let rec match_connectors (l : circuit_block list) =
+  let rec aux (l : circuit_block list) =
+    match l with
+    | Connector c :: l1 ->
+        let newl, newc =
+          try find_matching_connector (Connector c) l1
+          with Not_found -> (l1, Connector c)
+        in
+        newc :: aux newl
+    | [] -> []
+    | _ -> failwith "match_connectors expects list of connectors"
+  in
+  let l = sort_connectors l in
+  let res = aux l in
+  if List.length res = List.length l then res else match_connectors res
+
+let print_blocks (l : block list) =
+  List.iter (fun x -> Printf.printf "%s\n" (show_block x)) l
+
 let rec tikz_of_block_list (b : block list) : string =
+  let b = sort_block_list b in
   match b with
   | [] -> ""
   | TB tb :: b1 -> tikz_of_tape_block tb false ^ "\n" ^ tikz_of_block_list b1
@@ -349,17 +488,6 @@ let rec tikz_of_block_list (b : block list) : string =
       ^ tikz_of_block_list b1
 
 (********************************************************************************************************)
-
-(* settings: these can be controlled from the language *)
-let oplus_dist = ref 0.25
-let otimes_dist = ref 0.5
-let tape_padding = ref 0.25
-let align_summands = ref true
-let zero_len_ids = ref false
-let old_alignment = ref false
-let wrap_trace_ids = ref false
-let scale_x = ref 1.
-let scale_y = ref 1.
 
 (* Circuit interface utils *)
 
@@ -488,6 +616,14 @@ let rec tape_interface_of_list t =
   | t1 :: rest -> TapeTens (t1, tape_interface_of_list rest)
   | [] -> EmptyInterface (None, None)
 
+let destroy_empty_interfaces t =
+  let l = list_of_tape_interface t in
+  List.filter
+    (fun t ->
+      match t with EmptyInterface _ | EmptyTape _ -> false | _ -> true)
+    l
+  |> tape_interface_of_list
+
 (* bring a tape interface to a list-like normal form *)
 let tape_interface_normalize (t : tape_draw_interface) =
   t |> deep_clean_interface |> list_of_tape_interface |> tape_interface_of_list
@@ -579,7 +715,7 @@ let rec tape_interface_to_block_map2
         ^ show_tape_draw_interface t2);
 
       failwith
-        "tape_interface_to_string_map2 could not be applied, args have \
+        "tape_interface_to_block_map2 could not be applied, args have \
          different sizes."
 
 let rec tape_interface_height (t : tape_draw_interface) =
@@ -666,12 +802,12 @@ let rec circuit_connect_interfaces (ina : circuit_draw_interface)
   match (circuit_interface_normalize ina, circuit_interface_normalize inb) with
   | EmptyCircuit, EmptyCircuit -> [ EmptyBlock ]
   | CircuitPin (x1, y1), CircuitPin (x2, y2) ->
-      [ Connector { pos1 = (x1, y1); pos2 = (x2, y2) } ]
+      [ Connector { positions = [ (x1, y1); (x2, y2) ] } ]
       (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
         y2 *)
   | ( CircuitTens (CircuitPin (x1, y1), ina1),
       CircuitTens (CircuitPin (x2, y2), inb1) ) ->
-      [ Connector { pos1 = (x1, y1); pos2 = (x2, y2) } ]
+      [ Connector { positions = [ (x1, y1); (x2, y2) ] } ]
       @ circuit_connect_interfaces ina1 inb1
       (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
         y2
@@ -928,8 +1064,8 @@ let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) =
 (* connects two tape interfaces *)
 let tape_connect_interfaces (ina : tape_draw_interface)
     (inb : tape_draw_interface) =
-  let ina = deep_clean_interface ina in
-  let inb = deep_clean_interface inb in
+  let ina = destroy_empty_interfaces ina in
+  let inb = destroy_empty_interfaces inb in
   (* printf []
     "\n====================\nAlign: \n%s\n with\n %s\n====================\n"
     (show_tape_draw_interface ina)
@@ -1051,7 +1187,7 @@ let move_circuit_block (cb : circuit_block) (dx, dy) =
   | BCoCopy b -> BCoCopy { b with pos = move b.pos }
   | BCoDiscard b -> BCoDiscard { b with pos = move b.pos }
   | BGen b -> BGen { b with pos = move b.pos }
-  | Connector c -> Connector { pos1 = move c.pos1; pos2 = move c.pos2 }
+  | Connector c -> Connector { positions = List.map move c.positions }
   | EmptyBlock -> cb
 
 let move_tape_block (tb : tape_block) (dx, dy) =

@@ -105,7 +105,9 @@ let rec exec (p : program) =
       | Draw (e, path) -> draw_command (populate_genvars e) path)
   | Decl d -> (
       match d with
-      | ExprDecl (id, _typ, e) -> Hashtbl.add env id (populate_genvars e)
+      | ExprDecl (id, _typ, e) ->
+          (match e with Term t -> Hashtbl.add defined_terms id t | _ -> ());
+          Hashtbl.add env id (populate_genvars e)
       | SortDecl id -> sorts := id :: !sorts
       | GenDecl (id, ob1, ob2) ->
           Hashtbl.add gens id
@@ -131,6 +133,9 @@ let rec exec (p : program) =
       | "scaley" -> Ssr_typechecker.Draw_utils.scale_y := f
       | "wrap_trace_ids" ->
           Ssr_typechecker.Draw_utils.wrap_trace_ids := not (f = 0.)
+      | "rounded_wires" ->
+          Ssr_typechecker.Draw_utils.rounded_wires := not (f = 0.)
+      | "join_wires" -> Ssr_typechecker.Draw_utils.join_wires := not (f = 0.)
       | _ -> ())
 
 (* prints the result of the computation *)
@@ -148,6 +153,7 @@ let main () =
   with
   | TypeError s -> printf [ Bold; red ] "Type Error: %s.\n" s
   | RuntimeError s -> printf [ Bold; red ] "Runtime Error: %s.\n" s
+  | ImpError s -> printf [ Bold; red ] "Imp Error: %s.\n" s
   | Syntax_error (a, b, s) ->
       printf [ Bold; red ] "Syntax Error at (%d, %d): %s.\n" a b s
 ;;

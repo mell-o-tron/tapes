@@ -29,27 +29,58 @@ let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B 
 let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
 let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).
 
+let program : term = 
+
+BEGIN_IMP [x : int]
+while (r(x)) {
+    x := (f(x) : int)
+}
+END_IMP.
+
+let test_thing : term = s* (A, B) ; s* (B, A).
+
+
+let factorial : term = 
+
+BEGIN_IMP [x : int, y : int]
+y := x;
+while (">1"(y)) {
+    y := ("-1"(x) : int);
+    x := ("\times"(x, y) : int)
+}
+END_IMP.
+
 // ===
 // (Gen(discard, [int], []) ⊗  Gen(discard, [int], []))
 // ---
 // (Id("int") ⊗  Id("int"))
 // ===
 
-// let does_this_work : term = multicopy(5.0, A).
-// check does_this_work.
+let does_this_work : term = (multicopy(1.0, A)) + trace(A, (multicopy(1.0, A) )) + (multicopy(1.0, A)).
+check does_this_work.
 
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
 set (zerolenids : 0.0).
 
-set (wrap_trace_ids : 0.0).  // TODO fix bug when this is on
+set (wrap_trace_ids : 1.0).  // TODO fix bug when this is on
 
 set (scalex : 0.5).
 
+set (rounded_wires : 0.0).
+set (join_wires : 1.0).
+
 // draw does_this_work to "./result_examples/does_this_work"
 
-check pred_test.
-draw pred_test to "./result_examples/pred_test"
+// check pred_test.
+// draw pred_test to "./result_examples/pred_test".
+
+check program.
+draw program to "./result_examples/program".
+
+
+check factorial.
+draw factorial to "./result_examples/factorial"
 
 // show scaling controls scalex = 0.5
 // draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".

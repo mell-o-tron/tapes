@@ -10,7 +10,8 @@ let remove_first_last s =
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set REF
+%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -19,6 +20,10 @@ let remove_first_last s =
 %left Oplus
 %left Otimes
 %left DOT
+
+%left OR
+%left AND
+%nonassoc NOT
 
 %start <Ast.program> main
 %%
@@ -85,7 +90,13 @@ term:
   | Trace LPAREN l = object_type COMMA t = term RPAREN                                                  { Terms.Trace(Terms.obj_to_polynomial l, t) }
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
+  | BEGIN_IMP LBRACKET RBRACKET i = imp_command END_IMP {Imp.eval_command [] i}
+  | BEGIN_IMP LBRACKET ctx=context RBRACKET i = imp_command END_IMP {Imp.eval_command ctx i}
   | error {raise (Errors.ParseError "term expected")}
+
+context:
+  | x = STRING COLON s = STRING {[(x, s)]}
+  | x = STRING COLON s = STRING COMMA a1 = context {(x, s) :: a1}
 
 circuit:
   | One                                                                                                 { Tapes.CId1 }
@@ -122,3 +133,34 @@ object_type:
   | One                                                           {(Terms.Ob1)}
   | error {raise (Errors.ParseError "object type expected")}
 
+imp_expr:
+  | s = STRING {Imp.Var s}
+  | f = STRING LPAREN RPAREN COLON s = STRING {Imp.Func(f, [], s)}
+  | f = STRING LPAREN a = args RPAREN COLON s = STRING {Imp.Func(f, a, s)}
+  | f = QSTRING LPAREN RPAREN COLON s = STRING {Imp.Func(remove_first_last f, [], s)}
+  | f = QSTRING LPAREN a = args RPAREN COLON s = STRING {Imp.Func(remove_first_last f, a, s)}
+  | LPAREN e = imp_expr RPAREN {e}
+
+imp_pred:
+  | r = STRING LPAREN RPAREN {Imp.Rel(r, [], true)}
+  | r = STRING LPAREN a = args RPAREN {Imp.Rel(r, a, true)}
+  | r = QSTRING LPAREN RPAREN {Imp.Rel(remove_first_last r, [], true)}
+  | r = QSTRING LPAREN a = args RPAREN {Imp.Rel(remove_first_last r, a, true)}
+  | TRUE {Imp.Top}
+  | FALSE {Imp.Bottom}
+  | p1 = imp_pred OR p2 = imp_pred {Imp.Or(p1, p2)}
+  | p1 = imp_pred AND p2 = imp_pred {Imp.And(p1, p2)}
+  | NOT p1 = imp_pred {Imp.negate p1}
+  | LPAREN p = imp_pred RPAREN {p}
+  
+args:
+  | e = imp_expr {[e]}
+  | e = imp_expr COMMA a1 = args {e :: a1}
+
+imp_command:
+  | ABORT {Imp.Abort}
+  | SKIP {Imp.Skip}
+  | IF p = imp_pred THEN OPEN_BRACE c1 = imp_command CLOSED_BRACE ELSE OPEN_BRACE c2 = imp_command CLOSED_BRACE {Imp.IfThenElse(p, c1, c2)}
+  | WHILE p = imp_pred OPEN_BRACE c1 = imp_command CLOSED_BRACE {Imp.WhileDo (p, c1)}
+  | c1 = imp_command SEMICOLON c2 = imp_command {Imp.Seq(c1, c2)}
+  | x = STRING ASSIGN e = imp_expr {Imp.Assign(x, e)}

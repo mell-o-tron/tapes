@@ -31,7 +31,7 @@
       "patterns": [
         {
           "name": "keyword.control.tapes",
-          "match": "\\b(?:let|check|draw|to)\\b"
+          "match": "\\b(?:let|check|draw|to|if|then|else|while|do|BEGIN_IMP|END_IMP|true|false)\\b"
         }
       ]
     },
@@ -55,7 +55,7 @@
       "patterns": [
         {
           "name": "keyword.operator.tapes",
-          "match": "\\.|;|:|=|\\+"
+          "match": "\\.|;|:|=|\\+|and|or|not"
         }
       ]
     },

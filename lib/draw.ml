@@ -1082,7 +1082,28 @@ let draw_tape (ast : tape) (path : string) =
              yscale = \\yscale]"
             !scale_x !scale_y
         in
-        Printf.fprintf oc "%s\n%s\n%s\n" header (tikz_of_block_list s)
+
+        let blocks =
+          if !join_wires then
+            let cblocks =
+              get_circuit_blocks s |> ids_to_connectors |> swaps_to_connectors
+              |> List.filter is_circuit_block_nonzero_width
+            in
+            let tblocks =
+              get_tape_blocks s |> List.filter is_tape_block_nonzero_width
+            in
+            let connectors =
+              cblocks |> get_connectors |> List.map orient_connector
+              |> match_connectors
+            in
+            let cblocks = (cblocks |> get_non_connectors) @ connectors in
+
+            (tblocks |> List.map (fun x -> TB x))
+            @ (cblocks |> List.map (fun x -> CB x))
+          else s
+        in
+        Printf.fprintf oc "%s\n%s\n%s\n" header
+          (tikz_of_block_list blocks)
           (label_tape li ri (tape_arity ast) (tape_coarity ast));
         Printf.printf "Drawing saved at path: \t'%s'\n"
           (sprintf [ green ] "%s" path);

@@ -71,7 +71,6 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 
 % fresh posx posy arity coarity name otimesdist
 \newcommand{\gen}[7]{
-  \node [color=gray] () at (#2, #3) {$\bot$};
   \pgfmathsetmacro\arity{#4};
   \pgfmathsetmacro\coarity{#5};
   \pgfmathsetmacro\otimesdist{#7};
@@ -156,7 +155,14 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 
 % posxll posyll posxlu posylu posxrl posyrl posxru posyru
 \newcommand{\freestyletape}[8]{
-  \draw [fill=tapeBg, tapeBg] (#1, #2) -- (#3, #4) [in=180, out=0] to (#7, #8) -- (#5, #6)  [in=0, out=180] to cycle;
+  \draw [fill=tapeBg, tapeBg] (#1, #2) -- (#3, #4) to (#7, #8) -- (#5, #6) to cycle;
+
+   \draw[tapeBorder, line width=0.5pt] (#1, #2) to (#5, #6);
+  \draw[tapeBorder, line width=0.5pt] (#3, #4) to (#7, #8);
+}
+
+\newcommand{\roundedfreestyletape}[8]{
+  \draw [fill=tapeBg, tapeBg] (#1, #2) -- (#3, #4) [in=180, out=0] to (#7, #8) -- (#5, #6) to cycle;
 
    \draw[tapeBorder, line width=0.5pt, in=180, out=0] (#1, #2) to (#5, #6);
   \draw[tapeBorder, line width=0.5pt, in=180, out=0] (#3, #4) to (#7, #8);

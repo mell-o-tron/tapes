@@ -1,0 +1,27 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG Shapes</title>
+  <style>
+    svg {
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>SVG Shapes</h1>
+  <svg id="drawing-area" width="600" height="400"></svg>
+
+  <script src="svg_tapes.js"></script>
+  <script>
+    const svg = document.getElementById("drawing-area");
+
+    // Example shapes
+    drawSquare(svg, 50, 50, 100, 'steelblue');
+    drawTriangle(svg, 300, 50, 100, 'tomato');
+  </script>
+</body>
+</html>

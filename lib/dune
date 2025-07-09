@@ -1,7 +1,7 @@
 (library
  (name        ssr_typechecker)
  (libraries   sedlex menhirLib ANSITerminal)
- (preprocess  (pps ppx_deriving.show sedlex.ppx)))
+ (preprocess  (pps ppx_deriving.show ppx_compare sedlex.ppx)))
 
 (menhir
  (modules parser)

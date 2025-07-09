@@ -75,6 +75,7 @@ let rec clean_tape (t : tape) =
   | Oplus (TId0, t2) -> clean_tape t2
   | Oplus (t1, t2) -> Oplus (clean_tape t1, clean_tape t2)
   | Tape c -> Tape (clean_circuit c)
+  | Trace (l, t) -> Trace (l, clean_tape t)
   | _ -> t
 
 let rec deep_clean_tape (t : tape) =

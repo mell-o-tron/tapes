@@ -60,6 +60,8 @@ type term =
   | Trace of sort list list * term
 [@@deriving show]
 
+let defined_terms : (string, term) Hashtbl.t = Hashtbl.create 10
+
 let _print_type t =
   print_string "[";
   List.iter

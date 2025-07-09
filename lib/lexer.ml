@@ -51,6 +51,23 @@ let rec token lexbuf =
   | "discard" -> Discard
   | "codiscard" -> CoDiscard
   | "set" -> Set
+  | "BEGIN_IMP" -> BEGIN_IMP
+  | "END_IMP" -> END_IMP
+  | "if" -> IF
+  | "then" -> THEN
+  | "else" -> ELSE
+  | "while" -> WHILE
+  | "do" -> DO
+  | "skip" -> SKIP
+  | "abort" -> ABORT
+  | ":=" -> ASSIGN
+  | "and" -> AND
+  | "or" -> OR
+  | "not" -> NOT
+  | "true" -> TRUE
+  | "false" -> FALSE
+  | "{" -> OPEN_BRACE
+  | "}" -> CLOSED_BRACE
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)
