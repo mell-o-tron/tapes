@@ -29,12 +29,24 @@ let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B 
 let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
 let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).
 
+let path_test : tape = path(1.0, 
+
+(split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
+                                      (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
+                                      (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A))
+
+)[1.0].
+
 let program : term = 
 
 BEGIN_IMP [x : int]
-while (r(x)) {
-    x := (f(x) : int)
-}
+// while (r(x)) {
+    if (r1(x)) then {
+        x := (f(x) : int)
+    } else {
+        abort
+    }
+// }
 END_IMP.
 
 let test_thing : term = s* (A, B) ; s* (B, A).
@@ -61,7 +73,7 @@ check does_this_work.
 
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
-set (zerolenids : 0.0).
+set (zerolenids : 1.0).
 
 set (wrap_trace_ids : 1.0).  // TODO fix bug when this is on
 
@@ -74,6 +86,12 @@ set (join_wires : 1.0).
 
 // check pred_test.
 // draw pred_test to "./result_examples/pred_test".
+
+check union.
+draw union to "./result_examples/union".
+
+check path_test.
+draw path_test to "./result_examples/path_test".
 
 check program.
 draw program to "./result_examples/program".

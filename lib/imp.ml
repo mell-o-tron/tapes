@@ -89,10 +89,6 @@ let rec eval_expr (c : context) (e : imp_expr) =
       let a = get_sort c x in
       let sc = split_context c x a in
       let gamma, delta = (sc.context_before, sc.context_after) in
-      print_string "Gamma: ";
-      print_context gamma;
-      print_string "Delta: ";
-      print_context delta;
       Otimes
         ( Discard [ eval_context gamma ],
           Otimes (Id [ [ a ] ], Discard [ eval_context delta ]) )
@@ -126,7 +122,7 @@ let rec eval_pred (c : context) (p : imp_pred) =
           Compose
             ( args,
               Gen
-                ( (if s then Printf.sprintf "$ %s$" name
+                ( (if s then Printf.sprintf "$%s$" name
                    else Printf.sprintf "$\\overline{%s}$" name),
                   [ List.map (fun x -> get_type c x) l |> List.flatten ],
                   obj_to_polynomial Ob1 ) ) )
@@ -179,6 +175,16 @@ let rec eval_command (c : context) (com : imp_comm) =
         ( Compose (corefl c p, eval_command c com1),
           Compose (corefl c (negate p), eval_command c com2) )
   | WhileDo (p, com1) ->
+      Printf.printf "corefl:\tAr : %s,\tCoar : %s\n"
+        (Typecheck.arity (corefl c p) |> Typecheck.string_of_sort_list_list)
+        (Typecheck.coarity (corefl c p) |> Typecheck.string_of_sort_list_list);
+      Printf.printf "command:\tAr : %s,\tCoar : %s\n"
+        (Typecheck.arity (eval_command c com1)
+        |> Typecheck.string_of_sort_list_list)
+        (Typecheck.coarity (eval_command c com1)
+        |> Typecheck.string_of_sort_list_list);
+
+      (* This is probably wrong. Needs some copying and joining of variables in the general case. *)
       Compose
         ( kleene_star (Compose (corefl c p, eval_command c com1)),
           corefl c (negate p) )
@@ -186,10 +192,6 @@ let rec eval_command (c : context) (com : imp_comm) =
       let a = get_sort c x in
       let sc = split_context c x a in
       let gamma, delta = (sc.context_before, sc.context_after) in
-      print_string "Gamma: ";
-      print_context gamma;
-      print_string "Delta: ";
-      print_context delta;
       Compose
         ( Otimes
             ( Otimes (Copy [ eval_context gamma ], Id [ [ a ] ]),

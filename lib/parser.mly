@@ -1,6 +1,9 @@
 
 %{
 (*   open Ast (* Define the abstract syntax tree in Ast.ml *) *)
+open Matrix
+open Term_to_tape
+
 let remove_first_last s =
   let len = String.length s in
   if len <= 2 then
@@ -11,7 +14,7 @@ let remove_first_last s =
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set REF
-%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE
+%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -83,7 +86,7 @@ term:
   | Spawn LPAREN t = object_type RPAREN                                                                 { Terms.Spawn (Terms.obj_to_polynomial t)}
   | Join LPAREN t = object_type RPAREN                                                                  { Terms.Join (Terms.obj_to_polynomial t)}
   | Copy LPAREN t = object_type RPAREN                                                                  { Terms.Copy (Terms.obj_to_polynomial t)}
-  | MultiCopy LPAREN n = FLOAT COMMA t = object_type RPAREN                                                   { Terms.multi_copy (int_of_float n) (Terms.obj_to_polynomial t)}
+  | MultiCopy LPAREN n = FLOAT COMMA t = object_type RPAREN                                             { Terms.multi_copy (int_of_float n) (Terms.obj_to_polynomial t)}
   | CoCopy LPAREN t = object_type RPAREN                                                                { Terms.CoCopy (Terms.obj_to_polynomial t)}
   | Discard LPAREN t = object_type RPAREN                                                               { Terms.Discard (Terms.obj_to_polynomial t)}
   | CoDiscard LPAREN t = object_type RPAREN                                                             { Terms.CoDiscard (Terms.obj_to_polynomial t)}
@@ -120,8 +123,8 @@ tape:
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
   | Trace LPAREN l = object_type COMMA t = tape RPAREN                                                  { Tapes.Trace(Terms.obj_to_monomial l, t) }
-  | LPAREN t = tape RPAREN
-  { t }
+  | PATH LPAREN f=FLOAT COMMA t = term RPAREN LBRACKET f1=FLOAT RBRACKET                                { snd (List.nth (linearize (int_of_float f) (_to_tape t)) (int_of_float f1))}
+  | LPAREN t = tape RPAREN { t }
   | error {raise (Errors.ParseError "tape expected")}
 
 object_type:

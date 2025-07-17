@@ -68,6 +68,7 @@ let rec token lexbuf =
   | "false" -> FALSE
   | "{" -> OPEN_BRACE
   | "}" -> CLOSED_BRACE
+  | "path" -> PATH
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

@@ -47,7 +47,7 @@ let rec typecheck_command (e : expr) =
            sprintf [ green ] "true ✅ -- %s 🡒 %s"
              (tape_arity t |> obj_of_polynomial |> pp_object)
              (tape_coarity t |> obj_of_polynomial |> pp_object)
-         else sprintf [ red; Bold ] "false ❌")
+         else sprintf [ red; Bold ] "false ❌\n%s" (show_tape t))
   | Term t ->
       printf [] "Term typecheck result:\t%s\n"
         (if typecheck t then

@@ -73,7 +73,7 @@ let rec tape_to_sum_new (t : tape) =
   let res = tape_to_sum_aux t in
   if res = t then res else tape_to_sum_new res
 
-let rec tape_to_sum (t : tape) =
+let rec tape_to_sum_old (t : tape) =
   let rec tape_to_sum_aux (t : tape) =
     match t with
     | TCompose (Oplus (t1, t2), Oplus (t3, t4)) ->
@@ -90,4 +90,33 @@ let rec tape_to_sum (t : tape) =
   in
   (* this is probably not needed, but "meglio ave' paura che buscanne" *)
   let res = tape_to_sum_aux t in
-  if res = t then t else tape_to_sum res
+  if res = t then t else tape_to_sum_old res
+
+let tape_to_sum = tape_to_sum_new
+
+let rec tape_to_seq (t : tape) =
+  let rec tape_to_seq_aux (t : tape) =
+    match t with
+    | Oplus (TCompose (t1, t2), TCompose (t3, t4)) ->
+        TCompose (Oplus (t1, t3), Oplus (t2, t4))
+    | TCompose (t1, t2) -> TCompose (tape_to_seq_aux t1, tape_to_seq_aux t2)
+    | Oplus (t1, t2) -> Oplus (tape_to_seq_aux t1, tape_to_seq_aux t2)
+    | Trace (l1, t1) -> Trace (l1, tape_to_seq_aux t1)
+    | _ -> t
+  in
+  let res = tape_to_seq_aux t in
+  if res = t then t else tape_to_seq res
+
+let rec group_composition_right (t : tape) =
+  let rec group_composition_right_aux (t : tape) =
+    match t with
+    | TCompose (TCompose (t1, t2), t3) -> TCompose (t1, TCompose (t2, t3))
+    | TCompose (t1, t2) ->
+        TCompose (group_composition_right_aux t1, group_composition_right_aux t2)
+    | Oplus (t1, t2) ->
+        Oplus (group_composition_right_aux t1, group_composition_right_aux t2)
+    | Trace (u, t1) -> Trace (u, group_composition_right_aux t1)
+    | _ -> t
+  in
+  let res = group_composition_right_aux t in
+  if t = res then res else group_composition_right res
