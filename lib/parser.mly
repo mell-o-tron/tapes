@@ -13,7 +13,7 @@ let remove_first_last s =
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check To ToTape ARROW Set REF
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH
 
 %token <string> STRING QSTRING
@@ -47,6 +47,7 @@ setting:
 command:
   | Draw e=expr To qs=QSTRING {Ast.Draw(e, remove_first_last qs)}
   | Check e=expr {Ast.Check(e)}
+  | DrawMatrix e=expr To qs=QSTRING {Ast.DrawMatrix(e, remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 

@@ -42,13 +42,13 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
   | TCompose (t1, t2) ->
       let l1 = linearize idx t1 in
       let indices = List.map fst l1 |> List.sort_uniq Int.compare in
-      Printf.printf "indices: [%s]\n"
+      (* Printf.printf "indices: [%s]\n"
         (List.map string_of_int indices |> String.concat ", ");
-      flush stdout;
+      flush stdout; *)
       let part =
         List.map (fun i -> List.filter (fun (j, _) -> j = i) l1) indices
       in
-      Printf.printf "part: [%s]\n"
+      (* Printf.printf "part: [%s]\n"
         (List.map
            (fun x ->
              List.map
@@ -56,11 +56,11 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
                x)
            part
         |> List.map (String.concat ";")
-        |> String.concat "|");
-      flush stdout;
+        |> String.concat "|"); 
+      flush stdout;*)
 
       let l2 = List.map (fun i -> linearize i t2) indices in
-      Printf.printf "l2: [%s]\n"
+      (* Printf.printf "l2: [%s]\n"
         (List.map
            (fun x ->
              List.map
@@ -69,7 +69,7 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
            l2
         |> List.map (String.concat ";")
         |> String.concat "|");
-      flush stdout;
+      flush stdout; *)
       let composed =
         List.map2
           (fun a b ->
@@ -81,12 +81,43 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
           part l2
         |> List.flatten
       in
-      Printf.printf "composed: [%s]\n"
+      (* Printf.printf "composed: [%s]\n"
         (List.map
            (fun (i, t) -> Printf.sprintf "(%d, %s)" i (show_tape t))
            composed
         |> String.concat ";");
-      flush stdout;
+      flush stdout; *)
       composed
   | Trace _ -> failwith "traces not allowed in linearization"
 (* | _ -> failwith (Printf.sprintf "failed, met %s.\n" (show_tape t)) *)
+
+let transpose matrix =
+  let rec transpose_aux acc = function
+    | [] -> List.rev acc
+    | [] :: _ -> List.rev acc
+    | rows ->
+        let heads = List.map List.hd rows in
+        let tails = List.map List.tl rows in
+        transpose_aux (heads :: acc) tails
+  in
+  transpose_aux [] matrix
+
+(** Each entry of the matrix is a multiset (represented here as a list) of tapes*)
+let get_matrix (t : tape) =
+  let ar = tape_arity t in
+  let coar = tape_coarity t in
+  let paths = List.mapi (fun i _ -> linearize i t) ar in
+
+  Printf.printf "num paths: %s\n"
+    (List.map List.length paths |> List.map string_of_int |> String.concat ", ");
+
+  let matrix =
+    List.map
+      (fun l ->
+        List.mapi
+          (fun i _ ->
+            List.filter (fun (j, _) -> i = j) l |> List.map (fun (_, t) -> t))
+          coar)
+      paths
+  in
+  transpose matrix

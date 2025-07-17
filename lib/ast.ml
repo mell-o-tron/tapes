@@ -13,6 +13,7 @@ type expr =
 type command =
   | Draw of expr * string
   | Check of expr
+  | DrawMatrix of expr * string
 
 type decl =
   | ExprDecl of iden * exprtype * expr

@@ -29,6 +29,12 @@ let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B 
 let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
 let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).
 
+let matrix_example : term = 
+    ((split(U1) ; (split(U1) + split(U1)) ; (gen(c1, U1, V1) + gen(c2, U1, V1) + gen(c3, U1, V2) + gen(c4, U1, V3))) +
+    (split(U2) ; (cut(U2) + (split(U2) ; (gen(c5, U2, V2) + cut(U2)))); (spawn(V1) + id(V2) + spawn(V3)))) ;
+    (join(V1) + id(V2) + s+(V3, V1) + id(V2) + id(V3)) ; (id(V1) + s+(V2, V1) + s+(V2, V3) + id(V3));
+    (join(V1) + join(V2) + join(V3)).
+
 let path_test : tape = path(1.0, 
 
 (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
@@ -77,9 +83,9 @@ set (zerolenids : 1.0).
 
 set (wrap_trace_ids : 1.0).  // TODO fix bug when this is on
 
-set (scalex : 0.5).
+set (scalex : 0.9).
 
-set (rounded_wires : 0.0).
+set (rounded_wires : 1.0).
 set (join_wires : 1.0).
 
 // draw does_this_work to "./result_examples/does_this_work"
@@ -98,7 +104,10 @@ draw program to "./result_examples/program".
 
 
 check factorial.
-draw factorial to "./result_examples/factorial"
+draw factorial to "./result_examples/factorial".
+
+
+draw_matrix matrix_example to "matrix"
 
 // show scaling controls scalex = 0.5
 // draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".

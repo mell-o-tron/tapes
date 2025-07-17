@@ -74,6 +74,19 @@ let rec draw_command (e : expr) (path : string) =
       if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
+let draw_matrix_command (e : expr) (path : string) : unit =
+  let rec get_tape e =
+    match e with
+    | Tape t -> t
+    | Term t -> _to_tape t
+    | Var id ->
+        if Hashtbl.mem env id then get_tape (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+
+  let t : tape = get_tape e in
+  Ssr_typechecker.Draw.draw_tape_and_matrix t path
+
 let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
     Ssr_typechecker.Terms.term =
   match t with
@@ -102,7 +115,8 @@ let rec exec (p : program) =
   | Comm c -> (
       match c with
       | Check e -> typecheck_command (populate_genvars e)
-      | Draw (e, path) -> draw_command (populate_genvars e) path)
+      | Draw (e, path) -> draw_command (populate_genvars e) path
+      | DrawMatrix (e, path) -> draw_matrix_command (populate_genvars e) path)
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) ->

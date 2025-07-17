@@ -38,6 +38,7 @@ let rec token lexbuf =
   | "tape" -> Tape
   | "trace" -> Trace
   | "draw" -> Draw
+  | "draw_matrix" -> DrawMatrix
   | "check" -> Check
   | "to" -> To
   | "to_tape" -> ToTape

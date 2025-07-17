@@ -1064,49 +1064,107 @@ let draw_circuit (ast : circuit) (path : string) =
         close_out oc
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
-let draw_tape (ast : tape) (path : string) =
+let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
   (* print_endline (pp_tape ast); *)
   match
-    tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) 0. 0. infinity false
+    tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) posx posy infinity false
   with
-  | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } -> (
-      (* Write message to file *)
-      try
-        let oc = open_out path in
-        (* create or truncate file, return channel *)
-        let header =
-          Printf.sprintf
-            "\\def\\xscale{%f}\n\
-             \\def\\yscale{%f}\n\
-             \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, \
-             yscale = \\yscale]"
-            !scale_x !scale_y
-        in
+  | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } ->
+      let header =
+        Printf.sprintf
+          "\\def\\xscale{%f}\n\
+           \\def\\yscale{%f}\n\
+           \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, \
+           yscale = \\yscale]"
+          !scale_x !scale_y
+      in
+      let footer = "\\end{tikzpicture}" in
 
-        let blocks =
-          if !join_wires then
-            let cblocks =
-              get_circuit_blocks s |> ids_to_connectors |> swaps_to_connectors
-              |> List.filter is_circuit_block_nonzero_width
-            in
-            let tblocks =
-              get_tape_blocks s |> List.filter is_tape_block_nonzero_width
-            in
-            let connectors =
-              cblocks |> get_connectors |> List.map orient_connector
-              |> match_connectors
-            in
-            let cblocks = (cblocks |> get_non_connectors) @ connectors in
+      let blocks =
+        if !join_wires then
+          let cblocks =
+            get_circuit_blocks s |> ids_to_connectors |> swaps_to_connectors
+            |> List.filter is_circuit_block_nonzero_width
+          in
+          let tblocks =
+            get_tape_blocks s |> List.filter is_tape_block_nonzero_width
+          in
+          let connectors =
+            cblocks |> get_connectors |> List.map orient_connector
+            |> match_connectors
+          in
+          let cblocks = (cblocks |> get_non_connectors) @ connectors in
 
-            (tblocks |> List.map (fun x -> TB x))
-            @ (cblocks |> List.map (fun x -> CB x))
-          else s
-        in
-        Printf.fprintf oc "%s\n%s\n%s\n" header
-          (tikz_of_block_list blocks)
-          (label_tape li ri (tape_arity ast) (tape_coarity ast));
-        Printf.printf "Drawing saved at path: \t'%s'\n"
-          (sprintf [ green ] "%s" path);
-        (* write something *)
-        close_out oc
-      with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e)
+          (tblocks |> List.map (fun x -> TB x))
+          @ (cblocks |> List.map (fun x -> CB x))
+        else s
+      in
+      let tikz_string = tikz_of_block_list blocks in
+      Printf.sprintf "%s\n%s\n%s\n%s\n" header tikz_string
+        (label_tape li ri (tape_arity ast) (tape_coarity ast))
+        footer
+
+let latex_of_tape_matrix t =
+  let matrix = Matrix.get_matrix t in
+
+  let matrix_format =
+    Printf.sprintf
+      "\\setlength{\\arraycolsep}{0.5cm}\\renewcommand{\\arraystretch}{5}\n\
+       $\\begin{bmatrix}\n\
+       %s\n\
+       \\end{bmatrix}$\n"
+  in
+
+  let matrix_strings =
+    List.map (List.map (List.map (fun x -> tikzpicture_of_ast x 0. 0.))) matrix
+  in
+
+  let s = (List.map (List.map (fun x -> String.concat "," x))) matrix_strings in
+  let s =
+    (List.map (fun x ->
+         String.concat "&"
+           (List.map
+              (fun y ->
+                if y = "" then "\\emptyset"
+                else Printf.sprintf "\\left | \\vcenter{\\hbox{%s}} \\right |" y)
+              x)))
+      s
+  in
+  let s = String.concat "\\\\" s in
+  matrix_format s
+
+let draw_tape_matrix t path =
+  try
+    let oc = open_out path in
+    let s = latex_of_tape_matrix t in
+    Printf.fprintf oc "%s" s;
+    Printf.printf "Drawing saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_tape_and_matrix t path =
+  let t_drawing = tikzpicture_of_ast t 0. 0. in
+  let matrix = latex_of_tape_matrix t in
+  try
+    let oc = open_out path in
+    Printf.fprintf oc
+      "\\textbf{Tape}\n\n\
+       $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\
+       \\textbf{Matrix}:\n\n\
+       %s\n"
+      t_drawing matrix
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)
+    =
+  try
+    let oc = open_out path in
+
+    Printf.fprintf oc "%s" (tikzpicture_of_ast ast posx posy);
+    Printf.printf "Drawing saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path);
+    (* write something *)
+    close_out oc
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_tape (ast : tape) (path : string) = draw_tape_at_pos ast path 0. 0.

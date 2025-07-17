@@ -1,5 +1,6 @@
 \documentclass[border=1cm]{standalone}
 \usepackage{tikz} 
+\usepackage{amsmath}
 \usepackage{framed}
 
 
@@ -162,7 +163,7 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
 }
 
 \newcommand{\roundedfreestyletape}[8]{
-  \draw [fill=tapeBg, tapeBg] (#1, #2) -- (#3, #4) [in=180, out=0] to (#7, #8) -- (#5, #6) to cycle;
+    \draw [fill=tapeBg, tapeBg] (#1, #2) -- (#3, #4) [in=180, out=0] to (#7, #8) -- (#5, #6)  [in=0, out=180] to cycle;
 
    \draw[tapeBorder, line width=0.5pt, in=180, out=0] (#1, #2) to (#5, #6);
   \draw[tapeBorder, line width=0.5pt, in=180, out=0] (#3, #4) to (#7, #8);

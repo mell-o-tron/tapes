@@ -1,6 +1,3 @@
-\input{./tikz_out/macros}
-\begin{document}
-
 \textbf{Tape}
 
 $\vcenter{\hbox{\def\xscale{0.900000}
@@ -405,6 +402,3 @@ $\begin{bmatrix}
 }} \right |&\emptyset
 \end{bmatrix}$
 
-
-
-\end{document} 
