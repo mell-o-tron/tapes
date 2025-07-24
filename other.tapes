@@ -1,0 +1,23 @@
+let test_big_split_and_join : term = ( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A).
+
+let big_copy : term = split(A * A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; copy(A + (B * C))).
+
+let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
+                                      (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
+                                      (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A)).
+
+let paper_ex_4_14_1 : term = (id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z)).
+let paper_ex_4_14_2 : term = (gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1)).
+let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z))) * 
+                           ((gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1))).
+
+let simple : term = gen(f , A, A) + gen(g, A*B, B).
+
+let banana : term = trace(A*B, (spawn(A*B) + id(A*B) + id(A*B)) ; s+(A*B + A*B, A*B)).
+
+let discard_test : term = discard (A).
+let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B + A * A) ; discard (B + A * A).
+
+
+let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
+let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).

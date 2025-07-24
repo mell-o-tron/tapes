@@ -5,44 +5,6 @@ set (otimesdist : 0.5). // for now these have to be float
 set (oplusdist : 0.25).
 set (paddingdist : 0.5).
 
-let test_big_split_and_join : term = ( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A).
-
-let big_copy : term = split(A * A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; copy(A + (B * C))).
-
-let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
-                                      (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
-                                      (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A)).
-
-let paper_ex_4_14_1 : term = (id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z)).
-let paper_ex_4_14_2 : term = (gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1)).
-let paper_ex_4_14 : term = ((id(U) + gen(c, V, U)) ; join(U) ; gen(d, U, Z) ; split(Z) ; (gen(e, Z, W) + id(Z))) * 
-                           ((gen(c1, U1, V1) + id(V1)) ; join(V1) ; gen(d1, V1, W1) ; split(W1) ; (id(W1) + gen(e1, W1, Z1))).
-
-let simple : term = gen(f , A, A) + gen(g, A*B, B).
-
-let banana : term = trace(A*B, (spawn(A*B) + id(A*B) + id(A*B)) ; s+(A*B + A*B, A*B)).
-
-let discard_test : term = discard (A).
-let codiscard_test : term = codiscard (B + A * A) ; copy (B + A * A) ; cocopy(B + A * A) ; discard (B + A * A).
-
-
-let union : term = split(X) ; (gen(R, X, Y) + gen(S, X, Y)) ; join(Y).
-let intersection : term = copy(X) ; (gen(R, X, Y) * gen(S, X, Y)) ; cocopy(Y).
-
-let matrix_example : term = 
-    ((split(U1) ; (split(U1) + split(U1)) ; (gen(c1, U1, V1) + gen(c2, U1, V1) + gen(c3, U1, V2) + gen(c4, U1, V3))) +
-    (split(U2) ; (cut(U2) + (split(U2) ; (gen(c5, U2, V2) + cut(U2)))); (spawn(V1) + id(V2) + spawn(V3)))) ;
-    (join(V1) + id(V2) + s+(V3, V1) + id(V2) + id(V3)) ; (id(V1) + s+(V2, V1) + s+(V2, V3) + id(V3));
-    (join(V1) + join(V2) + join(V3)).
-
-let path_test : tape = path(1.0, 
-
-(split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
-                                      (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
-                                      (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A))
-
-)[1.0].
-
 let program : term = 
 
 BEGIN_IMP [x : int]
@@ -68,36 +30,26 @@ while (">1"(y)) {
 }
 END_IMP.
 
-// ===
-// (Gen(discard, [int], []) ⊗  Gen(discard, [int], []))
-// ---
-// (Id("int") ⊗  Id("int"))
-// ===
+let matrix_example : term = 
+    ((split(U1) ; (split(U1) + split(U1)) ; (gen(c1, U1, V1) + gen(c2, U1, V1) + gen(c3, U1, V2) + gen(c4, U1, V3))) +
+    (split(U2) ; (cut(U2) + (split(U2) ; (gen(c5, U2, V2) + cut(U2)))); (spawn(V1) + id(V2) + spawn(V3)))) ;
+    (join(V1) + id(V2) + s+(V3, V1) + id(V2) + id(V3)) ; (id(V1) + s+(V2, V1) + s+(V2, V3) + id(V3));
+    (join(V1) + join(V2) + join(V3)).
 
-let does_this_work : term = (multicopy(1.0, A)) + trace(A, (multicopy(1.0, A) )) + (multicopy(1.0, A)).
-check does_this_work.
+let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
+    (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
+    (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A)).
 
 set (alignsummands : 0.0).
 set (oldalignment : 0.0).
 set (zerolenids : 1.0).
 
-set (wrap_trace_ids : 1.0).  // TODO fix bug when this is on
+set (wrap_trace_ids : 1.0).
 
 set (scalex : 0.9).
 
-set (rounded_wires : 1.0).
+set (rounded_wires : 0.0).
 set (join_wires : 1.0).
-
-// draw does_this_work to "./result_examples/does_this_work"
-
-// check pred_test.
-// draw pred_test to "./result_examples/pred_test".
-
-check union.
-draw union to "./result_examples/union".
-
-check path_test.
-draw path_test to "./result_examples/path_test".
 
 check program.
 draw program to "./result_examples/program".
@@ -107,19 +59,5 @@ check factorial.
 draw factorial to "./result_examples/factorial".
 
 
-draw_matrix matrix_example to "matrix"
-
-// show scaling controls scalex = 0.5
-// draw paper_ex_4_14 to "./result_examples/paper_ex_4_14".
-
-
-// draw test_big_split_and_join to "./result_examples/test_big_split_and_join".
-// draw big_copy to "./result_examples/big_copy".
-
-// // // wrong with old alignment!
-// draw big_test_sum to "./result_examples/big_test_sum"
-
-// draw discard_test to "./result_examples/discard".
-// draw codiscard_test to "./result_examples/codiscard"
-
-// draw banana to "./result_examples/banana"
+draw_matrix matrix_example to "./result_examples/matrix".
+draw_matrix big_test_sum to "./result_examples/big_test_matrix"
