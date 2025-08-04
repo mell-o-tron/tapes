@@ -14,6 +14,8 @@ type command =
   | Draw of expr * string
   | Check of expr
   | DrawMatrix of expr * string
+  | DrawNF of expr * string
+  | DrawTraceNF of expr * string
 
 type decl =
   | ExprDecl of iden * exprtype * expr

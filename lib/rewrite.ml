@@ -1,3 +1,4 @@
+open Terms
 open Tapes
 open Typecheck
 
@@ -120,3 +121,53 @@ let rec group_composition_right (t : tape) =
   in
   let res = group_composition_right_aux t in
   if t = res then res else group_composition_right res
+
+let rec add_empty_traces t =
+  match t with
+  | Compose (t1, t2) -> Compose (add_empty_traces t1, add_empty_traces t2)
+  | Oplus (t1, t2) -> Oplus (add_empty_traces t1, add_empty_traces t2)
+  | Trace _ -> t
+  | _ -> Trace ([], t)
+
+let rec trace_normal_form (t : term) : term =
+  let t = add_empty_traces t in
+  match t with
+  | Compose (Trace (l1, t1), Trace (l2, t2)) ->
+      let s1 = Terms.SwapPlus (l1, l2) in
+      let s2 = Terms.SwapPlus (l2, l1) in
+      Printf.printf "qui\n";
+      let id1 = Id (remainder_of_prefix l1 (arity t1)) in
+      let id2 = Id (remainder_of_prefix l1 (coarity t1)) in
+      let t3 =
+        Compose
+          ( Oplus (s1, id1),
+            Compose
+              (Oplus (Id l2, t1), Compose (Oplus (s2, id2), Oplus (Id l1, t2)))
+          )
+      in
+      Trace (l2 @ l1, t3)
+  | Compose (t1, t2) ->
+      trace_normal_form (Compose (trace_normal_form t1, trace_normal_form t2))
+  | Oplus (Trace (l1, t1), Trace (l2, t2)) ->
+      let sl = Terms.SwapPlus (l2, remainder_of_prefix l1 (arity t1)) in
+      Printf.printf "sl: %s\n" (show_term sl);
+      let sr = Terms.SwapPlus (remainder_of_prefix l1 (coarity t1), l2) in
+      Printf.printf "sr: %s\n" (show_term sr);
+      let idl1 = Id l1 in
+      Printf.printf "idl1: %s\n" (show_term idl1);
+      let idl2 = Id (remainder_of_prefix l2 (arity t2)) in
+      Printf.printf "idl2: %s\n" (show_term idl2);
+      let idr1 = Id l1 in
+      Printf.printf "idr1: %s\n" (show_term idr1);
+      let idr2 = Id (remainder_of_prefix l2 (coarity t2)) in
+      Printf.printf "idr2: %s\n" (show_term idr2);
+      let t3 =
+        Compose
+          ( Oplus (idl1, Oplus (sl, idl2)),
+            Compose (Oplus (t1, t2), Oplus (idr1, Oplus (sr, idr2))) )
+      in
+      Trace (l2 @ l1, t3)
+  | Oplus (t1, t2) ->
+      trace_normal_form (Oplus (trace_normal_form t1, trace_normal_form t2))
+  | Trace _ -> t
+  | _ -> failwith "should not happen"

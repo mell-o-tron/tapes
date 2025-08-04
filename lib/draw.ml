@@ -1065,6 +1065,7 @@ let draw_circuit (ast : circuit) (path : string) =
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
 let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
+  let ast = ast |> deep_clean_tape in
   (* print_endline (pp_tape ast); *)
   match
     tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) posx posy infinity false
@@ -1149,10 +1150,53 @@ let draw_tape_and_matrix t path =
     let oc = open_out path in
     Printf.fprintf oc
       "\\textbf{Tape}\n\n\
+       \\vspace{1cm}\n\n\
        $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\
+       \\vspace{1.5cm}\n\n\
        \\textbf{Matrix}:\n\n\
+       \\vspace{1cm}\n\n\
        %s\n"
       t_drawing matrix
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_tape_matrix_and_normalform t path =
+  let t_drawing = tikzpicture_of_ast t 0. 0. in
+  let matrix = latex_of_tape_matrix t in
+  let normalform = tikzpicture_of_ast (Matrix.normalize t) 0. 0. in
+  try
+    let oc = open_out path in
+    Printf.fprintf oc
+      "\\textbf{Tape}\n\n\
+       \\vspace{1cm}\n\n\
+       $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\
+       \\vspace{1.5cm}\n\n\
+       \\textbf{Matrix}:\n\n\
+       \\vspace{1cm}\n\n\
+       %s\n\n\
+       \\vspace{1.5cm}\n\n\
+       \\textbf{Normal Form:}\n\n\
+       \\vspace{1cm}\n\n\
+       $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n"
+      t_drawing matrix normalform
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_term_trace_normalform (t : Terms.term) path =
+  let t_drawing = tikzpicture_of_ast (Term_to_tape._to_tape t) 0. 0. in
+  let nftape =
+    Term_to_tape._to_tape (Rewrite.trace_normal_form t) |> deep_clean_tape
+  in
+  let nf = tikzpicture_of_ast nftape 0. 0. in
+  try
+    let oc = open_out path in
+    Printf.fprintf oc
+      "\\textbf{Tape}\n\n\
+       \\vspace{1cm}\n\n\
+       $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\
+       \\vspace{1.5cm}\n\n\
+       \\textbf{Normal Form}:\n\n\
+       \\vspace{1cm}\n\n\
+       $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\n"
+      t_drawing nf
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
 let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)

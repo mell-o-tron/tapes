@@ -4,7 +4,8 @@ open Ssr_typechecker.Term_to_tape
 open Ssr_typechecker.Tapes
 open Ssr_typechecker.Terms
 open Ssr_typechecker.Ast
-open Ssr_typechecker.Imp
+
+(* open Ssr_typechecker.Imp *)
 open Ssr_typechecker.Errors
 open ANSITerminal
 
@@ -87,6 +88,32 @@ let draw_matrix_command (e : expr) (path : string) : unit =
   let t : tape = get_tape e in
   Ssr_typechecker.Draw.draw_tape_and_matrix t path
 
+let draw_normal_command (e : expr) (path : string) : unit =
+  let rec get_tape e =
+    match e with
+    | Tape t -> t
+    | Term t -> _to_tape t
+    | Var id ->
+        if Hashtbl.mem env id then get_tape (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+
+  let t : tape = get_tape e in
+  Ssr_typechecker.Draw.draw_tape_matrix_and_normalform t path
+
+let draw_trace_nf_command (e : expr) (path : string) : unit =
+  let rec get_term e =
+    match e with
+    | Tape _ -> failwith "can only take trace normal form of term"
+    | Term t -> t
+    | Var id ->
+        if Hashtbl.mem env id then get_term (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+
+  let t : term = get_term e in
+  Ssr_typechecker.Draw.draw_term_trace_normalform t path
+
 let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
     Ssr_typechecker.Terms.term =
   match t with
@@ -116,7 +143,10 @@ let rec exec (p : program) =
       match c with
       | Check e -> typecheck_command (populate_genvars e)
       | Draw (e, path) -> draw_command (populate_genvars e) path
-      | DrawMatrix (e, path) -> draw_matrix_command (populate_genvars e) path)
+      | DrawMatrix (e, path) -> draw_matrix_command (populate_genvars e) path
+      | DrawNF (e, path) -> draw_normal_command (populate_genvars e) path
+      | DrawTraceNF (e, path) -> draw_trace_nf_command (populate_genvars e) path
+      )
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) ->
@@ -155,12 +185,6 @@ let rec exec (p : program) =
 (* prints the result of the computation *)
 
 let main () =
-  let t =
-    eval_pred
-      [ ("x", "int"); ("y", "int") ]
-      (Or (Rel ("R", [ Var "x"; Var "y" ], false), Bottom))
-  in
-  let _ = Hashtbl.add env "pred_test" (Term t) in
   try
     let p = ast_of_channel inchn in
     exec p

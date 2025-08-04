@@ -39,6 +39,8 @@ let rec token lexbuf =
   | "trace" -> Trace
   | "draw" -> Draw
   | "draw_matrix" -> DrawMatrix
+  | "draw_normal_form" -> DrawNF
+  | "draw_trace_normal_form" -> DrawTraceNF
   | "check" -> Check
   | "to" -> To
   | "to_tape" -> ToTape
@@ -70,6 +72,9 @@ let rec token lexbuf =
   | "{" -> OPEN_BRACE
   | "}" -> CLOSED_BRACE
   | "path" -> PATH
+  | "normalize" -> NORMALIZE
+  | "normalize_term" -> NORMALIZETERM
+  | "normalize_trace" -> NORMALIZETRACE
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

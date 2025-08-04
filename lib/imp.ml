@@ -113,9 +113,7 @@ let rec eval_pred (c : context) (p : imp_pred) =
   | Rel (name, l, s) ->
       let args =
         List.map (eval_expr c) l
-        |> List.fold_left
-             (fun acc a -> Otimes (acc, a))
-             (Id (obj_to_polynomial Ob1))
+        |> List.fold_left (fun acc a -> Otimes (acc, a)) (Id [ [] ])
       in
       Compose
         ( multi_copy (List.length l) [ eval_context c ],
@@ -142,7 +140,7 @@ let kleene_star (t : term) =
   let ar = Typecheck.arity t in
   let coar = Typecheck.coarity t in
   if ar = coar then
-    Trace (ar, Compose (Oplus (t, Id ar), Compose (Join ar, Split ar)))
+    Trace (ar, Compose (Join ar, Compose (Split ar, Oplus (t, Id ar))))
   else
     raise
       (ImpError
@@ -151,6 +149,15 @@ let kleene_star (t : term) =
              Ar = %s\t Coar = %s"
             (Typecheck.string_of_sort_list_list ar)
             (Typecheck.string_of_sort_list_list coar)))
+
+let union (t1 : term) (t2 : term) =
+  let art1 = Typecheck.arity t1 in
+  let art2 = Typecheck.arity t2 in
+  let coart1 = Typecheck.coarity t1 in
+  let coart2 = Typecheck.coarity t2 in
+  if art1 = art2 && coart1 = coart2 then
+    Compose (Compose (Split art1, Oplus (t1, t2)), Join coart1)
+  else failwith "cannot apply union: arities or coarities don't match"
 
 let corefl (c : context) (p : imp_pred) =
   let t = eval_pred c p in
@@ -171,9 +178,9 @@ let rec eval_command (c : context) (com : imp_comm) =
   | Skip -> Id [ eval_context c ]
   | Seq (com1, com2) -> Compose (eval_command c com1, eval_command c com2)
   | IfThenElse (p, com1, com2) ->
-      Oplus
-        ( Compose (corefl c p, eval_command c com1),
-          Compose (corefl c (negate p), eval_command c com2) )
+      union
+        (Compose (corefl c p, eval_command c com1))
+        (Compose (corefl c (negate p), eval_command c com2))
   | WhileDo (p, com1) ->
       Printf.printf "corefl:\tAr : %s,\tCoar : %s\n"
         (Typecheck.arity (corefl c p) |> Typecheck.string_of_sort_list_list)
@@ -184,7 +191,6 @@ let rec eval_command (c : context) (com : imp_comm) =
         (Typecheck.coarity (eval_command c com1)
         |> Typecheck.string_of_sort_list_list);
 
-      (* This is probably wrong. Needs some copying and joining of variables in the general case. *)
       Compose
         ( kleene_star (Compose (corefl c p, eval_command c com1)),
           corefl c (negate p) )

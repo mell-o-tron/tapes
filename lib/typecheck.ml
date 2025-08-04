@@ -1,6 +1,9 @@
 open Terms
 open Tapes
 
+let string_of_sort_list_list l =
+  String.concat "," (List.map (fun x -> "[" ^ String.concat "," x ^ "]") l)
+
 let rec is_prefix prefix lst =
   match (prefix, lst) with
   | [], _ -> true (* empty list is always a prefix *)
@@ -10,6 +13,9 @@ let rec is_prefix prefix lst =
   | _ -> false (* mismatch *)
 
 let rec remainder_of_prefix prefix lst =
+  Printf.printf "prefix %s, list: %s\n"
+    (string_of_sort_list_list prefix)
+    (string_of_sort_list_list lst);
   match (prefix, lst) with
   | [], ys -> ys
   | _, [] -> [] (* prefix is longer than lst → nothing left *)
@@ -198,9 +204,6 @@ let rec circuit_typecheck (t : circuit) =
   | CCompose (t1, t2) -> circuit_arity t2 = circuit_coarity t1
   | Otimes (t1, t2) -> circuit_typecheck t1 && circuit_typecheck t2
   | _ -> true
-
-let string_of_sort_list_list l =
-  String.concat "," (List.map (fun x -> "[" ^ String.concat "," x ^ "]") l)
 
 (* checks if arity and coarity match in compositions *)
 let rec tape_typecheck (t : tape) =

@@ -1,6 +1,3 @@
-\input{./tikz_out/macros}
-\begin{document}
-
 \textbf{Tape}
 
 \vspace{1cm}
@@ -1896,6 +1893,3 @@ $\vcenter{\hbox{\def\xscale{0.900000}
 }}$\hspace{2cm}
 
 
-
-
-\end{document} 

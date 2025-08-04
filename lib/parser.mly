@@ -13,8 +13,8 @@ let remove_first_last s =
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
-%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix To ToTape ARROW Set REF
-%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH
+%token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
+%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -48,6 +48,8 @@ command:
   | Draw e=expr To qs=QSTRING {Ast.Draw(e, remove_first_last qs)}
   | Check e=expr {Ast.Check(e)}
   | DrawMatrix e=expr To qs=QSTRING {Ast.DrawMatrix(e, remove_first_last qs)}
+  | DrawNF e=expr To qs=QSTRING {Ast.DrawNF(e, remove_first_last qs)}
+  | DrawTraceNF e=expr To qs=QSTRING {Ast.DrawTraceNF(e, remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
@@ -95,7 +97,8 @@ term:
   | LPAREN t = term RPAREN                                                                              {t}
   | s = STRING {Terms.GenVar(s)}
   | BEGIN_IMP LBRACKET RBRACKET i = imp_command END_IMP {Imp.eval_command [] i}
-  | BEGIN_IMP LBRACKET ctx=context RBRACKET i = imp_command END_IMP {Imp.eval_command ctx i}
+  | BEGIN_IMP LBRACKET ctx=context RBRACKET i = imp_command END_IMP {let x = Imp.eval_command ctx i in (*print_endline (Tapes.pp_tape(Term_to_tape._to_tape x )) ;*) x }
+  | NORMALIZETRACE t1 = term {let res = Rewrite.trace_normal_form t1 in Printf.printf "term: %s\n" (Terms.show_term res); res}
   | error {raise (Errors.ParseError "term expected")}
 
 context:
@@ -126,6 +129,8 @@ tape:
   | Trace LPAREN l = object_type COMMA t = tape RPAREN                                                  { Tapes.Trace(Terms.obj_to_monomial l, t) }
   | PATH LPAREN f=FLOAT COMMA t = term RPAREN LBRACKET f1=FLOAT RBRACKET                                { snd (List.nth (linearize (int_of_float f) (_to_tape t)) (int_of_float f1))}
   | LPAREN t = tape RPAREN { t }
+  | NORMALIZE t1 = tape {Matrix.normalize (t1)}
+  | NORMALIZETERM t1 = term {Matrix.term_to_normalized_tape t1}
   | error {raise (Errors.ParseError "tape expected")}
 
 object_type:

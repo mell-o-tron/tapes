@@ -21,6 +21,8 @@ type tape =
   | Join of Terms.sort list
 [@@deriving show]
 
+type sort = string
+
 (* Pretty-print a list of sorts, e.g. ["a"; "b"] becomes: ["a", "b"] *)
 let pp_sort_list (lst : string list) : string =
   "[" ^ String.concat ", " (List.map (fun s -> "\"" ^ s ^ "\"") lst) ^ "]"
@@ -67,7 +69,7 @@ let rec clean_circuit (c : circuit) =
   | Otimes (c1, c2) -> Otimes (clean_circuit c1, clean_circuit c2)
   | _ -> c
 
-let rec clean_tape (t : tape) =
+(* let rec clean_tape (t : tape) =
   match t with
   | TCompose (TId0, TId0) -> TId0
   | TCompose (t1, t2) -> TCompose (clean_tape t1, clean_tape t2)
@@ -76,8 +78,121 @@ let rec clean_tape (t : tape) =
   | Oplus (t1, t2) -> Oplus (clean_tape t1, clean_tape t2)
   | Tape c -> Tape (clean_circuit c)
   | Trace (l, t) -> Trace (l, clean_tape t)
+  | _ -> t *)
+
+let rec clean_tape (t : tape) =
+  match t with
+  | TCompose (TId0, TId0) -> TId0
+  (* | TCompose (TId0, t1) -> t1
+  | TCompose (t1, TId0) -> t1 *)
+  | TCompose (t1, t2) -> TCompose (clean_tape t1, clean_tape t2)
+  | Oplus (t1, TId0) -> clean_tape t1
+  | Oplus (TId0, t2) -> clean_tape t2
+  | Oplus (t1, t2) -> Oplus (clean_tape t1, clean_tape t2)
+  | Tape c -> Tape (clean_circuit c)
+  | Trace ([], t1) -> clean_tape t1
+  | Trace (l, t) -> Trace (l, clean_tape t)
+  | SwapPlus ([], []) -> TId0
+  | SwapPlus ([], l) -> TId [ l ]
+  | SwapPlus (l, []) -> TId [ l ]
+  | TId [] -> TId0
   | _ -> t
 
-let rec deep_clean_tape (t : tape) =
-  let t1 = clean_tape t in
-  if t = t1 then t else deep_clean_tape t1
+let deep_clean_tape (t : tape) =
+  let rec fix_ids (t : tape) =
+    match t with
+    | TCompose (t1, t2) -> TCompose (fix_ids t1, fix_ids t2)
+    | Oplus (t1, t2) -> Oplus (fix_ids t1, fix_ids t2)
+    | Trace (l, t1) -> Trace (l, fix_ids t1)
+    (* | Tape (CId l) -> TId [ [ l ] ] *)
+    | Tape CId1 -> TId [ [] ]
+    | _ -> t
+  in
+
+  let rec aux (t : tape) =
+    let t1 = clean_tape t in
+    if t = t1 then t else aux t1
+  in
+  fix_ids (aux t)
+
+(* Given a list of circuits, forms a polynomial with those circuits as monomials *)
+let sum_monomials l = List.fold_left (fun acc m -> Oplus (acc, m)) TId0 l
+
+(* Turns a string diagram identity into a circuit identity *)
+let id_to_circuit l = List.fold_left (fun acc s -> Otimes (acc, CId s)) CId1 l
+
+let rec unwrap_swaptimes_circuit (l1 : sort list) (l2 : sort list) =
+  match (l1, l2) with
+  | [], u -> id_to_circuit u
+  | w, [] -> id_to_circuit w
+  | a :: w, b :: u ->
+      CCompose
+        ( CCompose
+            ( Otimes (CId a, unwrap_swaptimes_circuit w (b :: u)),
+              Otimes (SwapTimes (a, b), id_to_circuit (u @ w)) ),
+          Otimes
+            (Otimes (CId b, unwrap_swaptimes_circuit [ a ] u), id_to_circuit w)
+        )
+
+(* Turns an identity into the corresponding tape *)
+let id_to_tape (l1 : sort list list) =
+  List.fold_left (fun acc m -> Oplus (acc, Tape (id_to_circuit m))) TId0 l1
+
+let rec unwrap_swapplus_tape (l1 : sort list list) (l2 : sort list list) =
+  match (l1, l2) with
+  | [], u -> id_to_tape u
+  | w, [] -> id_to_tape w
+  | a :: w, b :: u ->
+      TCompose
+        ( TCompose
+            ( Oplus (TId [ a ], unwrap_swapplus_tape w (b :: u)),
+              Oplus (SwapPlus (a, b), id_to_tape (u @ w)) ),
+          Oplus (Oplus (TId [ b ], unwrap_swapplus_tape [ a ] u), id_to_tape w)
+        )
+
+let swapplus_to_tape (p : sort list list) (q : sort list list) =
+  unwrap_swapplus_tape p q
+
+(* Using coherence axioms of commutative monoids - FP1 *)
+let rec split_to_tape (l1 : sort list list) =
+  match l1 with
+  | [] -> TId0
+  | x :: xs ->
+      TCompose
+        ( Oplus (Split x, split_to_tape xs),
+          Oplus (TId [ x ], Oplus (swapplus_to_tape [ x ] xs, id_to_tape xs)) )
+
+(* Using coherence axioms of cocommutative comonoids - FC1 *)
+let rec join_to_tape (l1 : sort list list) =
+  match l1 with
+  | [] -> TId0
+  | x :: xs ->
+      TCompose
+        ( Oplus (TId [ x ], Oplus (swapplus_to_tape xs [ x ], id_to_tape xs)),
+          Oplus (Join x, join_to_tape xs) )
+
+(* Using coherence axioms of commutative monoids - FP2 *)
+let rec cut_to_tape (l1 : sort list list) =
+  match l1 with [] -> TId0 | x :: xs -> Oplus (Cut x, cut_to_tape xs)
+
+(* Using coherence axioms of cocommutative comonoids - FC2 *)
+let rec spawn_to_tape (l1 : sort list list) =
+  match l1 with [] -> TId0 | x :: xs -> Oplus (Spawn x, spawn_to_tape xs)
+
+let rec multi_split n u =
+  if n = 0 then Cut u
+  else if n = 1 then TId [ u ]
+  else if n = 2 then Split u
+  else TCompose (Split u, Oplus (TId [ u ], multi_split (n - 1) u))
+
+let rec multi_join n u =
+  if n = 0 then Spawn u
+  else if n = 1 then TId [ u ]
+  else if n = 2 then Join u
+  else TCompose (Oplus (TId [ u ], multi_join (n - 1) u), Join u)
+
+let rec multi_join_pol n (p : string list list) =
+  if n = 0 then spawn_to_tape p
+  else if n = 1 then id_to_tape p
+  else if n = 2 then join_to_tape p
+  else TCompose (Oplus (id_to_tape p, multi_join_pol (n - 1) p), join_to_tape p)

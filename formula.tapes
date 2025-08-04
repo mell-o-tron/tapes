@@ -15,27 +15,42 @@ set (scalex : 0.7).
 let A : sort.   let B : sort.   let C : sort.
 let f : A -> C * C * C.
 
+set (rounded_wires : 0.0).
 
 let program : term = 
 
 BEGIN_IMP [x : int]
-// while (r(x)) {
+while (r(x)) {
     if (r1(x)) then {
         x := (f(x) : int)
     } else {
         abort
     }
-// }
+}
 END_IMP.
 
 check program.
 draw program to "./result_examples/program".
 
-set (rounded_wires : 0.0).
 
 let factorial : term = 
 
 BEGIN_IMP [x : int, y : int]
+y := x;
+while (">1"(y)) {
+    y := ("-1"(x) : int);
+    x := ("\times"(x, y) : int)
+}
+END_IMP.
+
+let factorial_twice : term = 
+
+BEGIN_IMP [x : int, y : int]
+y := x;
+while (">1"(y)) {
+    y := ("-1"(x) : int);
+    x := ("\times"(x, y) : int)
+};
 y := x;
 while (">1"(y)) {
     y := ("-1"(x) : int);
@@ -49,15 +64,21 @@ draw factorial to "./result_examples/factorial".
 set (scalex : 0.9).
 set (rounded_wires : 1.0).
 
-let matrix_example : term = 
-    ((split(U1) ; (split(U1) + split(U1)) ; (gen(c1, U1, V1) + gen(c2, U1, V1) + gen(c3, U1, V2) + gen(c4, U1, V3))) +
-    (split(U2) ; (cut(U2) + (split(U2) ; (gen(c5, U2, V2) + cut(U2)))); (spawn(V1) + id(V2) + spawn(V3)))) ;
-    (join(V1) + id(V2) + s+(V3, V1) + id(V2) + id(V3)) ; (id(V1) + s+(V2, V1) + s+(V2, V3) + id(V3));
-    (join(V1) + join(V2) + join(V3)).
-
 let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ; (copy(A + (B*C))))) +
     (split(A*A) ; ((gen(f, A * A, A) + gen(g, A * A, B * C)) ;  (copy(A + (B*C))))))) + 
     (( split(A) ; ((gen(f, A, A) ; (id(A) + spawn(A) + spawn(A) + spawn(A))) + id(A)) ) ; ((id(A) + cut(A)) + cut(A) + cut(A) + id(A)) ; join(A)).
 
-draw_matrix matrix_example to "./result_examples/matrix".
-draw_matrix big_test_sum to "./result_examples/big_test_matrix"
+set (rounded_wires : 0.0).
+
+let norm : tape = normalize_term
+BEGIN_IMP [x : int, y : int]
+y := x;
+while (">1"(y)) {
+    y := ("-1"(x) : int);
+    x := ("\times"(x, y) : int)
+}
+END_IMP.
+
+draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
+
+draw_trace_normal_form factorial_twice to "./result_examples/tracenf"
