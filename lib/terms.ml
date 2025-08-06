@@ -1,5 +1,11 @@
 type sort = string [@@deriving show]
 
+type gen_kind =
+  | Relation
+  | Function
+  | Corefl
+[@@deriving show]
+
 (*type term = Id of (sort)
             | Gen of string * (sort list list) * (sort list list)
             | SwapTimes of (sort * sort)
@@ -42,7 +48,7 @@ let rec pp_object ob =
 type term =
   | Id of sort list list
   | GenVar of string
-  | Gen of string * sort list list * sort list list
+  | Gen of string * sort list list * sort list list * gen_kind
   | SwapTimes of (sort list list * sort list list)
   | SwapPlus of (sort list list * sort list list)
   | Oplus of term * term
@@ -129,4 +135,6 @@ let rec sort_prod_to_list (ob : obj) =
 
 let rec multi_copy n u =
   if n = 0 then Discard u
+  else if n = 1 then Id u
+  else if n = 2 then Copy u
   else Compose (Copy u, Otimes (multi_copy (n - 1) u, Id u))

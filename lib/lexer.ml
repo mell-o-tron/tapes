@@ -75,6 +75,9 @@ let rec token lexbuf =
   | "normalize" -> NORMALIZE
   | "normalize_term" -> NORMALIZETERM
   | "normalize_trace" -> NORMALIZETRACE
+  | "check_inclusion" -> CHECKINCLUSION
+  | "with" -> WITH
+  | "invariant" -> INVARIANT
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

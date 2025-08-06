@@ -16,11 +16,13 @@ type command =
   | DrawMatrix of expr * string
   | DrawNF of expr * string
   | DrawTraceNF of expr * string
+  | CheckInclusion of expr * expr
+  | CheckInclusionInvariant of expr * expr * expr
 
 type decl =
   | ExprDecl of iden * exprtype * expr
   | SortDecl of iden
-  | GenDecl of iden * Terms.obj * Terms.obj
+  | GenDecl of iden * Terms.obj * Terms.obj * Terms.gen_kind
 
 type program =
   | Comm of command

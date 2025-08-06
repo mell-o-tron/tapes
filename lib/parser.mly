@@ -14,7 +14,7 @@ let remove_first_last s =
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
-%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE
+%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -50,11 +50,13 @@ command:
   | DrawMatrix e=expr To qs=QSTRING {Ast.DrawMatrix(e, remove_first_last qs)}
   | DrawNF e=expr To qs=QSTRING {Ast.DrawNF(e, remove_first_last qs)}
   | DrawTraceNF e=expr To qs=QSTRING {Ast.DrawTraceNF(e, remove_first_last qs)}
+  | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN WITH INVARIANT e3=expr {Ast.CheckInclusionInvariant(e1, e2, e3)}
+  | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN {Ast.CheckInclusion(e1, e2)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
 decl:
-  | Let s=STRING COLON o1 = object_type ARROW o2 = object_type {Ast.Decl(Ast.GenDecl(s, o1, o2))}
+  | Let s=STRING COLON o1 = object_type ARROW o2 = object_type {Ast.Decl(Ast.GenDecl(s, o1, o2, Relation))} (* TODO add functions et al *)
   | Let s=STRING COLON Tape EQUALS e=tape_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TapeType, e))}
   | Let s=STRING COLON Term EQUALS e=term_expr {Ast.Decl(Ast.ExprDecl(s, Ast.TermType, e))}
   | Let s=STRING COLON Sort {Ast.Decl(Ast.SortDecl(s))}
@@ -79,7 +81,7 @@ term:
   | Id LPAREN t1 = object_type RPAREN                                                                   {Terms.Id(Terms.obj_to_polynomial(t1)) }
   | SwapTimes LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                     {Terms.SwapTimes(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      {Terms.SwapPlus(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
-  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Terms.Gen(s, Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2))}
+  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Terms.Gen(s, Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.Relation)}
   | Ldistr LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN                 {Terms.Ldistr(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.obj_to_polynomial(t3))}
   | t1 = term Otimes t2 = term                                                                          {Terms.Otimes(t1, t2)}
   | t1 = term Oplus t2 = term                                                                           {Terms.Oplus(t1, t2)}
@@ -108,7 +110,7 @@ context:
 circuit:
   | One                                                                                                 { Tapes.CId1 }
   | Id LPAREN s = STRING RPAREN                                                                         { Tapes.CId (s) }
-  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
+  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2, Terms.Relation) }
   | SwapTimes LPAREN s1 = STRING COMMA s2 = STRING RPAREN                                               { Tapes.SwapTimes (s1, s2) }
   | c1 = circuit Otimes c2 = circuit                                                                    { Tapes.Otimes    (c1, c2) }
   | c1 = circuit SEMICOLON c2 = circuit                                                                 { Tapes.CCompose (c1, c2) }

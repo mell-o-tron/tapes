@@ -114,6 +114,36 @@ let draw_trace_nf_command (e : expr) (path : string) : unit =
   let t : term = get_term e in
   Ssr_typechecker.Draw.draw_term_trace_normalform t path
 
+let check_inclusion_command (e1 : expr) (e2 : expr) : unit =
+  let rec get_tape e =
+    match e with
+    | Tape t -> t
+    | Term t -> _to_tape t
+    | Var id ->
+        if Hashtbl.mem env id then get_tape (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+
+  let t1 : tape = get_tape e1 in
+  let t2 : tape = get_tape e2 in
+  Ssr_typechecker.Tape_inclusion.generate_implication_problems t1 t2
+
+let check_inclusion_inv_command (e1 : expr) (e2 : expr) (e3 : expr) : unit =
+  let rec get_tape e =
+    match e with
+    | Tape _ ->
+        failwith "cannot check invariant inclusion of bare tape: use term"
+    | Term t -> _to_tape (t |> Ssr_typechecker.Rewrite.trace_normal_form)
+    | Var id ->
+        if Hashtbl.mem env id then get_tape (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+
+  let t1 : tape = get_tape e1 in
+  let t2 : tape = get_tape e2 in
+  let inv : tape = get_tape e3 in
+  Ssr_typechecker.Tape_inclusion.inclusion_by_invariant t1 t2 inv
+
 let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
     Ssr_typechecker.Terms.term =
   match t with
@@ -146,19 +176,24 @@ let rec exec (p : program) =
       | DrawMatrix (e, path) -> draw_matrix_command (populate_genvars e) path
       | DrawNF (e, path) -> draw_normal_command (populate_genvars e) path
       | DrawTraceNF (e, path) -> draw_trace_nf_command (populate_genvars e) path
-      )
+      | CheckInclusion (e1, e2) ->
+          check_inclusion_command (populate_genvars e1) (populate_genvars e2)
+      | CheckInclusionInvariant (e1, e2, e3) ->
+          check_inclusion_inv_command (populate_genvars e1)
+            (populate_genvars e2) (populate_genvars e3))
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) ->
           (match e with Term t -> Hashtbl.add defined_terms id t | _ -> ());
           Hashtbl.add env id (populate_genvars e)
       | SortDecl id -> sorts := id :: !sorts
-      | GenDecl (id, ob1, ob2) ->
+      | GenDecl (id, ob1, ob2, kind) ->
           Hashtbl.add gens id
             (Gen
                ( id,
                  Ssr_typechecker.Terms.obj_to_polynomial ob1,
-                 Ssr_typechecker.Terms.obj_to_polynomial ob2 )))
+                 Ssr_typechecker.Terms.obj_to_polynomial ob2,
+                 kind )))
   | Seq (p1, p2) ->
       exec p1;
       exec p2

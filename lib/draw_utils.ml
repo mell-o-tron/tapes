@@ -62,6 +62,7 @@ type circuit_block =
       name : string;
       otimesdist : float;
       sorts : string list * string list;
+      style : string;
     }
   | Connector of { positions : (float * float) list }
   | EmptyBlock
@@ -292,10 +293,19 @@ let tikz_of_circuit_block (cb : circuit_block) : string =
       Printf.sprintf "\\cocopycirc {%s}{%f}{%f}{%f}\n" fresh_name x y scaley
   | BCoDiscard { fresh_name; pos = x, y; sort = _ } ->
       Printf.sprintf "\\codiscardcirc {%s}{%f}{%f}\n" fresh_name x y
-  | BGen { fresh_name; pos = x, y; arity; coarity; name; otimesdist; sorts = _ }
-    ->
-      Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}\n" fresh_name x y arity
-        coarity name otimesdist
+  | BGen
+      {
+        fresh_name;
+        pos = x, y;
+        arity;
+        coarity;
+        name;
+        otimesdist;
+        sorts = _;
+        style;
+      } ->
+      Printf.sprintf "\\gen {%s}{%f}{%f}{%d}{%d}{%s}{%f}{%s}\n" fresh_name x y
+        arity coarity name otimesdist style
   | Connector { positions = l } ->
       if List.length l = 0 then ""
       else
@@ -770,7 +780,7 @@ let rec get_circuit_height (c : circuit) =
   | Otimes (t1, t2) ->
       get_circuit_height t1 +. get_circuit_height t2 +. !otimes_dist
   | CCompose (t1, t2) -> max (get_circuit_height t1) (get_circuit_height t2)
-  | Gen (_, ar, coar) ->
+  | Gen (_, ar, coar, _) ->
       let ar_size = List.length ar in
       let coar_size = List.length coar in
       float_of_int (max (max (ar_size - 1) (coar_size - 1)) 0) *. !otimes_dist
@@ -778,7 +788,7 @@ let rec get_circuit_height (c : circuit) =
 let rec get_circuit_left_interface_height (c : circuit) =
   match c with
   | CId _ | CId1 | SwapTimes _ -> get_circuit_height c
-  | Gen (_, ar, _) ->
+  | Gen (_, ar, _, _) ->
       print_float (max 0. (float_of_int (List.length ar - 1)) *. !otimes_dist);
       max 0. (float_of_int (List.length ar - 1)) *. !otimes_dist
   | Otimes (t1, t2) ->

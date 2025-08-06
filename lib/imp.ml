@@ -106,7 +106,8 @@ let rec eval_expr (c : context) (e : imp_expr) =
               Gen
                 ( Printf.sprintf "$%s$" f,
                   [ List.map (fun x -> get_type c x) l |> List.flatten ],
-                  [ [ coar ] ] ) ) )
+                  [ [ coar ] ],
+                  Function ) ) )
 
 let rec eval_pred (c : context) (p : imp_pred) =
   match p with
@@ -123,7 +124,8 @@ let rec eval_pred (c : context) (p : imp_pred) =
                 ( (if s then Printf.sprintf "$%s$" name
                    else Printf.sprintf "$\\overline{%s}$" name),
                   [ List.map (fun x -> get_type c x) l |> List.flatten ],
-                  obj_to_polynomial Ob1 ) ) )
+                  obj_to_polynomial Ob1,
+                  Relation ) ) )
   | Top -> Discard [ eval_context c ]
   | Bottom -> Compose (Cut [ eval_context c ], Spawn (obj_to_polynomial Ob1))
   | Or (pred1, pred2) ->

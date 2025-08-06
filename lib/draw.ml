@@ -197,7 +197,8 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           left_interface = li1;
           right_interface = ri2;
         }
-  | Gen (name, ar, coar) -> (
+  (* triangulate baby! *)
+  | Gen (name, ar, coar, kind) -> (
       match name with
       | "copy" when coar = ar @ ar ->
           CircGeo
@@ -308,6 +309,11 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
                       name;
                       otimesdist = !otimes_dist;
                       sorts = (ar, coar);
+                      style =
+                        (match kind with
+                        | Relation -> "boxstyle"
+                        | Function -> "trianglestyle"
+                        | Corefl -> "circlestyle");
                     };
                 ];
               height;

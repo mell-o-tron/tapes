@@ -84,7 +84,8 @@ let rec left_whiskering (u : sort list list) (t : tape) =
 let rec circuit_inverse (c : circuit) =
   match c with
   | CId _ | CId1 -> c
-  | Gen (s, ar, coar) -> Gen (s ^ "$^{-1}$", coar, ar)
+  (* the inverse of a function is, in general, a relation. *)
+  | Gen (s, ar, coar, _) -> Gen (s ^ "$^{-1}$", coar, ar, Relation)
   | CCompose (c1, c2) -> CCompose (circuit_inverse c2, circuit_inverse c1)
   | Otimes (c1, c2) -> Otimes (circuit_inverse c1, circuit_inverse c2)
   | SwapTimes (s1, s2) -> SwapTimes (s2, s1)
@@ -126,7 +127,9 @@ let rec copy_monomial_to_circuit (l : sort list) : circuit =
   | [] -> CId1
   | x :: xs ->
       CCompose
-        ( Otimes (Gen ("copy", [ x ], [ x; x ]), copy_monomial_to_circuit xs),
+        ( Otimes
+            ( Gen ("copy", [ x ], [ x; x ], Relation),
+              copy_monomial_to_circuit xs ),
           Otimes
             (CId x, Otimes (unwrap_swaptimes_circuit [ x ] xs, id_to_circuit xs))
         )
@@ -150,8 +153,9 @@ let rec cocopy_monomial_to_circuit (l : sort list) : circuit =
       CCompose
         ( Otimes
             (CId x, Otimes (unwrap_swaptimes_circuit xs [ x ], id_to_circuit xs)),
-          Otimes (Gen ("cocopy", [ x; x ], [ x ]), cocopy_monomial_to_circuit xs)
-        )
+          Otimes
+            ( Gen ("cocopy", [ x; x ], [ x ], Relation),
+              cocopy_monomial_to_circuit xs ) )
 
 let rec cocopy_to_tape (l : sort list list) : tape =
   match l with
@@ -167,7 +171,7 @@ let rec cocopy_to_tape (l : sort list list) : tape =
             ) )
 
 let discard_to_tape_mon (l : sort list) : circuit =
-  let l = List.map (fun x -> Gen ("discard", [ x ], [])) l in
+  let l = List.map (fun x -> Gen ("discard", [ x ], [], Relation)) l in
   List.fold_right (fun x y -> Otimes (x, y)) l CId1
 
 let discard_to_tape (l : sort list list) : tape =
@@ -176,7 +180,7 @@ let discard_to_tape (l : sort list list) : tape =
   res |> deep_clean_tape
 
 let codiscard_to_tape_mon (l : sort list) : circuit =
-  let l = List.map (fun x -> Gen ("codiscard", [], [ x ])) l in
+  let l = List.map (fun x -> Gen ("codiscard", [], [ x ], Relation)) l in
   List.fold_right (fun x y -> Otimes (x, y)) l CId1
 
 let codiscard_to_tape (l : sort list list) : tape =
@@ -197,12 +201,12 @@ let rec _to_tape (t : term) =
   | Otimes (t1, t2) -> otimes_to_tape (_to_tape t1) (_to_tape t2)
   | Oplus (t1, t2) -> Oplus (_to_tape t1, _to_tape t2)
   | Compose (t1, t2) -> TCompose (_to_tape t1, _to_tape t2)
-  | Gen (s, ar, coar) -> (
+  | Gen (s, ar, coar, kind) -> (
       match (ar, coar) with
-      | [], [] -> Tape (Gen (s, [], []))
-      | [ a ], [ b ] -> Tape (Gen (s, a, b))
-      | [ a ], [] -> Tape (Gen (s, a, []))
-      | [], [ b ] -> Tape (Gen (s, [], b))
+      | [], [] -> Tape (Gen (s, [], [], kind))
+      | [ a ], [ b ] -> Tape (Gen (s, a, b, kind))
+      | [ a ], [] -> Tape (Gen (s, a, [], kind))
+      | [], [ b ] -> Tape (Gen (s, [], b, kind))
       | _ ->
           raise
             (Errors.RuntimeError

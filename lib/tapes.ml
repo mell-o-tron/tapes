@@ -1,7 +1,9 @@
+type gen_kind = Terms.gen_kind [@@deriving show]
+
 type circuit =
   | CId of Terms.sort
   | CId1
-  | Gen of string * Terms.sort list * Terms.sort list
+  | Gen of string * Terms.sort list * Terms.sort list * gen_kind
   | CCompose of circuit * circuit
   | Otimes of circuit * circuit
   | SwapTimes of Terms.sort * Terms.sort
@@ -32,9 +34,9 @@ let rec pp_circuit (c : circuit) : string =
   match c with
   | CId s -> Printf.sprintf "Id(\"%s\")" s
   | CId1 -> "Id1"
-  | Gen (name, args, rets) ->
-      Printf.sprintf "Gen(%s, [%s], [%s])" name (String.concat ", " args)
-        (String.concat ", " rets)
+  | Gen (name, args, rets, kind) ->
+      Printf.sprintf "%s(%s, [%s], [%s])" (show_gen_kind kind) name
+        (String.concat ", " args) (String.concat ", " rets)
   | CCompose (c1, c2) ->
       Printf.sprintf "(%s ; %s)" (pp_circuit c1) (pp_circuit c2)
   | Otimes (c1, c2) ->

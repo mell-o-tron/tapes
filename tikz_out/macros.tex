@@ -1,5 +1,6 @@
 \documentclass[border=1cm, varwidth=\maxdimen]{standalone}
 \usepackage{tikz} 
+\usetikzlibrary{shapes.geometric}
 \usepackage{amsmath}
 \usepackage{framed}
 
@@ -9,7 +10,9 @@
 
 \tikzset{
 nodestyle/.style={circle, minimum size=0pt, inner sep=0pt},
-boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
+boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white},
+trianglestyle/.style={isosceles triangle, inner sep = 0pt, outer sep = 0pt, draw, fill=white},
+circlestyle/.style={circle, inner sep = 2pt, outer sep = 0pt, draw, fill=white},
 }
 
 % fresh posx posy len
@@ -70,8 +73,8 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \draw (cpb#1) to (cpa#1);
 }
 
-% fresh posx posy arity coarity name otimesdist
-\newcommand{\gen}[7]{
+% fresh posx posy arity coarity name otimesdist style
+\newcommand{\gen}[8]{
   \pgfmathsetmacro\arity{#4};
   \pgfmathsetmacro\coarity{#5};
   \pgfmathsetmacro\otimesdist{#7};
@@ -142,7 +145,7 @@ boxstyle/.style={rectangle, inner sep = 2pt, outer sep = 0pt, draw, fill=white}
   \pgfmathsetmacro\boxheight{\height / 2 + \otimesdist}
   
   %draw box with name
-  \node [boxstyle, minimum height = \boxheight cm] at (#2 + 1,#3 + \height / 2) {#6};
+  \node [#8, minimum height = \boxheight cm] at (#2 + 1,#3 + \height / 2) {#6};
 }
 
 

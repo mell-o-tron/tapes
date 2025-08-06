@@ -17,29 +17,23 @@ let f : A -> C * C * C.
 
 set (rounded_wires : 0.0).
 
-let program : term = 
+// let factorial : term = 
 
-BEGIN_IMP [x : int]
-while (r(x)) {
-    if (r1(x)) then {
-        x := (f(x) : int)
-    } else {
-        abort
-    }
-}
-END_IMP.
-
-check program.
-draw program to "./result_examples/program".
-
+// BEGIN_IMP [x : int, y : int]
+// y := x;
+// while (">1"(y)) {
+//     y := ("-1"(x) : int);
+//     x := ("\times"(x, y) : int)
+// }
+// END_IMP.
 
 let factorial : term = 
 
 BEGIN_IMP [x : int, y : int]
 y := x;
-while (">1"(y)) {
-    y := ("-1"(x) : int);
-    x := ("\times"(x, y) : int)
+while (geq1(y)) {
+    y := (dec(x) : int);
+    x := (times(x, y) : int)
 }
 END_IMP.
 
@@ -81,4 +75,26 @@ END_IMP.
 
 draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
 
-draw_trace_normal_form factorial_twice to "./result_examples/tracenf"
+// draw_trace_normal_form factorial_twice to "./result_examples/tracenf"
+
+let program1 : term = 
+
+BEGIN_IMP [x : int]
+    if (r1(x)) then {
+        x := (f(x) : int)
+    } else {
+        abort
+    }
+END_IMP.
+
+let program2 : term = 
+
+BEGIN_IMP [x : int]
+    if (r1(x)) then {
+        x := (f(x) : int)
+    } else {
+        skip
+    }
+END_IMP.
+
+check_inclusion (factorial, factorial) with invariant id (int * int)

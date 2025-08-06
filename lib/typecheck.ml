@@ -13,9 +13,6 @@ let rec is_prefix prefix lst =
   | _ -> false (* mismatch *)
 
 let rec remainder_of_prefix prefix lst =
-  Printf.printf "prefix %s, list: %s\n"
-    (string_of_sort_list_list prefix)
-    (string_of_sort_list_list lst);
   match (prefix, lst) with
   | [], ys -> ys
   | _, [] -> [] (* prefix is longer than lst → nothing left *)
@@ -35,7 +32,7 @@ let rec arity_of_copy l =
 and arity (t : term) =
   match t with
   | Id l1 -> l1
-  | Gen (_, l1, _) -> l1
+  | Gen (_, l1, _, _) -> l1
   | SwapTimes (l1, l2) ->
       obj_to_polynomial (Obtimes (obj_of_polynomial l1, obj_of_polynomial l2))
   | SwapPlus (l1, l2) -> l1 @ l2
@@ -78,7 +75,7 @@ let rec coarity_of_copy l =
 and coarity (t : term) =
   match t with
   | Id l1 -> l1
-  | Gen (_, _, l2) -> l2
+  | Gen (_, _, l2, _) -> l2
   | SwapTimes (l1, l2) ->
       obj_to_polynomial (Obtimes (obj_of_polynomial l2, obj_of_polynomial l1))
   | SwapPlus (l1, l2) -> l2 @ l1
@@ -136,7 +133,7 @@ let rec circuit_arity (c : circuit) =
   match c with
   | CId s -> [ s ]
   | CId1 -> []
-  | Gen (_, ar, _coar) -> ar
+  | Gen (_, ar, _coar, _) -> ar
   | CCompose (c1, _c2) -> circuit_arity c1
   | Otimes (c1, c2) -> circuit_arity c1 @ circuit_arity c2
   | SwapTimes (s1, s2) -> [ s1; s2 ]
@@ -145,7 +142,7 @@ let rec circuit_coarity (c : circuit) =
   match c with
   | CId s -> [ s ]
   | CId1 -> []
-  | Gen (_, _ar, coar) -> coar
+  | Gen (_, _ar, coar, _) -> coar
   | CCompose (_c1, c2) -> circuit_coarity c2
   | Otimes (c1, c2) -> circuit_coarity c1 @ circuit_coarity c2
   | SwapTimes (s1, s2) -> [ s2; s1 ]
