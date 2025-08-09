@@ -3,6 +3,7 @@ open Ppx_compare_lib.Builtin
 
 type circuit_draw_interface =
   | EmptyCircuit
+  | EmptyCircuitPin of float * float
   | CircuitTens of circuit_draw_interface * circuit_draw_interface
   | CircuitPin of float * float
 [@@deriving show, compare]
@@ -241,6 +242,19 @@ let y_pos_of_tape_block (tb : tape_block) : float =
   | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
   | BTraceTape { pos_l; pos_r; _ } -> min (snd pos_l) (snd pos_r)
 
+let y_pos_of_circuit_block (tb : circuit_block) : float =
+  match tb with
+  | EmptyBlock -> failwith "tried to get position of empty block"
+  | BCopy { pos; _ }
+  | BDiscard { pos; _ }
+  | BCoCopy { pos; _ }
+  | BCoDiscard { pos; _ }
+  | BGen { pos; _ }
+  | BSwap { pos; _ }
+  | BId { pos; _ } ->
+      snd pos
+  | _ -> failwith "not yet implemented"
+
 let x_pos_of_tape_block (tb : tape_block) : float =
   match tb with
   | EmptyTBlock -> failwith "tried to get position of empty block"
@@ -257,6 +271,18 @@ let x_pos_of_tape_block (tb : tape_block) : float =
 
 let tape_block_top_y (t : tape_block) =
   y_pos_of_tape_block t +. tape_block_height t
+
+let base_of_circuit_blocks (t : circuit_block list) =
+  let t =
+    List.filter
+      (fun x ->
+        match x with
+        | EmptyBlock | BMeasure _ | Connector _ -> false
+        | _ -> true)
+      t
+  in
+  let l = List.map (fun x -> y_pos_of_circuit_block x) t in
+  list_min l
 
 let base_of_tape_blocks (t : tape_block list) =
   let t = List.filter (fun x -> x != EmptyTBlock) t in
@@ -507,6 +533,25 @@ let rec flatten_circuit (c : circuit_draw_interface) : (float * float) list =
   | EmptyCircuit -> []
   | CircuitPin (x, y) -> [ (x, y) ]
   | CircuitTens (c1, c2) -> flatten_circuit c1 @ flatten_circuit c2
+  | EmptyCircuitPin (x, y) -> [ (x, y) ]
+
+let rec flatten_circuit_preserve_empty (c : circuit_draw_interface) :
+    (float * float * bool) list =
+  match c with
+  | EmptyCircuit -> []
+  | CircuitPin (x, y) -> [ (x, y, true) ]
+  | CircuitTens (c1, c2) ->
+      flatten_circuit_preserve_empty c1 @ flatten_circuit_preserve_empty c2
+  | EmptyCircuitPin (x, y) -> [ (x, y, false) ]
+
+(* Flatten non-empty components of the circuit interface *)
+let rec flatten_circuit_nonempty (c : circuit_draw_interface) :
+    (float * float) list =
+  match c with
+  | EmptyCircuit | EmptyCircuitPin _ -> []
+  | CircuitPin (x, y) -> [ (x, y) ]
+  | CircuitTens (c1, c2) ->
+      flatten_circuit_nonempty c1 @ flatten_circuit_nonempty c2
 
 (* Rebuild the circuit tree from a list of pins in left-associated form *)
 let rec rebuild_circuit (pins : (float * float) list) : circuit_draw_interface =
@@ -515,13 +560,23 @@ let rec rebuild_circuit (pins : (float * float) list) : circuit_draw_interface =
   | (x, y) :: [] -> CircuitPin (x, y)
   | (x, y) :: rest -> CircuitTens (CircuitPin (x, y), rebuild_circuit rest)
 
+let rec rebuild_circuit_preserve (pins : (float * float * bool) list) :
+    circuit_draw_interface =
+  match pins with
+  | [] -> EmptyCircuit
+  | (x, y, b) :: [] -> if b then CircuitPin (x, y) else EmptyCircuitPin (x, y)
+  | (x, y, b) :: rest ->
+      CircuitTens
+        ( (if b then CircuitPin (x, y) else EmptyCircuitPin (x, y)),
+          rebuild_circuit_preserve rest )
+
 let rec clean_circuit_interface (c : circuit_draw_interface) =
   match c with
   | CircuitTens (EmptyCircuit, c1) -> clean_circuit_interface c1
   | CircuitTens (c1, EmptyCircuit) -> clean_circuit_interface c1
   | CircuitTens (c1, c2) ->
       CircuitTens (clean_circuit_interface c1, clean_circuit_interface c2)
-  | CircuitPin _ | EmptyCircuit -> c
+  | CircuitPin _ | EmptyCircuit | EmptyCircuitPin _ -> c
 
 let rec deep_clean_circuit_interface (c : circuit_draw_interface) =
   let cleaned = clean_circuit_interface c in
@@ -530,8 +585,8 @@ let rec deep_clean_circuit_interface (c : circuit_draw_interface) =
 (* The normalization function: flatten then rebuild *)
 let circuit_interface_normalize (c : circuit_draw_interface) :
     circuit_draw_interface =
-  let pins = flatten_circuit c in
-  rebuild_circuit pins |> deep_clean_circuit_interface
+  let pins = flatten_circuit_preserve_empty c in
+  rebuild_circuit_preserve pins |> deep_clean_circuit_interface
 
 (* circuit operations: init, rev *)
 let rec circuit_interface_init (n : int) (f : int -> circuit_draw_interface) =
@@ -544,7 +599,7 @@ let rec circuit_interface_rev (c : circuit_draw_interface) =
   circuit_interface_normalize
     (match c with
     | EmptyCircuit -> EmptyCircuit
-    | CircuitPin _ -> c
+    | CircuitPin _ | EmptyCircuitPin _ -> c
     | CircuitTens (c1, c2) ->
         CircuitTens (circuit_interface_rev c2, circuit_interface_rev c1))
 
@@ -557,6 +612,7 @@ let rec circuit_interface_map
     (match c with
     | EmptyCircuit -> c
     | CircuitPin _ -> f c
+    | EmptyCircuitPin _ -> f c
     | CircuitTens (c1, c2) -> CircuitTens (f c1, circuit_interface_map f c2))
 
 (* creates a list by mapping over the elements of a circuit interface *)
@@ -564,22 +620,26 @@ let rec circuit_interface_to_list_map (f : circuit_draw_interface -> 'a list)
     (c : circuit_draw_interface) =
   let c = circuit_interface_normalize c in
   match c with
-  | EmptyCircuit | CircuitPin _ -> f c
+  | EmptyCircuit | CircuitPin _ | EmptyCircuitPin _ -> f c
   | CircuitTens (c1, c2) -> f c1 @ circuit_interface_to_list_map f c2
 
-(* returns the lowest position of a circuit *)
+(* returns the highest position of a circuit *)
 let top_of_circuit_interface c =
-  match circuit_interface_rev c with
-  | EmptyCircuit -> None
-  | CircuitPin (x, y) | CircuitTens (CircuitPin (x, y), _) -> Some (x, y)
-  | _ -> failwith "malformed circuit interface 1"
+  let l = flatten_circuit c in
+  if List.length l = 0 then None
+  else
+    Some
+      (let maxy = List.map (fun (_, y) -> y) l |> list_max in
+       List.find (fun (_, y) -> y = maxy) l)
 
 (* returns the hightst position of a circuit *)
-let rec base_of_circuit_interface c =
-  match circuit_interface_normalize c with
-  | EmptyCircuit -> None
-  | CircuitTens (_, c2) -> base_of_circuit_interface c2
-  | CircuitPin (x, y) -> Some (x, y)
+let base_of_circuit_interface c =
+  let l = flatten_circuit c in
+  if List.length l = 0 then None
+  else
+    Some
+      (let miny = List.map (fun (_, y) -> y) l |> list_min in
+       List.find (fun (_, y) -> y = miny) l)
 
 (* returns lowest y value of two circuit interfaces *)
 let y_base_of_circuit_interfaces c1 c2 =
@@ -595,11 +655,16 @@ let rec circuit_interface_of_list l =
   | [] -> EmptyCircuit
   | (x, y) :: xs -> CircuitTens (CircuitPin (x, y), circuit_interface_of_list xs)
 
-let rec circuit_interface_height (c : circuit_draw_interface) =
-  match circuit_interface_normalize c with
+let circuit_interface_height (c : circuit_draw_interface) =
+  try
+    let top = top_of_circuit_interface c in
+    let bot = base_of_circuit_interface c in
+    snd (Option.get top) -. snd (Option.get bot)
+  with _ -> 0.
+(* match circuit_interface_normalize c with
   | EmptyCircuit | CircuitPin _ -> 0.
   | CircuitTens (t1, t2) ->
-      circuit_interface_height t1 +. circuit_interface_height t2 +. !otimes_dist
+      circuit_interface_height t1 +. circuit_interface_height t2 +. !otimes_dist *)
 
 (********************************************************************************************************)
 (* Tape interface utils *)
@@ -626,11 +691,18 @@ let rec tape_interface_of_list t =
   | t1 :: rest -> TapeTens (t1, tape_interface_of_list rest)
   | [] -> EmptyInterface (None, None)
 
+let circuit_intf_is_empty cintf =
+  let flattened_noempty = flatten_circuit_nonempty cintf in
+  List.length flattened_noempty = 0
+
 let destroy_empty_interfaces t =
   let l = list_of_tape_interface t in
   List.filter
     (fun t ->
-      match t with EmptyInterface _ | EmptyTape _ -> false | _ -> true)
+      match t with
+      | EmptyInterface _ | EmptyTape _ -> false
+      | TapeInterface (_, _, c) -> not (circuit_intf_is_empty c)
+      | _ -> true)
     l
   |> tape_interface_of_list
 
@@ -807,51 +879,54 @@ let rec get_circuit_within_tape_left_interface_height (c : circuit) =
       +. !otimes_dist
   | CCompose (t1, _t2) -> get_circuit_within_tape_left_interface_height t1
 
-let rec circuit_connect_interfaces (ina : circuit_draw_interface)
+let remove_empty_pins i =
+  let l = flatten_circuit_nonempty i in
+  circuit_interface_of_list l
+
+let circuit_connect_interfaces (ina : circuit_draw_interface)
     (inb : circuit_draw_interface) : circuit_block list =
-  match (circuit_interface_normalize ina, circuit_interface_normalize inb) with
-  | EmptyCircuit, EmptyCircuit -> [ EmptyBlock ]
-  | CircuitPin (x1, y1), CircuitPin (x2, y2) ->
-      [ Connector { positions = [ (x1, y1); (x2, y2) ] } ]
-      (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
-        y2 *)
-  | ( CircuitTens (CircuitPin (x1, y1), ina1),
-      CircuitTens (CircuitPin (x2, y2), inb1) ) ->
-      [ Connector { positions = [ (x1, y1); (x2, y2) ] } ]
-      @ circuit_connect_interfaces ina1 inb1
-      (* Printf.sprintf "\\draw [in=180, out=0] (%f , %f) to (%f , %f);\n" x1 y1 x2
-        y2
-      ^ circuit_connect_interfaces ina1 inb1 *)
+  let l1 = flatten_circuit_nonempty ina in
+  let l2 = flatten_circuit_nonempty inb in
+
+  match (l1, l2) with
+  | [], _ | _, [] -> []
   | _ ->
-      (* TODO maybe this is not always an error *)
-      Printf.printf "======\nina: %s\n////\ninb: %s\n======="
-        (show_circuit_draw_interface ina)
-        (show_circuit_draw_interface inb);
-      failwith "trying to connect incompatible circuit interfaces"
+      List.map2
+        (fun (x1, y1) (x2, y2) ->
+          Connector { positions = [ (x1, y1); (x2, y2) ] })
+        l1 l2
 
 let circuit_align_interfaces ri1 ri2 =
   let ri1, ri2 =
     (circuit_interface_normalize ri1, circuit_interface_normalize ri2)
   in
-  match (ri1, ri2) with
-  | EmptyCircuit, EmptyCircuit -> (ri1, ri2)
-  | ( CircuitTens (CircuitPin (posx1, _posy1), _),
-      CircuitTens (CircuitPin (posx2, _posy2), _) )
-  | CircuitTens (CircuitPin (posx1, _posy1), _), CircuitPin (posx2, _posy2)
-  | CircuitPin (posx1, _posy1), CircuitTens (CircuitPin (posx2, _posy2), _)
-  | CircuitPin (posx1, _posy1), CircuitPin (posx2, _posy2) ->
+
+  let l1 = flatten_circuit ri1 in
+  let l2 = flatten_circuit ri2 in
+
+  match (l1, l2) with
+  | [], [] -> (ri1, ri2)
+  | (posx1, _) :: _, (posx2, _) :: _ ->
       let max_x = max posx1 posx2 in
       let f =
        fun c ->
         match c with CircuitPin (_, y) -> CircuitPin (max_x, y) | _ -> c
       in
       (circuit_interface_map f ri1, circuit_interface_map f ri2)
-  | _ ->
-      print_endline "error:";
-      print_endline (show_circuit_draw_interface ri1);
-      print_endline "---";
-      print_endline (show_circuit_draw_interface ri2);
-      failwith "malformed circuit interface 2"
+  | (posx1, _) :: _, [] ->
+      let max_x = posx1 in
+      let f =
+       fun c ->
+        match c with CircuitPin (_, y) -> CircuitPin (max_x, y) | _ -> c
+      in
+      (circuit_interface_map f ri1, circuit_interface_map f ri2)
+  | [], (posx1, _) :: _ ->
+      let max_x = posx1 in
+      let f =
+       fun c ->
+        match c with CircuitPin (_, y) -> CircuitPin (max_x, y) | _ -> c
+      in
+      (circuit_interface_map f ri1, circuit_interface_map f ri2)
 
 (********************************************************************************************************)
 (* Drawing Tapes *)
@@ -1071,7 +1146,7 @@ let rec pair_intfs_tapes (is : tape_draw_interface list) (ts : tape list) =
          (List.length is)
          (list_sum (List.map get_tape_left_interface_size ts)))
 
-(* connects two tape interfaces *)
+(** connects two tape interfaces *)
 let tape_connect_interfaces (ina : tape_draw_interface)
     (inb : tape_draw_interface) =
   let ina = destroy_empty_interfaces ina in
@@ -1241,6 +1316,7 @@ let rec move_circuit_interface (dx, dy) = function
       CircuitTens
         (move_circuit_interface (dx, dy) i1, move_circuit_interface (dx, dy) i2)
   | CircuitPin (x, y) -> CircuitPin (x +. dx, y +. dy)
+  | EmptyCircuitPin (x, y) -> EmptyCircuitPin (x +. dx, y +. dy)
 
 let rec move_tape_interface (dx, dy) = function
   | EmptyInterface (opt1, opt2) ->

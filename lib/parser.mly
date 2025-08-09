@@ -14,7 +14,8 @@ let remove_first_last s =
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
-%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT
+%token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
+%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -52,6 +53,7 @@ command:
   | DrawTraceNF e=expr To qs=QSTRING {Ast.DrawTraceNF(e, remove_first_last qs)}
   | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN WITH INVARIANT e3=expr {Ast.CheckInclusionInvariant(e1, e2, e3)}
   | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN {Ast.CheckInclusion(e1, e2)}
+  | AXIOMS LBRACKET fl=separated_nonempty_list(COMMA, fol_formula) RBRACKET {Ast.SetAxioms(fl)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
@@ -100,6 +102,8 @@ term:
   | s = STRING {Terms.GenVar(s)}
   | BEGIN_IMP LBRACKET RBRACKET i = imp_command END_IMP {Imp.eval_command [] i}
   | BEGIN_IMP LBRACKET ctx=context RBRACKET i = imp_command END_IMP {let x = Imp.eval_command ctx i in (*print_endline (Tapes.pp_tape(Term_to_tape._to_tape x )) ;*) x }
+  | BEGIN_TEST LBRACKET RBRACKET p = imp_pred END_TEST {Imp.corefl [] p}
+  | BEGIN_TEST LBRACKET ctx=context RBRACKET p = imp_pred END_TEST {Imp.corefl ctx p}
   | NORMALIZETRACE t1 = term {let res = Rewrite.trace_normal_form t1 in Printf.printf "term: %s\n" (Terms.show_term res); res}
   | error {raise (Errors.ParseError "term expected")}
 
@@ -114,6 +118,10 @@ circuit:
   | SwapTimes LPAREN s1 = STRING COMMA s2 = STRING RPAREN                                               { Tapes.SwapTimes (s1, s2) }
   | c1 = circuit Otimes c2 = circuit                                                                    { Tapes.Otimes    (c1, c2) }
   | c1 = circuit SEMICOLON c2 = circuit                                                                 { Tapes.CCompose (c1, c2) }
+  | Copy LPAREN s = STRING RPAREN {Tapes.Gen("copy", [s], [s;s], Terms.Relation)}
+  | CoCopy LPAREN s = STRING RPAREN {Tapes.Gen("cocopy", [s;s], [s], Terms.Relation)}
+  | Discard LPAREN s = STRING RPAREN {Tapes.Gen("discard", [s], [], Terms.Relation)}
+  | CoDiscard LPAREN s = STRING RPAREN {Tapes.Gen("codiscard", [], [s], Terms.Relation)}
   | LPAREN c = circuit RPAREN                                                                           { c }
   | error {raise (Errors.ParseError "circuit expected")}
 
@@ -133,6 +141,13 @@ tape:
   | LPAREN t = tape RPAREN { t }
   | NORMALIZE t1 = tape {Matrix.normalize (t1)}
   | NORMALIZETERM t1 = term {Matrix.term_to_normalized_tape t1}
+  | DELETEPATH idx = FLOAT c1 = circuit 
+    {let elimd = fst (Rewrite.eliminate_path_from_left (int_of_float idx) c1) |> Tapes.deep_clean_circuit
+     in Printf.printf "taped elimd: %s\n" (Tapes.pp_tape (Tapes.Tape(elimd))); Tapes.Tape(elimd)}
+  // | REMEMPTIES LPAREN t1 = tape COMMA ob = object_type RPAREN 
+  //   {Rewrite.eliminate_empty_paths_tape (Terms.obj_to_monomial ob) (t1|> Rewrite.merge_embedded_circuits |> Tapes.deep_clean_tape
+  //   |> Rewrite.reduce_circuits_tape)}
+  | ToTape LPAREN t = term RPAREN {(Term_to_tape._to_tape(t))}
   | error {raise (Errors.ParseError "tape expected")}
 
 object_type:
@@ -175,3 +190,28 @@ imp_command:
   | WHILE p = imp_pred OPEN_BRACE c1 = imp_command CLOSED_BRACE {Imp.WhileDo (p, c1)}
   | c1 = imp_command SEMICOLON c2 = imp_command {Imp.Seq(c1, c2)}
   | x = STRING ASSIGN e = imp_expr {Imp.Assign(x, e)}
+
+fol_formula:
+  | TRUE {Fol_encoding.Top}
+  | FALSE {Fol_encoding.Bot}
+  | s=STRING LPAREN RPAREN {Fol_encoding.Lit(Pos(Pred(s, [])))}
+  | s=STRING LPAREN l=fol_term_list RPAREN {Fol_encoding.Lit(Pos(Pred(s, l)))}
+  | t1=fol_term EQUALS t2=fol_term {Fol_encoding.Lit(Pos(Equals(t1, t2)))}
+  | f1=fol_formula OR f2=fol_formula {Fol_encoding.Or(f1, f2)}
+  | f1=fol_formula AND f2=fol_formula {Fol_encoding.And(f1, f2)}
+  | NOT f1=fol_formula {Fol_encoding.Not(f1)}
+  | FORALL s=STRING DOT f=fol_formula {Fol_encoding.Forall((s, 0), f)}
+  | EXISTS s=STRING DOT f=fol_formula {Fol_encoding.Exists((s, 0), f)}
+  | f1=fol_formula IMPLIES f2=fol_formula {Fol_encoding.Or(Fol_encoding.Not(f1), f2)}
+  | f1=fol_formula IFF f2=fol_formula {Fol_encoding.And(Fol_encoding.Or(Fol_encoding.Not(f1), f2),Fol_encoding.Or(Fol_encoding.Not(f2), f1))}
+  | LPAREN f = fol_formula RPAREN {f}
+
+fol_term:
+  | s = STRING {Fol_encoding.Var (s, 0)}
+  | s = STRING LPAREN  RPAREN {Fol_encoding.Func(s, [])}
+  | s = STRING LPAREN l=fol_term_list RPAREN {Fol_encoding.Func(s, l)}
+  | LPAREN t =fol_term RPAREN {t}
+
+fol_term_list:
+  | t = fol_term {[t]}
+  | t = fol_term COMMA r = fol_term_list {t :: r}

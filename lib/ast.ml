@@ -18,6 +18,7 @@ type command =
   | DrawTraceNF of expr * string
   | CheckInclusion of expr * expr
   | CheckInclusionInvariant of expr * expr * expr
+  | SetAxioms of Fol_encoding.formula list
 
 type decl =
   | ExprDecl of iden * exprtype * expr

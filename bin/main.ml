@@ -9,10 +9,9 @@ open Ssr_typechecker.Ast
 open Ssr_typechecker.Errors
 open ANSITerminal
 
-(*open Js_of_ocaml*)
-
 let inchn = open_in Sys.argv.(1)
 
+(** given an input channel, returns an AST *)
 let ast_of_channel inchn =
   let lexbuf = Sedlexing.Latin1.from_channel inchn in
   let lexer = Sedlexing.with_tokenizer Ssr_typechecker.Lexer.token lexbuf in
@@ -40,6 +39,7 @@ let env = Hashtbl.create 10
 let gens = Hashtbl.create 10
 let settings = Hashtbl.create 10
 
+(** typechecks an expression *)
 let rec typecheck_command (e : expr) =
   match e with
   | Tape t ->
@@ -60,12 +60,17 @@ let rec typecheck_command (e : expr) =
       if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id)
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
+(** draws a tape / term *)
 let rec draw_command (e : expr) (path : string) =
   match e with
   | Tape t ->
       let tc = tape_typecheck t in
       if tc then Ssr_typechecker.Draw.draw_tape (deep_clean_tape t) path
-      else raise (RuntimeError "Cannot draw tape: does not typecheck.")
+      else
+        raise
+          (RuntimeError
+             (Printf.sprintf "Cannot draw tape: does not typecheck.\n%s "
+                (pp_tape t)))
   | Term t ->
       let tc = typecheck t in
       if tc then
@@ -75,6 +80,7 @@ let rec draw_command (e : expr) (path : string) =
       if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
+(** draws a diagram and the corresponding matrix *)
 let draw_matrix_command (e : expr) (path : string) : unit =
   let rec get_tape e =
     match e with
@@ -88,6 +94,7 @@ let draw_matrix_command (e : expr) (path : string) : unit =
   let t : tape = get_tape e in
   Ssr_typechecker.Draw.draw_tape_and_matrix t path
 
+(** draws the normal form of a diagram*)
 let draw_normal_command (e : expr) (path : string) : unit =
   let rec get_tape e =
     match e with
@@ -101,6 +108,7 @@ let draw_normal_command (e : expr) (path : string) : unit =
   let t : tape = get_tape e in
   Ssr_typechecker.Draw.draw_tape_matrix_and_normalform t path
 
+(** draws a diagram and its trace-normal form*)
 let draw_trace_nf_command (e : expr) (path : string) : unit =
   let rec get_term e =
     match e with
@@ -114,6 +122,7 @@ let draw_trace_nf_command (e : expr) (path : string) : unit =
   let t : term = get_term e in
   Ssr_typechecker.Draw.draw_term_trace_normalform t path
 
+(** checks if e1 <= e2*)
 let check_inclusion_command (e1 : expr) (e2 : expr) : unit =
   let rec get_tape e =
     match e with
@@ -128,6 +137,7 @@ let check_inclusion_command (e1 : expr) (e2 : expr) : unit =
   let t2 : tape = get_tape e2 in
   Ssr_typechecker.Tape_inclusion.generate_implication_problems t1 t2
 
+(** checks if e1 <= e2 with an invariant (e3)*)
 let check_inclusion_inv_command (e1 : expr) (e2 : expr) (e3 : expr) : unit =
   let rec get_tape e =
     match e with
@@ -144,6 +154,7 @@ let check_inclusion_inv_command (e1 : expr) (e2 : expr) (e3 : expr) : unit =
   let inv : tape = get_tape e3 in
   Ssr_typechecker.Tape_inclusion.inclusion_by_invariant t1 t2 inv
 
+(** replaces the generator names with terms *)
 let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
     Ssr_typechecker.Terms.term =
   match t with
@@ -164,9 +175,11 @@ let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
 let subst_gen_name (v : string) (e : expr) =
   match e with Term t -> Term (subst_gen_name_term v t) | _ -> e
 
+(** populates the generator variables *)
 let populate_genvars (e : expr) =
   Hashtbl.fold (fun k _ e1 -> subst_gen_name k e1) gens e
 
+(** executes a .tapes program *)
 let rec exec (p : program) =
   match p with
   | Comm c -> (
@@ -180,7 +193,8 @@ let rec exec (p : program) =
           check_inclusion_command (populate_genvars e1) (populate_genvars e2)
       | CheckInclusionInvariant (e1, e2, e3) ->
           check_inclusion_inv_command (populate_genvars e1)
-            (populate_genvars e2) (populate_genvars e3))
+            (populate_genvars e2) (populate_genvars e3)
+      | SetAxioms fl -> Ssr_typechecker.Fol_encoding.current_axioms := fl)
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) ->
@@ -217,8 +231,7 @@ let rec exec (p : program) =
       | "join_wires" -> Ssr_typechecker.Draw_utils.join_wires := not (f = 0.)
       | _ -> ())
 
-(* prints the result of the computation *)
-
+(** entry-point *)
 let main () =
   try
     let p = ast_of_channel inchn in

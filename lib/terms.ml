@@ -1,10 +1,13 @@
-type sort = string [@@deriving show]
+open Ppx_compare_lib.Builtin
 
+type sort = string [@@deriving show, compare]
+
+(** kinds of generators -- corefl is still not used *)
 type gen_kind =
   | Relation
   | Function
   | Corefl
-[@@deriving show]
+[@@deriving show, compare]
 
 (*type term = Id of (sort)
             | Gen of string * (sort list list) * (sort list list)
@@ -17,6 +20,7 @@ type gen_kind =
             | Id1
             [@@deriving show]*)
 
+(** type of objects *)
 type obj =
   | S of sort
   | Obtimes of obj * obj
@@ -25,6 +29,7 @@ type obj =
   | Ob1
 [@@deriving show]
 
+(** cleans objects *)
 let rec clean_obj = function
   | Obtimes (x, y) -> (
       let x = clean_obj x and y = clean_obj y in
@@ -36,6 +41,7 @@ let rec clean_obj = function
   | Ob0 -> Ob0
   | Ob1 -> Ob1
 
+(** pretty-prints objects *)
 let rec pp_object ob =
   let ob = clean_obj ob in
   match ob with
@@ -45,6 +51,7 @@ let rec pp_object ob =
   | Obtimes (a, b) -> "(" ^ pp_object a ^ " ⊗  " ^ pp_object b ^ ")"
   | Obplus (a, b) -> "(" ^ pp_object a ^ " ⊕  " ^ pp_object b ^ ")"
 
+(** type of sesquistrict-rig terms *)
 type term =
   | Id of sort list list
   | GenVar of string
@@ -66,6 +73,7 @@ type term =
   | Trace of sort list list * term
 [@@deriving show]
 
+(** hashtable for looking up which terms have been named so far *)
 let defined_terms : (string, term) Hashtbl.t = Hashtbl.create 10
 
 let _print_type t =
@@ -83,11 +91,11 @@ let _print_type t =
     t;
   print_string "]\n"
 
-(* Otimes on objects, Technical report page 24, section 4.1 *)
+(** Otimes on objects, Technical report page 24, section 4.1 *)
 let times_on_objects p q =
   List.concat_map (fun ui -> List.map (fun vj -> ui @ vj) q) p
 
-(* turns an object into a normalized polynomial in S** representation *)
+(** turns an object into a normalized polynomial in S** representation *)
 let rec obj_to_polynomial ob =
   match ob with
   | S e -> [ [ e ] ]
@@ -107,7 +115,7 @@ let rec obj_to_monomial ob =
         (Errors.TypeError
            "used non-monomial type where monomial type was needed")
 
-(* turns a polynomial in S** representation into a polynomial *)
+(** turns a polynomial in S** representation into a polynomial *)
 let obj_of_polynomial poly =
   List.fold_left
     (fun acc mon ->
@@ -117,14 +125,14 @@ let obj_of_polynomial poly =
       Obplus (acc, term))
     Ob0 poly
 
-(* turns a monomial in S* representation into a polynomial *)
+(** turns a monomial in S* representation into a polynomial *)
 let obj_of_monomial (mon : sort list) =
   List.fold_left (fun acc_e e -> Obtimes (acc_e, S e)) Ob1 mon
 
-(* reduces an object into its normal form *)
+(** reduces an object into its normal form *)
 let _object_to_normal_form ob = obj_of_polynomial (obj_to_polynomial ob)
 
-(* transforms an object of the form ∏_i (s_i) to [s_1, s_2, ...]  *)
+(** transforms an object of the form ∏_i (s_i) to [s_1, s_2, ...] *)
 let rec sort_prod_to_list (ob : obj) =
   match ob with
   | S e -> [ e ]
@@ -133,6 +141,7 @@ let rec sort_prod_to_list (ob : obj) =
   | Obplus _ | Ob0 ->
       raise (Errors.TypeError "expected product of sorts, got non-product type")
 
+(** n-ary copy *)
 let rec multi_copy n u =
   if n = 0 then Discard u
   else if n = 1 then Id u

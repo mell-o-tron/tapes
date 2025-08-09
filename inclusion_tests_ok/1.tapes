@@ -1,0 +1,18 @@
+set (alignsummands : 0.0).  // for now these have to be float
+set (oldalignment : 0.0).
+set (zerolenids : 0.0).
+
+set (wrap_trace_ids : 1.0).
+
+set (rounded_wires : 1.0).
+set (join_wires : 1.0).
+set (otimesdist : 0.5).
+set (oplusdist : 0.25).
+set (paddingdist : 0.5).
+set (scalex : 0.7).
+
+let relation1 : term = s*(int, int) ; s*(int, int) ; gen(R, int * int, int).
+
+let relation2 : term = split(int*int) ; (gen(R, int * int, int) + gen(S, int * int, int)) ; join(int).
+
+check_inclusion (relation1, relation2)

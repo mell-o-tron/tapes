@@ -1,6 +1,6 @@
 set (alignsummands : 0.0).  // for now these have to be float
 set (oldalignment : 0.0).
-set (zerolenids : 1.0).
+set (zerolenids : 0.0).
 
 set (wrap_trace_ids : 1.0).
 
@@ -12,20 +12,11 @@ set (paddingdist : 0.5).
 set (scalex : 0.7).
 
 
-let A : sort.   let B : sort.   let C : sort.
-let f : A -> C * C * C.
+// let A : sort.   let B : sort.   let C : sort.
+// let f : A -> C * C * C.
 
 set (rounded_wires : 0.0).
 
-// let factorial : term = 
-
-// BEGIN_IMP [x : int, y : int]
-// y := x;
-// while (">1"(y)) {
-//     y := ("-1"(x) : int);
-//     x := ("\times"(x, y) : int)
-// }
-// END_IMP.
 
 let factorial : term = 
 
@@ -37,20 +28,6 @@ while (geq1(y)) {
 }
 END_IMP.
 
-let factorial_twice : term = 
-
-BEGIN_IMP [x : int, y : int]
-y := x;
-while (">1"(y)) {
-    y := ("-1"(x) : int);
-    x := ("\times"(x, y) : int)
-};
-y := x;
-while (">1"(y)) {
-    y := ("-1"(x) : int);
-    x := ("\times"(x, y) : int)
-}
-END_IMP.
 
 check factorial.
 draw factorial to "./result_examples/factorial".
@@ -64,37 +41,37 @@ let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g,
 
 set (rounded_wires : 0.0).
 
-let norm : tape = normalize_term
-BEGIN_IMP [x : int, y : int]
-y := x;
-while (">1"(y)) {
-    y := ("-1"(x) : int);
-    x := ("\times"(x, y) : int)
-}
-END_IMP.
 
 draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
 
-// draw_trace_normal_form factorial_twice to "./result_examples/tracenf"
 
-let program1 : term = 
+set (rounded_wires : 0.0).
 
-BEGIN_IMP [x : int]
-    if (r1(x)) then {
-        x := (f(x) : int)
-    } else {
-        abort
+axioms [
+    plus(pos (), pos()) = pos(),
+    minus(neg (), neg()) = neg()
+].
+
+let program : term = 
+    BEGIN_IMP [x : sign]
+    x := pos() : sign;
+    while (not(eq(x, zero() : sign))) {
+        x := plus(x, pos() : sign) : sign
     }
-END_IMP.
+    END_IMP.
 
 let program2 : term = 
-
-BEGIN_IMP [x : int]
-    if (r1(x)) then {
-        x := (f(x) : int)
-    } else {
-        skip
+    
+    BEGIN_IMP [x : sign, y:sign]
+    x := pos() : sign;
+    y := pos() : sign;
+    while (not(eq(x, zero() : sign))) {
+        x := plus(x, pos() : sign) : sign;
+        x := minus(x, pos() : sign) : sign
     }
-END_IMP.
+    END_IMP.
 
-check_inclusion (factorial, factorial) with invariant id (int * int)
+check_inclusion (program, program) with invariant 
+    BEGIN_TEST [x : sign]
+    eq(x, pos():sign)
+    END_TEST

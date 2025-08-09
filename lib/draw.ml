@@ -6,7 +6,7 @@ open Draw_utils
 
 (* Drawing circuits *)
 
-(* adds debug measures to circuit drawings *)
+(** adds debug measures to circuit drawings *)
 let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
     (debug : bool) (id_zero_width : bool) : circuit_geometry =
   if not debug then tikz_of_circuit t posx posy debug id_zero_width
@@ -50,9 +50,11 @@ let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
         right_interface = ri;
       }
 
-(* returns a string of LaTeX macros that represents the string diagram corresponding to circuit t. *)
+(** returns a CircuitGeometry that represents the string diagram corresponding
+    to circuit t. *)
 and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
     (id_zero_width : bool) : circuit_geometry =
+  let t = circuit_to_seq t |> Tapes.deep_clean_circuit in
   match t with
   | CId s ->
       let l = if id_zero_width then 0. else 1. in
@@ -160,44 +162,36 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           right_interface = CircuitTens (ri1_aligned, ri2_aligned);
         }
   | CCompose (t1, t2) ->
-      let (CircGeo
-             {
-               tikz = diag1;
-               height = h1;
-               length = l1;
-               left_interface = li1;
-               right_interface = ri1;
-             }) =
-        tikz_of_circuit_meas t1 posx posy debug id_zero_width
+      let (CircGeo geo1) = tikz_of_circuit t1 posx posy debug !zero_len_ids in
+      let (CircGeo geo2) = tikz_of_circuit t2 0. 0. debug !zero_len_ids in
+      let offset_multiplier =
+        abs_float
+          (circuit_interface_height geo1.right_interface
+          -. circuit_interface_height geo2.left_interface)
+        +. 0.25
       in
-      let base_diag1 =
-        match base_of_circuit_interface ri1 with
-        | Some (_, y) -> y
-        | None -> posy
-      in
-      let (CircGeo
-             {
-               tikz = diag2;
-               height = h2;
-               length = l2;
-               left_interface = li2;
-               right_interface = ri2;
-             }) =
-        tikz_of_circuit_meas t2 (posx +. l1)
-          (base_diag1
-          +. ((circuit_interface_height ri1 /. 2.)
-             -. (get_circuit_height t2 /. 2.)))
-          debug id_zero_width
+      let offset = 1.0 *. offset_multiplier in
+      let base = base_of_circuit_interface geo1.right_interface in
+      let base = if Option.is_some base then snd (Option.get base) else posy in
+      let (CircGeo geo2) =
+        tikz_of_circuit t2
+          (posx +. geo1.length +. offset)
+          (base
+          +. (circuit_interface_height geo1.right_interface /. 2.)
+          -. (circuit_interface_height geo2.left_interface /. 2.))
+          debug !zero_len_ids
       in
       CircGeo
         {
-          tikz = diag1 @ diag2 @ circuit_connect_interfaces ri1 li2;
-          height = max h1 h2;
-          length = l1 +. l2;
-          left_interface = li1;
-          right_interface = ri2;
+          tikz =
+            geo1.tikz @ geo2.tikz
+            @ circuit_connect_interfaces geo1.right_interface
+                geo2.left_interface;
+          height = max geo1.height geo2.height;
+          length = geo1.length +. geo2.length +. offset;
+          left_interface = geo1.left_interface;
+          right_interface = geo2.right_interface;
         }
-  (* triangulate baby! *)
   | Gen (name, ar, coar, kind) -> (
       match name with
       | "copy" when coar = ar @ ar ->
@@ -258,7 +252,7 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
               height = 0.;
               length = 1.;
               left_interface = CircuitPin (posx, posy);
-              right_interface = EmptyCircuit;
+              right_interface = EmptyCircuitPin (posx +. 1., posy);
             }
       | "codiscard" when ar = [] ->
           CircGeo
@@ -274,7 +268,7 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
                 ];
               height = 0.;
               length = 1.;
-              left_interface = EmptyCircuit;
+              left_interface = EmptyCircuitPin (posx, posy);
               right_interface = CircuitPin (posx +. 1., posy);
             }
       | _ ->
@@ -319,21 +313,25 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
               height;
               length = 2.;
               left_interface =
-                circuit_interface_rev
-                  (circuit_interface_init ar_size (fun i ->
-                       CircuitPin
-                         ( posx,
-                           (float_of_int (i - 1) *. !otimes_dist)
-                           +. posy +. arshift )))
-                |> circuit_interface_normalize;
+                (if ar_size = 0 then EmptyCircuitPin (posx, posy)
+                 else
+                   circuit_interface_rev
+                     (circuit_interface_init ar_size (fun i ->
+                          CircuitPin
+                            ( posx,
+                              (float_of_int (i - 1) *. !otimes_dist)
+                              +. posy +. arshift )))
+                   |> circuit_interface_normalize);
               right_interface =
-                circuit_interface_rev
-                  (circuit_interface_init coar_size (fun i ->
-                       CircuitPin
-                         ( posx +. 2.,
-                           (float_of_int (i - 1) *. !otimes_dist)
-                           +. posy +. coarshift )))
-                |> circuit_interface_normalize;
+                (if coar_size = 0 then EmptyCircuitPin (posx +. 2., posy)
+                 else
+                   circuit_interface_rev
+                     (circuit_interface_init coar_size (fun i ->
+                          CircuitPin
+                            ( posx +. 2.,
+                              (float_of_int (i - 1) *. !otimes_dist)
+                              +. posy +. coarshift )))
+                   |> circuit_interface_normalize);
             })
   | CId1 ->
       CircGeo
@@ -345,6 +343,7 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           right_interface = EmptyCircuit;
         }
 
+(** draws sums of tapes *)
 let rec draw_oplus t1 t2 posx posy max_len debug =
   let (TapeGeo geo2) = tikz_of_tape t2 posx posy max_len debug in
   let (TapeGeo geo1) =
@@ -392,6 +391,7 @@ let rec draw_oplus t1 t2 posx posy max_len debug =
       right_interface = TapeTens (ri1_aligned, ri2_aligned);
     }
 
+(** draws horizontal composition of tapes *)
 and draw_tape_composition t1 t2 posx posy max_len debug =
   if is_tape_identity t1 then tikz_of_tape t2 posx posy max_len debug
   else if is_tape_identity t2 then tikz_of_tape t1 posx posy max_len debug
@@ -599,11 +599,23 @@ and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
       right_interface = geo2.right_interface;
     }
 
+(** Given a tape diagram, produces a Tape Geometry, which can then be translated
+    to either tikz or other graphical languages *)
 and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
   let t = tape_to_sum t in
   match t with
-  | TId l -> tikz_of_tape (tid_to_normal_form l) posx posy max_len debug
+  | TId l ->
+      if l = [] || l = [ [] ] then
+        TapeGeo
+          {
+            tikz = [ TB EmptyTBlock ];
+            height = 0.;
+            length = 0.;
+            left_interface = EmptyTape ((posx, posy), (posx, posy));
+            right_interface = EmptyTape ((posx, posy), (posx, posy));
+          }
+      else tikz_of_tape (tid_to_normal_form l) posx posy max_len debug
   | TId0 ->
       TapeGeo
         {
@@ -614,6 +626,10 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
           right_interface = EmptyTape ((posx, posy), (posx, posy));
         }
   | Tape c ->
+      let (CircGeo geom) = tikz_of_circuit_meas c posx 0. debug !zero_len_ids in
+
+      let base = base_of_circuit_blocks geom.tikz in
+      (* Printf.printf "BASE: %f\n" base; *)
       let (CircGeo
              {
                tikz = diag;
@@ -622,8 +638,10 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
                left_interface = li;
                right_interface = ri;
              }) =
-        tikz_of_circuit_meas c posx (!tape_padding +. posy) debug !zero_len_ids
+        move_circuit_geometry (CircGeo geom)
+          (0., abs_float base +. posy +. !tape_padding)
       in
+
       TapeGeo
         {
           tikz =
@@ -1029,6 +1047,7 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
 
 (* loses tape information, gets only circuit pins *)
 
+(** Adds labels to drawings *)
 let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
     (ar : string list list) (coar : string list list) =
   let ri_flattened =
@@ -1039,10 +1058,10 @@ let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
   in
   let ar_flattened = List.flatten ar in
   let coar_flattened = List.flatten coar in
-
+  (* 
   Printf.printf "%d, %d, %d, %d\n" (List.length ri_flattened)
     (List.length li_flattened) (List.length ar_flattened)
-    (List.length coar_flattened);
+    (List.length coar_flattened); *)
 
   if
     List.length ri_flattened != List.length ar_flattened
@@ -1057,6 +1076,7 @@ let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
       (List.mapi (f ar_flattened) ri_flattened
       @ List.mapi (f coar_flattened) li_flattened)
 
+(** draws a string diagram to a given path *)
 let draw_circuit (ast : circuit) (path : string) =
   match tikz_of_circuit (circuit_to_product ast) 0. 0. false false with
   | CircGeo { tikz = s; _ } -> (
@@ -1070,12 +1090,14 @@ let draw_circuit (ast : circuit) (path : string) =
         close_out oc
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
+(** given a tape, produces a tikz picture *)
 let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
-  let ast = ast |> deep_clean_tape in
+  let ast =
+    ast |> Rewrite.merge_embedded_circuits |> deep_clean_tape
+    |> Rewrite.reduce_circuits_tape |> Rewrite.wrap_embeds_in_ids
+  in
   (* print_endline (pp_tape ast); *)
-  match
-    tikz_of_tape (ast |> tape_to_sum |> tape_to_sum) posx posy infinity false
-  with
+  match tikz_of_tape (ast |> tape_to_sum) posx posy infinity false with
   | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } ->
       let header =
         Printf.sprintf
@@ -1111,6 +1133,7 @@ let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
         (label_tape li ri (tape_arity ast) (tape_coarity ast))
         footer
 
+(** transforms a tape matrix into LaTeX code *)
 let latex_of_tape_matrix t =
   let matrix = Matrix.get_matrix t in
 
@@ -1140,6 +1163,7 @@ let latex_of_tape_matrix t =
   let s = String.concat "\\\\" s in
   matrix_format s
 
+(** Draws a matrix *)
 let draw_tape_matrix t path =
   try
     let oc = open_out path in
@@ -1149,6 +1173,7 @@ let draw_tape_matrix t path =
       (sprintf [ green ] "%s" path)
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** draws a tape and its corresponding matrix *)
 let draw_tape_and_matrix t path =
   let t_drawing = tikzpicture_of_ast t 0. 0. in
   let matrix = latex_of_tape_matrix t in
@@ -1162,9 +1187,12 @@ let draw_tape_and_matrix t path =
        \\textbf{Matrix}:\n\n\
        \\vspace{1cm}\n\n\
        %s\n"
-      t_drawing matrix
+      t_drawing matrix;
+    Printf.printf "Drawing with matrix saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** draws the matrix and normal form of a tape *)
 let draw_tape_matrix_and_normalform t path =
   let t_drawing = tikzpicture_of_ast t 0. 0. in
   let matrix = latex_of_tape_matrix t in
@@ -1183,9 +1211,12 @@ let draw_tape_matrix_and_normalform t path =
        \\textbf{Normal Form:}\n\n\
        \\vspace{1cm}\n\n\
        $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n"
-      t_drawing matrix normalform
+      t_drawing matrix normalform;
+    Printf.printf "Drawing matrix and normal form saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** draws the trace-normal-form of a term *)
 let draw_term_trace_normalform (t : Terms.term) path =
   let t_drawing = tikzpicture_of_ast (Term_to_tape._to_tape t) 0. 0. in
   let nftape =
@@ -1202,14 +1233,16 @@ let draw_term_trace_normalform (t : Terms.term) path =
        \\textbf{Normal Form}:\n\n\
        \\vspace{1cm}\n\n\
        $\\vcenter{\\hbox{%s}}$\\hspace{2cm}\n\n\n"
-      t_drawing nf
+      t_drawing nf;
+    Printf.printf "Drawing with trace normal form saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** draws a tape diagram at a given position *)
 let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)
     =
   try
     let oc = open_out path in
-
     Printf.fprintf oc "%s" (tikzpicture_of_ast ast posx posy);
     Printf.printf "Drawing saved at path: \t'%s'\n"
       (sprintf [ green ] "%s" path);
@@ -1217,4 +1250,5 @@ let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)
     close_out oc
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** draws a tape diagram *)
 let draw_tape (ast : tape) (path : string) = draw_tape_at_pos ast path 0. 0.

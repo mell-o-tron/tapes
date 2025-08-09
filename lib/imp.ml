@@ -109,6 +109,7 @@ let rec eval_expr (c : context) (e : imp_expr) =
                   [ [ coar ] ],
                   Function ) ) )
 
+(** evaluates a predicate *)
 let rec eval_pred (c : context) (p : imp_pred) =
   match p with
   | Rel (name, l, s) ->
@@ -138,6 +139,7 @@ let rec eval_pred (c : context) (p : imp_pred) =
       Compose
         (Copy [ eval_context c ], Otimes (eval_pred c pred1, eval_pred c pred2))
 
+(** given a term representing a relation R, returns the term representing R* *)
 let kleene_star (t : term) =
   let ar = Typecheck.arity t in
   let coar = Typecheck.coarity t in
@@ -152,6 +154,8 @@ let kleene_star (t : term) =
             (Typecheck.string_of_sort_list_list ar)
             (Typecheck.string_of_sort_list_list coar)))
 
+(** Given two terms representing two relations, returns a term representing
+    their union *)
 let union (t1 : term) (t2 : term) =
   let art1 = Typecheck.arity t1 in
   let art2 = Typecheck.arity t2 in
@@ -161,11 +165,14 @@ let union (t1 : term) (t2 : term) =
     Compose (Compose (Split art1, Oplus (t1, t2)), Join coart1)
   else failwith "cannot apply union: arities or coarities don't match"
 
+(** Given a context and a predicate, produces the coreflexive for the predicate
+*)
 let corefl (c : context) (p : imp_pred) =
   let t = eval_pred c p in
   let ar = Typecheck.arity t in
   Compose (Copy ar, Otimes (t, Id ar))
 
+(** negates a predicate *)
 let rec negate (p : imp_pred) =
   match p with
   | Rel (r, l, s) -> Rel (r, l, not s)
@@ -174,6 +181,7 @@ let rec negate (p : imp_pred) =
   | Or (p1, p2) -> And (negate p1, negate p2)
   | And (p1, p2) -> Or (negate p1, negate p2)
 
+(** evaluates a command *)
 let rec eval_command (c : context) (com : imp_comm) =
   match com with
   | Abort -> Compose (Cut [ eval_context c ], Spawn [ eval_context c ])
@@ -184,15 +192,14 @@ let rec eval_command (c : context) (com : imp_comm) =
         (Compose (corefl c p, eval_command c com1))
         (Compose (corefl c (negate p), eval_command c com2))
   | WhileDo (p, com1) ->
-      Printf.printf "corefl:\tAr : %s,\tCoar : %s\n"
+      (* Printf.printf "corefl:\tAr : %s,\tCoar : %s\n"
         (Typecheck.arity (corefl c p) |> Typecheck.string_of_sort_list_list)
         (Typecheck.coarity (corefl c p) |> Typecheck.string_of_sort_list_list);
       Printf.printf "command:\tAr : %s,\tCoar : %s\n"
         (Typecheck.arity (eval_command c com1)
         |> Typecheck.string_of_sort_list_list)
         (Typecheck.coarity (eval_command c com1)
-        |> Typecheck.string_of_sort_list_list);
-
+        |> Typecheck.string_of_sort_list_list); *)
       Compose
         ( kleene_star (Compose (corefl c p, eval_command c com1)),
           corefl c (negate p) )

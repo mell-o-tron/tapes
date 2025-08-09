@@ -78,6 +78,15 @@ let rec token lexbuf =
   | "check_inclusion" -> CHECKINCLUSION
   | "with" -> WITH
   | "invariant" -> INVARIANT
+  | "BEGIN_TEST" -> BEGIN_TEST
+  | "END_TEST" -> END_TEST
+  | "axioms" -> AXIOMS
+  | "forall" -> FORALL
+  | "exists" -> EXISTS
+  | "implies" -> IMPLIES
+  | "iff" -> IFF
+  | "delete_path" -> DELETEPATH
+  | "remove_empties" -> REMEMPTIES
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

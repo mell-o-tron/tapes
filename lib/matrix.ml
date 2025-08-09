@@ -5,6 +5,8 @@ open Term_to_tape
 
 type 'a matrix = 'a list list
 
+(** generates the tape obtained following a specific path along a tape diagram,
+    starting from a certain index [idx] *)
 let rec linearize (idx : int) (t : tape) : (int * tape) list =
   let t = tape_to_seq t |> group_composition_right |> deep_clean_tape in
   match t with
@@ -45,34 +47,14 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
   | TCompose (t1, t2) ->
       let l1 = linearize idx t1 in
       let indices = List.map fst l1 |> List.sort_uniq Int.compare in
-      (* Printf.printf "indices: [%s]\n"
-        (List.map string_of_int indices |> String.concat ", ");
-      flush stdout; *)
+      (* group the paths of t1 by destination index *)
       let part =
         List.map (fun i -> List.filter (fun (j, _) -> j = i) l1) indices
       in
-      (* Printf.printf "part: [%s]\n"
-        (List.map
-           (fun x ->
-             List.map
-               (fun (i, t) -> Printf.sprintf "(%d, %s)" i (show_tape t))
-               x)
-           part
-        |> List.map (String.concat ";")
-        |> String.concat "|"); 
-      flush stdout;*)
-
+      (* use each dest index of l1 as a source index for l2 *)
       let l2 = List.map (fun i -> linearize i t2) indices in
-      (* Printf.printf "l2: [%s]\n"
-        (List.map
-           (fun x ->
-             List.map
-               (fun (i, t) -> Printf.sprintf "(%d, %s)" i (show_tape t))
-               x)
-           l2
-        |> List.map (String.concat ";")
-        |> String.concat "|");
-      flush stdout; *)
+
+      (* compose each path in t1 with every path in t2 with matching destination and source *)
       let composed =
         List.map2
           (fun a b ->
@@ -84,16 +66,12 @@ let rec linearize (idx : int) (t : tape) : (int * tape) list =
           part l2
         |> List.flatten
       in
-      (* Printf.printf "composed: [%s]\n"
-        (List.map
-           (fun (i, t) -> Printf.sprintf "(%d, %s)" i (show_tape t))
-           composed
-        |> String.concat ";");
-      flush stdout; *)
+
       composed
   | Trace _ -> failwith "traces not allowed in linearization"
 (* | _ -> failwith (Printf.sprintf "failed, met %s.\n" (show_tape t)) *)
 
+(** produces the transpose of a matrix *)
 let transpose matrix =
   let rec transpose_aux acc = function
     | [] -> List.rev acc
@@ -105,6 +83,7 @@ let transpose matrix =
   in
   transpose_aux [] matrix
 
+(** returns the dimensions of a matrix *)
 let matrix_dimensions (matrix : 'a matrix) : int * int =
   match matrix with
   | [] -> (0, 0) (* No rows *)
@@ -112,6 +91,7 @@ let matrix_dimensions (matrix : 'a matrix) : int * int =
 
 (** Each entry of the matrix is a multiset (represented here as a list) of tapes*)
 let get_matrix (t : tape) =
+  let t = Rewrite.reduce_circuits_tape t in
   let ar = tape_arity t in
   let coar = tape_coarity t in
   let paths = List.mapi (fun i _ -> linearize i t) ar in
@@ -123,17 +103,36 @@ let get_matrix (t : tape) =
       (fun l ->
         List.mapi
           (fun i _ ->
-            List.filter (fun (j, _) -> i = j) l |> List.map (fun (_, t) -> t))
+            List.filter (fun (j, _) -> i = j) l
+            |> List.map (fun (_, t) ->
+                   let t =
+                     t |> Rewrite.merge_embedded_circuits |> deep_clean_tape
+                     |> Rewrite.reduce_circuits_tape
+                   in
+                   let t =
+                     (* try
+                       print_sll (tape_arity t);
+                       Rewrite.eliminate_empty_paths_tape
+                         (List.hd (tape_arity t))
+                         t
+                     with _ -> t *)
+                     t
+                   in
+                   (* Printf.printf "tape: %s\n" (pp_tape t); *)
+                   t))
           coar)
       paths
   in
   transpose matrix
 
+(** gets the (i, j)-th entry of a matrix *)
 let get_matrix_entry (m : 'a matrix) (i : int) (j : int) =
   List.nth (List.nth m i) j
 
+(** map on matrices *)
 let matrix_mapij f = List.mapi (fun i r -> List.mapi (fun j x -> f i j x) r)
 
+(** get the arity of the elements in a column of the matrix *)
 let get_column_arity (c : tape list list) =
   try
     (* further checks here? *)
@@ -143,6 +142,7 @@ let get_column_arity (c : tape list list) =
     else failwith "trying to get arity of non-uniform column"
   with Not_found -> failwith "error in get_column_arity"
 
+(** get the coarity of the elements in a row of the matrix *)
 let get_row_coarity (r : tape list list) =
   try
     (* further checks here? *)
@@ -152,6 +152,7 @@ let get_row_coarity (r : tape list list) =
     else failwith "trying to get arity of non-uniform column"
   with Not_found -> failwith "error in get_column_arity"
 
+(** produces a string representing an annotated matrix *)
 let string_of_annotated_matrix
     (m : (tape list * string list * string list) list list) =
   let string_of_tapes l = List.map pp_tape l |> String.concat ", " in
@@ -166,16 +167,9 @@ let string_of_annotated_matrix
 let rec bigoplus (i : int) (f : int -> tape) =
   match i with 0 -> f 0 | n -> Oplus (bigoplus (n - 1) f, f n)
 
+(** given a matrix, produces the corresponding tape *)
 let tape_of_matrix (m : tape list matrix) (arities : sort list list)
     (coarities : sort list list) =
-  (* let m_dag = transpose m in *)
-  (* let coarities = List.map get_row_coarity m in
-  Printf.printf "coarities: %s\n"
-    (List.map pp_sort_list coarities |> String.concat ", ");
-  let arities = List.map get_column_arity m_dag in
-  Printf.printf "arities: %s\n"
-    (List.map pp_sort_list arities |> String.concat ", "); *)
-
   (* transform matrix of multiset to matrix of tapes by wrapping in split and join *)
   let wrap_with_split_join ar coar l =
     match l with
@@ -195,9 +189,6 @@ let tape_of_matrix (m : tape list matrix) (arities : sort list list)
         wrap_with_split_join ar coar l)
       m
   in
-  (* t1 = Otimes_i (multisplit (#coarities) arities[i])
-     t2 = Otimes_i (Otimes_j m_{ij})
-     t3 = multijoin (#arities) (Otimes_j coarities[j]) *)
   let n = List.length arities in
   let m = List.length coarities in
   let t1 = bigoplus (n - 1) (fun i -> multi_split m (List.nth arities i)) in
@@ -232,12 +223,14 @@ let mat_mult (a : tape list matrix) (b : tape list matrix) =
   in
   mat_mult_generic ~zero ~add ~mul a b
 
+(** produces the matrix normal form of a tape *)
 let normalize (t : tape) =
   let normalized =
     tape_of_matrix (t |> get_matrix) (tape_arity t) (tape_coarity t)
   in
   normalized |> deep_clean_tape
 
+(** produces the trace and matrix normal form of a term *)
 let term_to_normalized_tape (t : Terms.term) =
   let trace_normalized = Rewrite.trace_normal_form t in
   match trace_normalized with
