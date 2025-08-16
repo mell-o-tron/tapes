@@ -1,37 +1,32 @@
 open Ppx_compare_lib.Builtin
+open Common_defs
 
 type gen_kind = Terms.gen_kind [@@deriving show, compare]
 
 (** type of string diagrams *)
 type circuit =
-  | CId of Terms.sort
+  | CId of sort
   | CId1
-  | Gen of string * Terms.sort list * Terms.sort list * gen_kind
+  | Gen of string * sort list * sort list * gen_kind
   | CCompose of circuit * circuit
   | Otimes of circuit * circuit
-  | SwapTimes of Terms.sort * Terms.sort
+  | SwapTimes of sort * sort
 [@@deriving show, compare]
 
 (** type of tape diagrams *)
 type tape =
-  | TId of Terms.sort list list
+  | TId of sort list list
   | TId0
   | Tape of circuit
   | TCompose of tape * tape
   | Oplus of tape * tape
-  | Trace of Terms.sort list * tape
-  | SwapPlus of (Terms.sort list * Terms.sort list)
-  | Cut of Terms.sort list
-  | Split of Terms.sort list
-  | Spawn of Terms.sort list
-  | Join of Terms.sort list
+  | Trace of sort list * tape
+  | SwapPlus of (sort list * sort list)
+  | Cut of sort list
+  | Split of sort list
+  | Spawn of sort list
+  | Join of sort list
 [@@deriving show]
-
-type sort = string
-
-(** Pretty-print a list of sorts *)
-let pp_sort_list (lst : string list) : string =
-  "[" ^ String.concat ", " (List.map (fun s -> "\"" ^ s ^ "\"") lst) ^ "]"
 
 (** Pretty-print a circuit *)
 let rec pp_circuit (c : circuit) : string =

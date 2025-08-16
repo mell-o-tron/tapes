@@ -1,6 +1,7 @@
 open Terms
 open Tapes
 open Typecheck
+open Common_defs
 
 (** transforms a tape of the form [Oplus_i (t_i)] to the list containing the
     [t_i]. *)

@@ -1,6 +1,6 @@
 (library
  (name        ssr_typechecker)
- (libraries   sedlex menhirLib ANSITerminal str)
+ (libraries   sedlex menhirLib ANSITerminal str unionFind)
  (preprocess  (pps ppx_deriving.show ppx_compare sedlex.ppx)))
 
 (menhir

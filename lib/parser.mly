@@ -15,7 +15,7 @@ let remove_first_last s =
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
-%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES
+%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -54,6 +54,7 @@ command:
   | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN WITH INVARIANT e3=expr {Ast.CheckInclusionInvariant(e1, e2, e3)}
   | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN {Ast.CheckInclusion(e1, e2)}
   | AXIOMS LBRACKET fl=separated_nonempty_list(COMMA, fol_formula) RBRACKET {Ast.SetAxioms(fl)}
+  | DrawCospan c=circuit To qs=QSTRING {Ast.DrawCospan(c, remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 

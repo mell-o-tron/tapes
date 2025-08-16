@@ -1,6 +1,4 @@
-open Ppx_compare_lib.Builtin
-
-type sort = string [@@deriving show, compare]
+open Common_defs
 
 (** kinds of generators -- corefl is still not used *)
 type gen_kind =

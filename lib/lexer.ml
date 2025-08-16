@@ -87,6 +87,7 @@ let rec token lexbuf =
   | "iff" -> IFF
   | "delete_path" -> DELETEPATH
   | "remove_empties" -> REMEMPTIES
+  | "draw_cospan" -> DrawCospan
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

@@ -1,5 +1,6 @@
 open Terms
 open Tapes
+open Common_defs
 
 let string_of_sort_list_list l =
   String.concat "," (List.map (fun x -> "[" ^ String.concat "," x ^ "]") l)

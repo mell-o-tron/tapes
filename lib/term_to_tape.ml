@@ -1,5 +1,6 @@
 open Terms
 open Tapes
+open Common_defs
 
 (* Definition 4.5 of technical report *)
 let rec ldistr_to_tape (p : sort list list) (q : sort list list)

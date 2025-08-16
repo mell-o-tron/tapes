@@ -932,8 +932,8 @@ let circuit_align_interfaces ri1 ri2 =
 (* Drawing Tapes *)
 
 (* transforms a tape identity into ⊕_i (Tape(⊗_j (circuit ids))) *)
-let tid_to_normal_form (l : Terms.sort list list) =
-  let to_tape (l1 : Terms.sort list) =
+let tid_to_normal_form (l : Common_defs.sort list list) =
+  let to_tape (l1 : Common_defs.sort list) =
     Tape (List.fold_left (fun acc x -> Otimes (acc, CId x)) CId1 l1)
   in
   deep_clean_tape

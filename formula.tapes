@@ -71,7 +71,9 @@ let program2 : term =
     }
     END_IMP.
 
-check_inclusion (program, program) with invariant 
-    BEGIN_TEST [x : sign]
-    eq(x, pos():sign)
-    END_TEST
+// check_inclusion (program, program) with invariant 
+//     BEGIN_TEST [x : sign]
+//     eq(x, pos():sign)
+//     END_TEST
+
+draw_cospan ((s*(a, b)) ; gen(f, b * a, c); gen(g, c, d))  to "./result_examples/test_cospan"

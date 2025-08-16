@@ -1,5 +1,6 @@
 open Terms
 open Errors
+open Common_defs
 (* open Typecheck *)
 
 type iden = string

@@ -2,6 +2,7 @@ open Tapes
 open Rewrite
 open Typecheck
 open Term_to_tape
+open Common_defs
 
 type 'a matrix = 'a list list
 

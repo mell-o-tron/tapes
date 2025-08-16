@@ -3,6 +3,7 @@ open Typecheck
 open Rewrite
 open ANSITerminal
 open Draw_utils
+open Hg_cospan
 
 (* Drawing circuits *)
 
@@ -1252,3 +1253,133 @@ let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)
 
 (** draws a tape diagram *)
 let draw_tape (ast : tape) (path : string) = draw_tape_at_pos ast path 0. 0.
+
+let tikz_of_cospan (cos : TaggedTypeCospan.t) =
+  let a = cos.a |> Taggedset.to_list in
+  let b = cos.b |> Taggedset.to_list in
+  let c = cos.c |> Taggedset.to_list in
+
+  let l = cos.l |> Taggedmap.to_list in
+  let r = cos.r |> Taggedmap.to_list in
+
+  let na = List.length a in
+  let nb = List.length b in
+  let nc = List.length c in
+
+  let b_offset = (float_of_int na /. 2.) -. (float_of_int nb /. 2.) in
+  let c_offset = (float_of_int nb /. 2.) -. (float_of_int nc /. 2.) in
+
+  let a_string =
+    List.map
+      (fun ((i, s), _) ->
+        Printf.sprintf
+          "\\node [circle, draw] (cospan_node_a%d) at (%d, %f) {%s%d};" i 0
+          (float_of_int (na - i))
+          s i)
+      a
+    |> String.concat "\n"
+  in
+  let b_string =
+    List.map
+      (fun ((i, s), _) ->
+        Printf.sprintf
+          "\\node [circle, draw] (cospan_node_b%d) at (%d, %f) {%s%d};" i 1
+          (float_of_int (nb - i) +. b_offset)
+          s i)
+      b
+    |> String.concat "\n"
+  in
+  let c_string =
+    List.map
+      (fun ((i, s), _) ->
+        Printf.sprintf
+          "\\node [circle, draw] (cospan_node_c%d) at (%d, %f) {%s%d};" i 2
+          (float_of_int (nc - i) +. b_offset +. c_offset)
+          s i)
+      c
+    |> String.concat "\n"
+  in
+
+  let l_string =
+    List.map
+      (fun (((i1, _), _), ((i2, _), _)) ->
+        Printf.sprintf "\\draw [->] (cospan_node_a%d) -- (cospan_node_b%d);" i1
+          i2)
+      l
+    |> String.concat "\n"
+  in
+
+  let r_string =
+    List.map
+      (fun (((i1, _), _), ((i2, _), _)) ->
+        Printf.sprintf "\\draw [->] (cospan_node_c%d) -- (cospan_node_b%d);" i1
+          i2)
+      r
+    |> String.concat "\n"
+  in
+
+  a_string ^ b_string ^ c_string ^ l_string ^ r_string
+
+let draw_hyperedges (l : hyperedge list) =
+  let l =
+    List.map (fun { name; arity; _ } -> Gen (name, arity, [], Relation)) l
+  in
+  let c =
+    List.fold_left (fun a b -> Otimes (a, b)) CId1 l |> deep_clean_circuit
+  in
+  let (CircGeo geom) = tikz_of_circuit c 0. 0. false false in
+  tikz_of_block_list (List.map (fun x -> CB x) geom.tikz)
+
+let draw_cospan (cos : TaggedTypeCospan.t) (path : string) =
+  let header =
+    Printf.sprintf
+      "\\def\\xscale{%f}\n\
+       \\def\\yscale{%f}\n\
+       \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, yscale \
+       = \\yscale]"
+      !scale_x !scale_y
+  in
+  let footer = "\\end{tikzpicture}" in
+
+  let cospan_drawing = tikz_of_cospan cos in
+
+  let drawing = Printf.sprintf "%s\n%s\n%s\n" header cospan_drawing footer in
+
+  try
+    let oc = open_out path in
+    Printf.fprintf oc "%s" drawing;
+    Printf.printf "Cospan drawing saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
+
+let draw_hg_cospan ((cos, l) : hg_cospan) (path : string) =
+  let header =
+    Printf.sprintf
+      "\\def\\xscale{%f}\n\
+       \\def\\yscale{%f}\n\
+       \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, yscale \
+       = \\yscale]"
+      !scale_x !scale_y
+  in
+  let footer = "\\end{tikzpicture}" in
+
+  let cospan_drawing = tikz_of_cospan cos in
+  let hedges = draw_hyperedges l in
+
+  let drawing =
+    Printf.sprintf
+      "$\\vcenter{\\hbox{%s\n\
+       %s\n\
+       %s}}$\\quad$;$\\quad\n\
+       $\\vcenter{\\hbox{%s\n\
+       %s\n\
+       %s}}$\n"
+      header cospan_drawing footer header hedges footer
+  in
+
+  try
+    let oc = open_out path in
+    Printf.fprintf oc "%s" drawing;
+    Printf.printf "Cospan drawing saved at path: \t'%s'\n"
+      (sprintf [ green ] "%s" path)
+  with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
