@@ -1,4 +1,6 @@
 open Tapes
+open Hg_cospan
+open Common_defs
 
 type term =
   | Var of string * int
@@ -22,6 +24,64 @@ type formula =
   | Exists of (string * int) * formula
   | Forall of (string * int) * formula
 
+(** basic simplification for FOL formulas *)
+let rec simplify_formula (f : formula) : formula =
+  match f with
+  | Top -> Top
+  | Bot -> Top
+  | Lit _ -> f
+  | And (f1, Top) -> f1
+  | And (Top, f1) -> f1
+  | Or (_, Top) -> Top
+  | Or (Top, _) -> Top
+  | And (_, Bot) -> Bot
+  | And (Bot, _) -> Bot
+  | Or (f1, Bot) -> f1
+  | Or (Bot, f1) -> f1
+  | And (f1, f2) -> And (simplify_formula f1, simplify_formula f2)
+  | Or (f1, f2) -> Or (simplify_formula f1, simplify_formula f2)
+  | Not Top -> Bot
+  | Not Bot -> Top
+  | Not f -> Not (simplify_formula f)
+  | Exists (_, Top) -> Top
+  | Exists (z, f) -> Exists (z, simplify_formula f)
+  | Forall (z, f) -> Forall (z, simplify_formula f)
+
+let string_of_var (v, i) = v ^ string_of_int i
+
+(** transforms a term into a SPASS-compatible term *)
+let rec spassify_term (t : term) =
+  match t with
+  | Var (x, i) -> string_of_var (x, i)
+  | Func (name, l) ->
+      Printf.sprintf "%s(%s)" name
+        (List.map spassify_term l |> String.concat ",")
+
+(** transforms an atom into a SPASS-compatible atom *)
+let spassify_atom (a : atom) =
+  match a with
+  | Equals (t1, t2) ->
+      Printf.sprintf "equal(%s, %s)" (spassify_term t1) (spassify_term t2)
+  | Pred (name, l) ->
+      Printf.sprintf "%s(%s)" name
+        (List.map spassify_term l |> String.concat ",")
+
+(** transforms a formula into a SPASS-compatible formula *)
+let rec spassify (f : formula) =
+  let f = simplify_formula f in
+  match f with
+  | Exists (v, f1) ->
+      Printf.sprintf "exists([%s], %s)" (string_of_var v) (spassify f1)
+  | Forall (v, f1) ->
+      Printf.sprintf "forall([%s], %s)" (string_of_var v) (spassify f1)
+  | And (f1, f2) -> Printf.sprintf "and(%s, %s)" (spassify f1) (spassify f2)
+  | Or (f1, f2) -> Printf.sprintf "or(%s, %s)" (spassify f1) (spassify f2)
+  | Not f1 -> Printf.sprintf "not(%s)" (spassify f1)
+  | Lit (Pos atom) -> spassify_atom atom
+  | Lit (Neg atom) -> Printf.sprintf "not (%s)" (spassify_atom atom)
+  | Top -> Printf.sprintf "true"
+  | Bot -> Printf.sprintf "false"
+
 let current_axioms : formula list ref = ref []
 
 type judgment = string list * string list * formula
@@ -39,6 +99,7 @@ let fresh_var () =
 let fresh_vars n = List.init n (fun _ -> fresh_var ())
 let xs n = List.init n (fun i -> ("x", i))
 let ys n = List.init n (fun i -> ("y", i))
+let zs n = List.init n (fun i -> ("z", i))
 
 (** crude approach for removing latex from the names of generators*)
 let strip_of_latex s =
@@ -129,6 +190,10 @@ let universally_quantify_fvs (f : formula) =
   let fv = free_vars f [] |> List.sort_uniq compare in
   List.fold_right (fun a b -> Forall (a, b)) fv f
 
+(** existentially quantifies a list of vars *)
+let existentially_quantify_vars (f : formula) (l : (string * int) list) =
+  List.fold_right (fun a b -> Exists (a, b)) l f
+
 (** performs multi-variable substitutions in a formula *)
 let rec substs f zs xs =
   match (xs, zs) with
@@ -147,7 +212,7 @@ let shift_ys shift_amount coar_len f =
   substs f (List.map (fun (v, i) -> (v, i + shift_amount)) ys) ys
 
 (** given a circuit, produces a formula *)
-let rec formula_of_circuit (c : circuit) : judgment =
+let rec judgment_of_circuit_direct (c : circuit) : judgment =
   match c with
   | CId a -> ([ a ], [ a ], eq_vars ("x", 0) ("y", 0))
   | CId1 -> ([], [], Top)
@@ -180,8 +245,8 @@ let rec formula_of_circuit (c : circuit) : judgment =
         [ b; a ],
         And (eq_vars ("x", 0) ("y", 1), eq_vars ("x", 1) ("y", 0)) )
   | CCompose (c1, c2) ->
-      let ar1, coar1, f1 = formula_of_circuit c1 in
-      let ar2, coar2, f2 = formula_of_circuit c2 in
+      let ar1, coar1, f1 = judgment_of_circuit_direct c1 in
+      let ar2, coar2, f2 = judgment_of_circuit_direct c2 in
       let zs = fresh_vars (List.length coar1) in
       ( ar1,
         coar2,
@@ -192,8 +257,8 @@ let rec formula_of_circuit (c : circuit) : judgment =
                ( substs f1 zs (ys (List.length coar1)),
                  substs f2 zs (xs (List.length ar2)) )) )
   | Otimes (c1, c2) ->
-      let ar1, coar1, f1 = formula_of_circuit c1 in
-      let ar2, coar2, f2 = formula_of_circuit c2 in
+      let ar1, coar1, f1 = judgment_of_circuit_direct c1 in
+      let ar2, coar2, f2 = judgment_of_circuit_direct c2 in
       let f2 =
         f2
         |> shift_xs (List.length ar2) (List.length ar1)
@@ -202,63 +267,112 @@ let rec formula_of_circuit (c : circuit) : judgment =
       (ar1 @ ar2, coar1 @ coar2, And (f1, f2))
   | _ -> failwith "not yet implemented"
 
-(** basic simplification for FOL formulas *)
-let rec simplify_formula (f : formula) : formula =
-  match f with
-  | Top -> Top
-  | Bot -> Top
-  | Lit _ -> f
-  | And (f1, Top) -> f1
-  | And (Top, f1) -> f1
-  | Or (_, Top) -> Top
-  | Or (Top, _) -> Top
-  | And (_, Bot) -> Bot
-  | And (Bot, _) -> Bot
-  | Or (f1, Bot) -> f1
-  | Or (Bot, f1) -> f1
-  | And (f1, f2) -> And (simplify_formula f1, simplify_formula f2)
-  | Or (f1, f2) -> Or (simplify_formula f1, simplify_formula f2)
-  | Not Top -> Bot
-  | Not Bot -> Top
-  | Not f -> Not (simplify_formula f)
-  | Exists (_, Top) -> Top
-  | Exists (z, f) -> Exists (z, simplify_formula f)
-  | Forall (z, f) -> Forall (z, simplify_formula f)
+let formula_of_circuit_direct c =
+  let _, _, f = judgment_of_circuit_direct c in
+  f
 
-let string_of_var (v, i) = v ^ string_of_int i
+let split_last lst =
+  match List.rev lst with
+  | [] -> failwith "empty list has no last element"
+  | last :: rev_rest -> (List.rev rev_rest, last)
 
-(** transforms a term into a SPASS-compatible term *)
-let rec spassify_term (t : term) =
-  match t with
-  | Var (x, i) -> string_of_var (x, i)
-  | Func (name, l) ->
-      Printf.sprintf "%s(%s)" name
-        (List.map spassify_term l |> String.concat ",")
+let formula_of_hg_cospan ((cos, l) : hg_cospan) =
+  Printf.printf "formula of cospan: %s" (pp_hg_cospan (cos, l));
 
-(** transforms an atom into a SPASS-compatible atom *)
-let spassify_atom (a : atom) =
-  match a with
-  | Equals (t1, t2) ->
-      Printf.sprintf "equal(%s, %s)" (spassify_term t1) (spassify_term t2)
-  | Pred (name, l) ->
-      Printf.sprintf "%s(%s)" name
-        (List.map spassify_term l |> String.concat ",")
+  let he_formuals =
+    let acc_ar = ref 0 in
+    List.map
+      (fun { name; arity; kind } ->
+        let res =
+          match kind with
+          | Relation ->
+              if strip_of_latex name = "eq" && List.length arity = 2 then
+                Lit
+                  (Pos (Equals (Var ("y", !acc_ar + 0), Var ("y", !acc_ar + 1))))
+              else
+                let vars =
+                  List.mapi (fun i _ -> Var ("y", !acc_ar + i)) arity
+                in
+                Lit (Pos (Pred (strip_of_latex name, vars)))
+          | Function ->
+              Printf.printf "vars (as relation) are: %s\n" (pp_sort_list arity);
+              let ins, _ = split_last arity in
+              Printf.printf "vars (as function) are: %s\n" (pp_sort_list ins);
+              let vars = List.mapi (fun i _ -> Var ("y", !acc_ar + i)) ins in
+              Lit
+                (Pos
+                   (Equals
+                      ( Func (strip_of_latex name, vars),
+                        Var ("y", !acc_ar + List.length arity - 1) )))
+        in
+        acc_ar := !acc_ar + List.length arity;
+        res)
+      l
+  in
+  let he_formula =
+    List.fold_left (fun a b -> And (a, b)) Top he_formuals |> simplify_formula
+  in
+  Printf.printf "hyper_edges: %s\n" (spassify he_formula);
+  let g (i : int) =
+    (* Printf.printf "looking for %d in %s\n" i
+      (Taggedset.to_list cos.c |> TaggedTypeCospan.string_of_elem_list); *)
+    let elem =
+      List.find (fun ((j, _), _) -> i = j) (cos.c |> Taggedset.to_list)
+    in
+    let (j, _), _ = Taggedmap.find elem cos.r in
+    j
+  in
+  let y_vars = ys (Taggedset.cardinal cos.c) in
+  let z_vars = List.map (fun (_, i) -> ("z", g i)) y_vars in
+  let substituted_he_formula = substs he_formula z_vars y_vars in
+  Printf.printf "substituted hyper_edges: %s\n" (spassify he_formula);
+  let f (i : int) =
+    let elem =
+      List.find (fun ((j, _), _) -> i = j) (cos.a |> Taggedset.to_list)
+    in
+    let (j, _), _ = Taggedmap.find elem cos.l in
+    j
+  in
+  let x_vars = xs (Taggedset.cardinal cos.a) in
+  let preimages =
+    List.map
+      (fun (_, i) -> List.filter (fun (_, j) -> f j = i) x_vars)
+      (zs (Taggedset.cardinal cos.b))
+  in
+  let existentially_quantified = ref [] in
+  let to_subst = ref [] in
+  let with_subst = ref [] in
+  let preim_formulas =
+    List.mapi
+      (fun i l ->
+        if List.length l = 0 then
+          let _ =
+            existentially_quantified := !existentially_quantified @ [ ("z", i) ]
+          in
+          Top
+        else
+          let s, j = List.hd l in
+          to_subst := !to_subst @ [ ("z", i) ];
+          with_subst := !with_subst @ [ (s, j) ];
+          List.fold_left
+            (fun a (_, m) ->
+              And (a, Lit (Pos (Equals (Var ("x", m), Var (s, j))))))
+            Top l)
+      preimages
+  in
+  let preim_formula =
+    List.fold_left (fun a b -> And (a, b)) Top preim_formulas
+  in
+  existentially_quantify_vars
+    (substs (And (preim_formula, substituted_he_formula)) !with_subst !to_subst)
+    !existentially_quantified
 
-(** transforms a formula into a SPASS-compatible formula *)
-let rec spassify (f : formula) =
-  let f = simplify_formula f in
-  match f with
-  | Exists (v, f1) ->
-      Printf.sprintf "exists([%s], %s)" (string_of_var v) (spassify f1)
-  | Forall (v, f1) ->
-      Printf.sprintf "forall([%s], %s)" (string_of_var v) (spassify f1)
-  | And (f1, f2) -> Printf.sprintf "and(%s, %s)" (spassify f1) (spassify f2)
-  | Or (f1, f2) -> Printf.sprintf "or(%s, %s)" (spassify f1) (spassify f2)
-  | Not f1 -> Printf.sprintf "not(%s)" (spassify f1)
-  | Lit (Pos atom) -> spassify_atom atom
-  | Lit (Neg atom) -> Printf.sprintf "not (%s)" (spassify_atom atom)
-  | Top -> Printf.sprintf "true"
-  | Bot -> Printf.sprintf "false"
+let formula_of_circuit_cospan (c : circuit) =
+  Printf.printf "formula of circuit: %s\n" (pp_circuit c);
+  let cos = cospan_of_circuit c in
+  formula_of_hg_cospan cos
+
+let formula_of_circuit = formula_of_circuit_cospan
 
 let rec list_disj l =
   match l with [] -> Top | [ x ] -> x | x :: rest -> Or (x, list_disj rest)
@@ -277,9 +391,7 @@ let rec circuit_of_monomial (t : tape) =
       CCompose (circuit_of_monomial t1, circuit_of_monomial t2)
   | _ -> failwith "tape is not monomial and non-traced"
 
-let formula_of_monomial (t : tape) =
-  let _ar, _coar, f = circuit_of_monomial t |> formula_of_circuit in
-  f
+let formula_of_monomial (t : tape) = circuit_of_monomial t |> formula_of_circuit
 
 let fol_matrix_of_tape (t : tape) =
   let m = Matrix.get_matrix t in

@@ -11,6 +11,11 @@ set (oplusdist : 0.25).
 set (paddingdist : 0.5).
 set (scalex : 0.7).
 
+let non_inv_example : term = gen(f, A, B) * gen (g, C, D).
+let inv_example : term = (id(A) * s*(C, B) * id(D)) ; gen(f, A*B, 1) * gen (g, C*D, 1).
+
+draw non_inv_example to "non_inv".
+draw inv_example to "inv".
 
 // let A : sort.   let B : sort.   let C : sort.
 // let f : A -> C * C * C.
@@ -47,33 +52,56 @@ draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
 
 set (rounded_wires : 0.0).
 
-axioms [
-    plus(pos (), pos()) = pos(),
-    minus(neg (), neg()) = neg()
-].
+draw_circuit discard(A) * (copy(A) ; (discard(A) * id(A) ; (gen(pos, 1, A) * discard(A)))) to "./result_examples/test_circuit".
 
-let program : term = 
-    BEGIN_IMP [x : sign]
-    x := pos() : sign;
-    while (not(eq(x, zero() : sign))) {
-        x := plus(x, pos() : sign) : sign
-    }
-    END_IMP.
+set (zerolenids : 1.0).
+set (scalex : 0.5).
+set (otimesdist : 0.6).
+set (oplusdist : 0.25).
+set (paddingdist : 0.5).
 
-let program2 : term = 
-    
-    BEGIN_IMP [x : sign, y:sign]
-    x := pos() : sign;
-    y := pos() : sign;
-    while (not(eq(x, zero() : sign))) {
-        x := plus(x, pos() : sign) : sign;
-        x := minus(x, pos() : sign) : sign
-    }
-    END_IMP.
+// draw split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V) to "example1".
 
-// check_inclusion (program, program) with invariant 
-//     BEGIN_TEST [x : sign]
-//     eq(x, pos():sign)
+// draw (split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V)) ; 
+//      (split(V) ; (gen(e, U, V) + (split(U) ; (gen(e, U, V) +  gen(f, U, V)) ; join(V))) ; join(V)) to "example2"
+
+draw of_relation op(star(intersection (gen(R, A, A), gen(S, A, A)))) ; union (gen(R, A, A), gen(S, A, A)) to "union"
+
+// axioms [
+//     plus(pos (), pos()) = pos(),
+//     minus(neg (), pos()) = neg(),
+//     plus(pos(), neg()) = unk(),
+//     minus(neg(), neg()) = unk(),
+
+//     forall x . forall y . plus(x, y) = plus(y, x),
+
+//     not(pos() = neg()),
+//     not(pos() = zero()),
+//     not(neg() = zero()),
+//     not(unk() = pos()),
+//     not(unk() = neg()),
+//     not(unk() = zero())
+// ].
+
+// let program : term = 
+//     BEGIN_IMP [x : sign]
+//     x := pos() : sign;
+//     while (not(eq(x, zero() : sign))) {
+//         x := plus(x, pos() : sign) : sign
+//     }
+//     END_IMP.
+
+// let program2 : term = 
+//     BEGIN_IMP [x : sign, y:sign]
+//     // x := pos() : sign;
+//     // y := neg() : sign;
+//     while (not(eq (x, zero() : sign))) {
+//         x := plus(neg() : sign, pos() : sign) : sign
+//     }
+//     END_IMP.
+
+// check_inclusion (program2, program2) with invariant 
+//     BEGIN_TEST [x : sign, y : sign]
+//     eq(x, pos() : sign) and
+//     eq(y, pos() : sign)
 //     END_TEST
-
-draw_cospan ((s*(a, b)) ; gen(f, b * a, c); gen(g, c, d))  to "./result_examples/test_cospan"

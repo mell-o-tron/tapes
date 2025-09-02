@@ -12,10 +12,11 @@ let remove_first_last s =
     String.sub s 1 (len - 2)
 %}
 
-%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
+%token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Fun Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
-%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan
+%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan OfMonomial DrawCircuit
+%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -55,6 +56,7 @@ command:
   | CHECKINCLUSION LPAREN e1=expr COMMA e2=expr RPAREN {Ast.CheckInclusion(e1, e2)}
   | AXIOMS LBRACKET fl=separated_nonempty_list(COMMA, fol_formula) RBRACKET {Ast.SetAxioms(fl)}
   | DrawCospan c=circuit To qs=QSTRING {Ast.DrawCospan(c, remove_first_last qs)}
+  | DrawCircuit c=circuit To qs=QSTRING {Ast.DrawCircuit(c, remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
@@ -85,6 +87,7 @@ term:
   | SwapTimes LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                     {Terms.SwapTimes(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      {Terms.SwapPlus(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2)) }
   | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Terms.Gen(s, Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.Relation)}
+  | Fun LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          {Terms.Gen(s, Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.Function)}
   | Ldistr LPAREN t1 = object_type COMMA t2 = object_type COMMA t3 = object_type RPAREN                 {Terms.Ldistr(Terms.obj_to_polynomial(t1), Terms.obj_to_polynomial(t2), Terms.obj_to_polynomial(t3))}
   | t1 = term Otimes t2 = term                                                                          {Terms.Otimes(t1, t2)}
   | t1 = term Oplus t2 = term                                                                           {Terms.Oplus(t1, t2)}
@@ -106,6 +109,7 @@ term:
   | BEGIN_TEST LBRACKET RBRACKET p = imp_pred END_TEST {Imp.corefl [] p}
   | BEGIN_TEST LBRACKET ctx=context RBRACKET p = imp_pred END_TEST {Imp.corefl ctx p}
   | NORMALIZETRACE t1 = term {let res = Rewrite.trace_normal_form t1 in Printf.printf "term: %s\n" (Terms.show_term res); res}
+  | OfRelation r = relation {Relations.term_of_rel r}
   | error {raise (Errors.ParseError "term expected")}
 
 context:
@@ -116,6 +120,7 @@ circuit:
   | One                                                                                                 { Tapes.CId1 }
   | Id LPAREN s = STRING RPAREN                                                                         { Tapes.CId (s) }
   | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2, Terms.Relation) }
+  | Fun LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN                          { Tapes.Gen  (s, Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2, Terms.Function) }
   | SwapTimes LPAREN s1 = STRING COMMA s2 = STRING RPAREN                                               { Tapes.SwapTimes (s1, s2) }
   | c1 = circuit Otimes c2 = circuit                                                                    { Tapes.Otimes    (c1, c2) }
   | c1 = circuit SEMICOLON c2 = circuit                                                                 { Tapes.CCompose (c1, c2) }
@@ -124,6 +129,7 @@ circuit:
   | Discard LPAREN s = STRING RPAREN {Tapes.Gen("discard", [s], [], Terms.Relation)}
   | CoDiscard LPAREN s = STRING RPAREN {Tapes.Gen("codiscard", [], [s], Terms.Relation)}
   | LPAREN c = circuit RPAREN                                                                           { c }
+  | OfMonomial LPAREN t = tape RPAREN {Fol_encoding.circuit_of_monomial (Tapes.deep_clean_tape t)}
   | error {raise (Errors.ParseError "circuit expected")}
 
 tape:
@@ -216,3 +222,15 @@ fol_term:
 fol_term_list:
   | t = fol_term {[t]}
   | t = fol_term COMMA r = fol_term_list {t :: r}
+
+relation:
+  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN {Relations.RelGen(s, Terms.obj_to_monomial t1, Terms.obj_to_monomial t2)}
+  | UNION LPAREN r1=relation COMMA r2=relation RPAREN {Relations.Union (r1, r2)}
+  | INTERSECTION LPAREN r1=relation COMMA r2=relation RPAREN {Relations.Intersection (r1, r2)}
+  | OP LPAREN r1=relation RPAREN {Relations.Op (r1)}
+  | STAR LPAREN r1=relation RPAREN {Relations.Star (r1)}
+  | Id LPAREN t1 = object_type RPAREN {Relations.IdRel (Terms.obj_to_monomial t1)}
+  | TOP LPAREN t1 = object_type RPAREN {Relations.TopRel (Terms.obj_to_monomial t1)}
+  | EMPTY LPAREN t1 = object_type RPAREN {Relations.BotRel (Terms.obj_to_monomial t1)}
+  | r1=relation SEMICOLON r2=relation {Relations.Compose (r1, r2)}
+  | LPAREN r = relation RPAREN {r}

@@ -20,6 +20,7 @@ type command =
   | CheckInclusionInvariant of expr * expr * expr
   | SetAxioms of Fol_encoding.formula list
   | DrawCospan of Tapes.circuit * string
+  | DrawCircuit of Tapes.circuit * string
 
 type decl =
   | ExprDecl of iden * exprtype * expr

@@ -156,7 +156,10 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
       (* TODO perform check to avoid redundant connections *)
       CircGeo
         {
-          tikz = diag1 @ diag2 @ connections;
+          tikz =
+            diag1 @ diag2 @ connections
+            (* @ debug_get_circuit_interface ri1_aligned "red"
+            @ debug_get_circuit_interface ri2_aligned "green"; *);
           height = h1 +. h2 +. !otimes_dist;
           length = max l1 l2;
           left_interface = CircuitTens (li1, li2);
@@ -1083,10 +1086,20 @@ let draw_circuit (ast : circuit) (path : string) =
   | CircGeo { tikz = s; _ } -> (
       (* Write message to file *)
       try
+        let header =
+          Printf.sprintf
+            "\\def\\xscale{%f}\n\
+             \\def\\yscale{%f}\n\
+             \\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \\xscale, \
+             yscale = \\yscale]"
+            !scale_x !scale_y
+        in
+        let footer = "\\end{tikzpicture}" in
         let oc = open_out path in
         (* create or truncate file, return channel *)
-        Printf.fprintf oc "%s\n"
-          (String.concat "\n" (List.map tikz_of_circuit_block s));
+        Printf.fprintf oc "%s\n%s\n%s\n" header
+          (String.concat "\n" (List.map tikz_of_circuit_block s))
+          footer;
         (* write something *)
         close_out oc
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)

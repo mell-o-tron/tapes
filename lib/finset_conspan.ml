@@ -117,17 +117,43 @@ module Make (Tagged : TaggedType) = struct
     let labeled_set_2 = Taggedset.map (fun x -> Tagged.set_tag x 1) s2 in
     Taggedset.union labeled_set_1 labeled_set_2
 
-  (** Vertical composition of cospans. *)
+  let discard_set_tags s =
+    Taggedset.fold
+      (fun x acc -> Taggedset.add (Tagged.discard_tag x) acc)
+      s Taggedset.empty
+
+  let drop_tags (cosp : t) : t =
+    let drop_set_tags s =
+      Taggedset.fold
+        (fun x acc -> Taggedset.add (Tagged.discard_tag x) acc)
+        s Taggedset.empty
+    in
+    let drop_map_tags m =
+      Taggedmap.fold
+        (fun k v acc ->
+          Taggedmap.add (Tagged.discard_tag k) (Tagged.discard_tag v) acc)
+        m Taggedmap.empty
+    in
+    {
+      a = drop_set_tags cosp.a;
+      b = drop_set_tags cosp.b;
+      c = drop_set_tags cosp.c;
+      l = drop_map_tags cosp.l;
+      r = drop_map_tags cosp.r;
+    }
+
+  (** Vertical composition of cospans. Discards tags after performing the
+      computation; make sure that there are no overlapping elements in the sets
+      of the two cospans, otherwise spurious interfaces shall arise. *)
   let tensor (t1 : t) (t2 : t) =
     let funsum (domain : Taggedset.t) (f1 : elt Taggedmap.t)
         (f2 : elt Taggedmap.t) : elt Taggedmap.t =
       let assign_sum_value el =
         let tag = Tagged.get_tag el in
         try
-          Printf.printf "looking for %s in %s or %s\n" (Tagged.to_string el)
+          (* Printf.printf "looking for %s in %s or %s\n" (Tagged.to_string el)
             (string_of_pair_list (Taggedmap.to_list f1))
-            (string_of_pair_list (Taggedmap.to_list f2));
-
+            (string_of_pair_list (Taggedmap.to_list f2)); *)
           if tag = 0 then Taggedmap.find (Tagged.discard_tag el) f1
           else Taggedmap.find (Tagged.discard_tag el) f2
         with Not_found ->
@@ -170,7 +196,8 @@ module Make (Tagged : TaggedType) = struct
     let strs = Seq.map to_string s |> List.of_seq in
     "[" ^ String.concat "; " strs ^ "]"
 
-  (** horizontal composition of cospans *)
+  (** horizontal composition of cospans. Does NOT discard the tags after the
+      computation; make sure to discard them after calling this function. *)
   let compose (t1 : t) (t2 : t) =
     (* check for composability c1 == a2*)
     if not (Taggedset.equal t1.c t2.a) then
@@ -242,11 +269,5 @@ module Make (Tagged : TaggedType) = struct
           t2.r
       in
 
-      {
-        a = Taggedset.map (fun x -> Tagged.discard_tag x) t1.a;
-        b = Taggedset.map (fun x -> Tagged.discard_tag x) !pushout;
-        c = Taggedset.map (fun x -> Tagged.discard_tag x) t2.c;
-        l = Taggedmap.map (fun x -> Tagged.discard_tag x) newl;
-        r = Taggedmap.map (fun x -> Tagged.discard_tag x) newr;
-      }
+      { a = t1.a; b = !pushout; c = t2.c; l = newl; r = newr }
 end

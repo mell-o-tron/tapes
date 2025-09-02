@@ -82,28 +82,6 @@ let rec left_whiskering (u : sort list list) (t : tape) =
   | [] -> TId0
   | a :: rest -> Oplus (left_whiskering_mon a t, left_whiskering rest t)
 
-let rec circuit_inverse (c : circuit) =
-  match c with
-  | CId _ | CId1 -> c
-  (* the inverse of a function is, in general, a relation. *)
-  | Gen (s, ar, coar, _) -> Gen (s ^ "$^{-1}$", coar, ar, Relation)
-  | CCompose (c1, c2) -> CCompose (circuit_inverse c2, circuit_inverse c1)
-  | Otimes (c1, c2) -> Otimes (circuit_inverse c1, circuit_inverse c2)
-  | SwapTimes (s1, s2) -> SwapTimes (s2, s1)
-
-let rec tape_inverse (t : tape) =
-  match t with
-  | TId0 | TId _ -> t
-  | Tape c -> Tape (circuit_inverse c)
-  | SwapPlus (a, b) -> SwapPlus (b, a)
-  | TCompose (t1, t2) -> TCompose (tape_inverse t2, tape_inverse t1)
-  | Oplus (t1, t2) -> Oplus (tape_inverse t1, tape_inverse t2)
-  | Spawn l -> Cut l
-  | Cut l -> Spawn l
-  | Join l -> Split l
-  | Split l -> Join l
-  | Trace (l, t1) -> Trace (l, tape_inverse t1)
-
 let rec right_whiskering (u : sort list list) (t : tape) =
   let p = Typecheck.tape_arity t in
   let q = Typecheck.tape_coarity t in

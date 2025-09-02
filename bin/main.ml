@@ -128,6 +128,9 @@ let draw_cospan_command (c : circuit) (path : string) : unit =
   let cos = Ssr_typechecker.Hg_cospan.cospan_of_circuit c in
   Ssr_typechecker.Draw.draw_hg_cospan cos path
 
+let draw_circuit_command (c : circuit) (path : string) : unit =
+  Ssr_typechecker.Draw.draw_circuit c path
+
 (** checks if e1 <= e2*)
 let check_inclusion_command (e1 : expr) (e2 : expr) : unit =
   let rec get_tape e =
@@ -201,7 +204,8 @@ let rec exec (p : program) =
           check_inclusion_inv_command (populate_genvars e1)
             (populate_genvars e2) (populate_genvars e3)
       | SetAxioms fl -> Ssr_typechecker.Fol_encoding.current_axioms := fl
-      | DrawCospan (c, path) -> draw_cospan_command c path)
+      | DrawCospan (c, path) -> draw_cospan_command c path
+      | DrawCircuit (c, path) -> draw_circuit_command c path)
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) ->

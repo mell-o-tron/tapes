@@ -67,6 +67,10 @@ type circuit_block =
     }
   | Connector of { positions : (float * float) list }
   | EmptyBlock
+  | CircuitDebugNode of {
+      pos : float * float;
+      text : string;
+    }
 [@@deriving show, compare]
 
 type tape_block =
@@ -134,15 +138,15 @@ type tape_block =
       oplusdist : float;
       max_y : float;
     }
+  | TapeDebugNode of {
+      pos : float * float;
+      text : string;
+    }
 [@@deriving show, compare]
 
 type block =
   | CB of circuit_block
   | TB of tape_block
-  | DebugNode of {
-      pos : float * float;
-      text : string;
-    }
 [@@deriving show, compare]
 
 type circuit_geometry =
@@ -227,6 +231,7 @@ let tape_block_height (tb : tape_block) =
         (2. *. tapepadding) +. (float_of_int (max 0 (n - 1)) *. otimesdist)
       in
       max_y +. oplusdist +. h -. min (snd pos_r) (snd pos_l)
+  | TapeDebugNode _ -> 0.
 
 let y_pos_of_tape_block (tb : tape_block) : float =
   match tb with
@@ -241,6 +246,7 @@ let y_pos_of_tape_block (tb : tape_block) : float =
       snd pos
   | BFreeStyleTape { posll; posrl; _ } -> min (snd posll) (snd posrl)
   | BTraceTape { pos_l; pos_r; _ } -> min (snd pos_l) (snd pos_r)
+  | TapeDebugNode { pos; _ } -> snd pos
 
 let y_pos_of_circuit_block (tb : circuit_block) : float =
   match tb with
@@ -253,6 +259,7 @@ let y_pos_of_circuit_block (tb : circuit_block) : float =
   | BSwap { pos; _ }
   | BId { pos; _ } ->
       snd pos
+  | CircuitDebugNode { pos; _ } -> snd pos
   | _ -> failwith "not yet implemented"
 
 let x_pos_of_tape_block (tb : tape_block) : float =
@@ -268,6 +275,7 @@ let x_pos_of_tape_block (tb : tape_block) : float =
       fst pos
   | BFreeStyleTape { posll; _ } -> fst posll
   | BTraceTape { pos_l; _ } -> fst pos_l
+  | TapeDebugNode { pos; _ } -> fst pos
 
 let tape_block_top_y (t : tape_block) =
   y_pos_of_tape_block t +. tape_block_height t
@@ -343,6 +351,8 @@ let tikz_of_circuit_block (cb : circuit_block) : string =
           (if !rounded_wires then "[in=180, out=0]" else "")
           s
   | EmptyBlock -> ""
+  | CircuitDebugNode { pos = x, y; text = t } ->
+      Printf.sprintf "\\node () at (%f, %f) {%s};\n" x y t
 
 let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
   let debug_bounds tb =
@@ -396,7 +406,9 @@ let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
         max_y;
       } ->
       Printf.sprintf "\\trace{%f}{%f}{%f}{%f}{%n}{%f}{%f}{%f}{%f}" xl yl xr yr n
-        max_y tapepadding otimesdist oplusdist)
+        max_y tapepadding otimesdist oplusdist
+  | TapeDebugNode { pos = x, y; text = t } ->
+      Printf.sprintf "\\node () at (%f, %f) {%s};\n" x y t)
   ^ debug_bounds tb
 
 let sort_block_list (b : block list) : block list =
@@ -409,9 +421,6 @@ let sort_block_list (b : block list) : block list =
     | CB cb :: b1 ->
         let ts, bs = aux b1 in
         (ts, CB cb :: bs)
-    | DebugNode db :: b1 ->
-        let ts, bs = aux b1 in
-        (ts, DebugNode db :: bs)
   in
   let ts, bs = aux b in
   ts @ bs
@@ -519,15 +528,14 @@ let rec tikz_of_block_list (b : block list) : string =
   | [] -> ""
   | TB tb :: b1 -> tikz_of_tape_block tb false ^ "\n" ^ tikz_of_block_list b1
   | CB cb :: b1 -> tikz_of_circuit_block cb ^ "\n" ^ tikz_of_block_list b1
-  | DebugNode { pos = posx, posy; text = s } :: b1 ->
-      Printf.sprintf "\\node () at (%f, %f) {%s};\n" posx posy s
-      ^ tikz_of_block_list b1
 
 (********************************************************************************************************)
 
 (* Circuit interface utils *)
 
-(* Flatten the circuit tree into a list of CircuitPin nodes *)
+(** Flatten a circuit interface tree into a list of positions. IMPORTANT: this
+    considers empty pins as regular pins, losing the information. If you wish to
+    preserve it, use [flatten_circuit_preserve_empty].*)
 let rec flatten_circuit (c : circuit_draw_interface) : (float * float) list =
   match c with
   | EmptyCircuit -> []
@@ -535,6 +543,8 @@ let rec flatten_circuit (c : circuit_draw_interface) : (float * float) list =
   | CircuitTens (c1, c2) -> flatten_circuit c1 @ flatten_circuit c2
   | EmptyCircuitPin (x, y) -> [ (x, y) ]
 
+(** Flatten a circuit interface, preserving information about which circuit pins
+    are empty (the boolean flag will be set to false for those.) *)
 let rec flatten_circuit_preserve_empty (c : circuit_draw_interface) :
     (float * float * bool) list =
   match c with
@@ -544,7 +554,7 @@ let rec flatten_circuit_preserve_empty (c : circuit_draw_interface) :
       flatten_circuit_preserve_empty c1 @ flatten_circuit_preserve_empty c2
   | EmptyCircuitPin (x, y) -> [ (x, y, false) ]
 
-(* Flatten non-empty components of the circuit interface *)
+(** Flatten non-empty components of the circuit interface *)
 let rec flatten_circuit_nonempty (c : circuit_draw_interface) :
     (float * float) list =
   match c with
@@ -553,13 +563,17 @@ let rec flatten_circuit_nonempty (c : circuit_draw_interface) :
   | CircuitTens (c1, c2) ->
       flatten_circuit_nonempty c1 @ flatten_circuit_nonempty c2
 
-(* Rebuild the circuit tree from a list of pins in left-associated form *)
+(** Rebuild the circuit interface from a list of positions in left-associated
+    form. IMPORTANT: this treats all positions as nonempty. If there were empty
+    pins, use [rebuild_circuit_preserve]. *)
 let rec rebuild_circuit (pins : (float * float) list) : circuit_draw_interface =
   match pins with
   | [] -> EmptyCircuit
   | (x, y) :: [] -> CircuitPin (x, y)
   | (x, y) :: rest -> CircuitTens (CircuitPin (x, y), rebuild_circuit rest)
 
+(** Rebuilds the circuit interface from a list of positions with emptyness
+    information in left-associated form.*)
 let rec rebuild_circuit_preserve (pins : (float * float * bool) list) :
     circuit_draw_interface =
   match pins with
@@ -570,6 +584,8 @@ let rec rebuild_circuit_preserve (pins : (float * float * bool) list) :
         ( (if b then CircuitPin (x, y) else EmptyCircuitPin (x, y)),
           rebuild_circuit_preserve rest )
 
+(** Removes empty circuit interfaces. Note that these are distinct from empty
+    circuit pins, which still hold a position.*)
 let rec clean_circuit_interface (c : circuit_draw_interface) =
   match c with
   | CircuitTens (EmptyCircuit, c1) -> clean_circuit_interface c1
@@ -595,6 +611,7 @@ let rec circuit_interface_init (n : int) (f : int -> circuit_draw_interface) =
     CircuitTens
       (circuit_interface_init (n - 1) f, circuit_interface_normalize (f n))
 
+(** inverts a circuit interface *)
 let rec circuit_interface_rev (c : circuit_draw_interface) =
   circuit_interface_normalize
     (match c with
@@ -603,7 +620,7 @@ let rec circuit_interface_rev (c : circuit_draw_interface) =
     | CircuitTens (c1, c2) ->
         CircuitTens (circuit_interface_rev c2, circuit_interface_rev c1))
 
-(* map for circuits *)
+(** map for circuit interfaces *)
 let rec circuit_interface_map
     (f : circuit_draw_interface -> circuit_draw_interface)
     (c : circuit_draw_interface) =
@@ -615,7 +632,7 @@ let rec circuit_interface_map
     | EmptyCircuitPin _ -> f c
     | CircuitTens (c1, c2) -> CircuitTens (f c1, circuit_interface_map f c2))
 
-(* creates a list by mapping over the elements of a circuit interface *)
+(** creates a list by mapping over the elements of a circuit interface *)
 let rec circuit_interface_to_list_map (f : circuit_draw_interface -> 'a list)
     (c : circuit_draw_interface) =
   let c = circuit_interface_normalize c in
@@ -623,7 +640,7 @@ let rec circuit_interface_to_list_map (f : circuit_draw_interface -> 'a list)
   | EmptyCircuit | CircuitPin _ | EmptyCircuitPin _ -> f c
   | CircuitTens (c1, c2) -> f c1 @ circuit_interface_to_list_map f c2
 
-(* returns the highest position of a circuit *)
+(** returns the highest position of a circuit *)
 let top_of_circuit_interface c =
   let l = flatten_circuit c in
   if List.length l = 0 then None
@@ -632,7 +649,7 @@ let top_of_circuit_interface c =
       (let maxy = List.map (fun (_, y) -> y) l |> list_max in
        List.find (fun (_, y) -> y = maxy) l)
 
-(* returns the hightst position of a circuit *)
+(** returns the hightst position of a circuit *)
 let base_of_circuit_interface c =
   let l = flatten_circuit c in
   if List.length l = 0 then None
@@ -641,7 +658,7 @@ let base_of_circuit_interface c =
       (let miny = List.map (fun (_, y) -> y) l |> list_min in
        List.find (fun (_, y) -> y = miny) l)
 
-(* returns lowest y value of two circuit interfaces *)
+(*** returns lowest y value of two circuit interfaces *)
 let y_base_of_circuit_interfaces c1 c2 =
   match (base_of_circuit_interface c1, base_of_circuit_interface c2) with
   | None, None -> None
@@ -649,12 +666,13 @@ let y_base_of_circuit_interfaces c1 c2 =
   | Some (_, y), None -> Some y
   | Some (_, y1), Some (_, y2) -> Some (min y1 y2)
 
-(* transforms a list into a circuit interface *)
+(** transforms a list into a circuit interface *)
 let rec circuit_interface_of_list l =
   match l with
   | [] -> EmptyCircuit
   | (x, y) :: xs -> CircuitTens (CircuitPin (x, y), circuit_interface_of_list xs)
 
+(** returns the height of a circuit interface *)
 let circuit_interface_height (c : circuit_draw_interface) =
   try
     let top = top_of_circuit_interface c in
@@ -669,32 +687,36 @@ let circuit_interface_height (c : circuit_draw_interface) =
 (********************************************************************************************************)
 (* Tape interface utils *)
 
-(* this gets rid of all empty interfaces. Is this correct? *)
 let rec clean_tape_interface t =
   match t with
   | TapeTens (EmptyInterface _, t1) -> clean_tape_interface t1
   | TapeTens (t1, EmptyInterface _) -> clean_tape_interface t1
   | _ -> t
 
+(** this gets rid of all empty interfaces. *)
 let rec deep_clean_interface t =
   let ct = clean_tape_interface t in
   if t == ct then ct else deep_clean_interface ct
 
+(** given a tape interface, turns it into a list *)
 let rec list_of_tape_interface t =
   match t with
   | EmptyTape _ | TapeInterface _ | EmptyInterface _ -> [ t ]
   | TapeTens (t1, t2) -> list_of_tape_interface t1 @ list_of_tape_interface t2
 
+(** given a list of tape interfaces, returns their tensor.*)
 let rec tape_interface_of_list t =
   match t with
   | t1 :: [] -> t1
   | t1 :: rest -> TapeTens (t1, tape_interface_of_list rest)
   | [] -> EmptyInterface (None, None)
 
+(** checks if a circuit interface is empty *)
 let circuit_intf_is_empty cintf =
   let flattened_noempty = flatten_circuit_nonempty cintf in
   List.length flattened_noempty = 0
 
+(** destroys empty interfaces in a tape interface *)
 let destroy_empty_interfaces t =
   let l = list_of_tape_interface t in
   List.filter
@@ -706,12 +728,13 @@ let destroy_empty_interfaces t =
     l
   |> tape_interface_of_list
 
-(* bring a tape interface to a list-like normal form *)
+(** bring a tape interface to a list-like normal form *)
 let tape_interface_normalize (t : tape_draw_interface) =
   t |> deep_clean_interface |> list_of_tape_interface |> tape_interface_of_list
   |> deep_clean_interface
 
-(* NOTE: the empty interface also has information, so we want to apply the function to it as well.*)
+(** NOTE: the empty interface also has information, so we want to apply the
+    function to it as well.*)
 let rec tape_interface_map (f : tape_draw_interface -> tape_draw_interface)
     (t : tape_draw_interface) =
   tape_interface_normalize
@@ -722,7 +745,7 @@ let rec tape_interface_map (f : tape_draw_interface -> tape_draw_interface)
      | EmptyInterface _ -> f t
      | TapeTens (t1, t2) -> TapeTens (f t1, tape_interface_map f t2))
 
-(* returns the lowest position of a tape interface *)
+(** returns the lowest position of a tape interface *)
 let rec base_of_tape_interface t =
   match tape_interface_normalize t with
   | EmptyTape ((x, y), _) -> (x, y)
@@ -901,8 +924,8 @@ let circuit_align_interfaces ri1 ri2 =
     (circuit_interface_normalize ri1, circuit_interface_normalize ri2)
   in
 
-  let l1 = flatten_circuit ri1 in
-  let l2 = flatten_circuit ri2 in
+  let l1 = flatten_circuit_nonempty ri1 in
+  let l2 = flatten_circuit_nonempty ri2 in
 
   match (l1, l2) with
   | [], [] -> (ri1, ri2)
@@ -1222,18 +1245,28 @@ let stack_diagrams
       (* fallback when one side is missing *)
       (i, da, ha, la, Some lia, Some ria)
 
+(** adds debug elements in drawing for circuit interfaces. arguments are
+    interface and latex color name*)
 let debug_get_circuit_interface (ci : circuit_draw_interface) (color : string) :
-    block list =
+    circuit_block list =
   circuit_interface_to_list_map
     (fun c ->
       match c with
       | EmptyCircuit -> []
       | CircuitPin (x, y) ->
           [
-            DebugNode
+            CircuitDebugNode
               {
                 pos = (x, y);
                 text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+              };
+          ]
+      | EmptyCircuitPin (x, y) ->
+          [
+            CircuitDebugNode
+              {
+                pos = (x, y);
+                text = Printf.sprintf "\\color{%s} $\\star$" color;
               };
           ]
       | _ -> failwith "should not happen I guess")
@@ -1246,16 +1279,18 @@ let debug_get_tape_interface (ti : tape_draw_interface) (color : string) :
       | EmptyTape _ | EmptyInterface _ -> []
       | TapeInterface (pos1, pos2, _) ->
           [
-            DebugNode
-              {
-                pos = pos1;
-                text = Printf.sprintf "\\color{%s} $\\bullet$" color;
-              };
-            DebugNode
-              {
-                pos = pos2;
-                text = Printf.sprintf "\\color{%s} $\\bullet$" color;
-              };
+            TB
+              (TapeDebugNode
+                 {
+                   pos = pos1;
+                   text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+                 });
+            TB
+              (TapeDebugNode
+                 {
+                   pos = pos2;
+                   text = Printf.sprintf "\\color{%s} $\\bullet$" color;
+                 });
           ]
       | _ -> failwith "should not happen")
     (list_of_tape_interface ti)
@@ -1274,6 +1309,7 @@ let move_circuit_block (cb : circuit_block) (dx, dy) =
   | BGen b -> BGen { b with pos = move b.pos }
   | Connector c -> Connector { positions = List.map move c.positions }
   | EmptyBlock -> cb
+  | CircuitDebugNode b -> CircuitDebugNode { b with pos = move b.pos }
 
 let move_tape_block (tb : tape_block) (dx, dy) =
   let move (x, y) = (x +. dx, y +. dy) in
@@ -1302,13 +1338,12 @@ let move_tape_block (tb : tape_block) (dx, dy) =
           pos_l = move b.pos_l;
           max_y = b.max_y +. dy;
         }
+  | TapeDebugNode b -> TapeDebugNode { b with pos = move b.pos }
 
 let move_block (b : block) (dx, dy) : block =
-  let move (x, y) = (x +. dx, y +. dy) in
   match b with
   | CB cb -> CB (move_circuit_block cb (dx, dy))
   | TB tb -> TB (move_tape_block tb (dx, dy))
-  | DebugNode d -> DebugNode { d with pos = move d.pos }
 
 let rec move_circuit_interface (dx, dy) = function
   | EmptyCircuit -> EmptyCircuit

@@ -21,6 +21,7 @@ let rec token lexbuf =
   | "+" | "⊕" -> Oplus
   | "dl" | "δl" -> Ldistr
   | "gen" -> Gen
+  | "fun" -> Fun
   | "0" -> Zero
   | "1" -> One
   | "(" -> LPAREN
@@ -38,6 +39,7 @@ let rec token lexbuf =
   | "tape" -> Tape
   | "trace" -> Trace
   | "draw" -> Draw
+  | "draw_circuit" -> DrawCircuit
   | "draw_matrix" -> DrawMatrix
   | "draw_normal_form" -> DrawNF
   | "draw_trace_normal_form" -> DrawTraceNF
@@ -88,6 +90,14 @@ let rec token lexbuf =
   | "delete_path" -> DELETEPATH
   | "remove_empties" -> REMEMPTIES
   | "draw_cospan" -> DrawCospan
+  | "of_monomial" -> OfMonomial
+  | "union" -> UNION
+  | "intersection" -> INTERSECTION
+  | "op" -> OP
+  | "star" -> STAR
+  | "empty" -> EMPTY
+  | "top" -> TOP
+  | "of_relation" -> OfRelation
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

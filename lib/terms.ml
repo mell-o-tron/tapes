@@ -145,3 +145,53 @@ let rec multi_copy n u =
   else if n = 1 then Id u
   else if n = 2 then Copy u
   else Compose (Copy u, Otimes (multi_copy (n - 1) u, Id u))
+
+(* Definition 4.5 of technical report *)
+let rec decompose_ldistr (p : sort list list) (q : sort list list)
+    (r : sort list list) =
+  match p with
+  | [] -> Id []
+  | u :: p1 ->
+      Compose
+        ( Oplus
+            ( Id
+                (obj_to_polynomial
+                   (Obtimes
+                      ( obj_of_polynomial [ u ],
+                        Obplus (obj_of_polynomial q, obj_of_polynomial r) ))),
+              decompose_ldistr p1 q r ),
+          Oplus
+            ( Oplus
+                ( Id
+                    (obj_to_polynomial
+                       (Obtimes (obj_of_polynomial [ u ], obj_of_polynomial q))),
+                  SwapPlus
+                    ( obj_to_polynomial
+                        (Obtimes (obj_of_polynomial [ u ], obj_of_polynomial r)),
+                      obj_to_polynomial
+                        (Obtimes (obj_of_polynomial p1, obj_of_polynomial q)) )
+                ),
+              Id
+                (obj_to_polynomial
+                   (Obtimes (obj_of_polynomial p1, obj_of_polynomial r))) ) )
+
+let rec term_inverse (t : term) =
+  match t with
+  | Id x -> Id x
+  | SwapPlus (a, b) -> SwapPlus (b, a)
+  | SwapTimes (a, b) -> SwapTimes (b, a)
+  | Compose (t1, t2) -> Compose (term_inverse t2, term_inverse t1)
+  | Oplus (t1, t2) -> Oplus (term_inverse t1, term_inverse t2)
+  | Otimes (t1, t2) -> Otimes (term_inverse t1, term_inverse t2)
+  | Spawn l -> Cut l
+  | Cut l -> Spawn l
+  | Join l -> Split l
+  | Split l -> Join l
+  | Trace (l, t1) -> Trace (l, term_inverse t1)
+  | Gen (s, ar, coar, _) -> Gen (s ^ "$^\\dagger$", coar, ar, Relation)
+  | Ldistr (l1, l2, l3) -> term_inverse (decompose_ldistr l1 l2 l3)
+  | Copy l1 -> CoCopy l1
+  | CoCopy l1 -> Copy l1
+  | Discard l1 -> CoDiscard l1
+  | CoDiscard l1 -> Discard l1
+  | GenVar _ -> failwith "variable should be resolved by now"

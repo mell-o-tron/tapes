@@ -33,6 +33,7 @@ module Taggedmap = TaggedTypeCospan.Taggedmap
 type hyperedge_kind =
   | Function
   | Relation
+[@@deriving show]
 
 type hyperedge = {
   name : string;
@@ -40,13 +41,23 @@ type hyperedge = {
   kind : hyperedge_kind;
 }
 
+let pp_hyperedge { name; arity; kind } =
+  Printf.sprintf "%s(%s; %s)\n" (show_hyperedge_kind kind) name
+    (pp_sort_list arity)
+
+let pp_hyperedge_list l = List.map pp_hyperedge l |> String.concat ", "
+
 type hg_cospan = TaggedTypeCospan.t * hyperedge list
+
+let pp_hg_cospan ((cos, l) : hg_cospan) =
+  Printf.sprintf "(%s, [%s])"
+    (TaggedTypeCospan.to_string cos)
+    (pp_hyperedge_list l)
 
 (** the cospan structure uses tags for computing disjoint unions, so the indices
     of our tagged sorts may end up jumbled up. This function realigns them. *)
 let recompute_indices (cos : TaggedTypeCospan.t) : TaggedTypeCospan.t =
-  Printf.printf "recomputing indices of %s\n" (TaggedTypeCospan.to_string cos);
-
+  (* Printf.printf "recomputing indices of %s\n" (TaggedTypeCospan.to_string cos); *)
   let hash_a = Hashtbl.create 10 in
   let hash_b = Hashtbl.create 10 in
   let hash_c = Hashtbl.create 10 in
@@ -61,6 +72,7 @@ let recompute_indices (cos : TaggedTypeCospan.t) : TaggedTypeCospan.t =
   let b =
     List.mapi
       (fun i ((i_old, v), t) ->
+        (* Printf.printf "adding %s%d to hash_b\n" v i_old; *)
         Hashtbl.add hash_b ((i_old, v), t) ((i, v), t);
         ((i, v), t))
       (Taggedset.to_list cos.b)
@@ -78,9 +90,9 @@ let recompute_indices (cos : TaggedTypeCospan.t) : TaggedTypeCospan.t =
   let l =
     List.map
       (fun (((i1, v1), t1), ((i2, v2), t2)) ->
-        Printf.printf "Looking for %s and %s in A and B\n"
+        (* Printf.printf "Looking for %s and %s in A and B\n"
           (TaggedType.to_string ((i1, v1), t1))
-          (TaggedType.to_string ((i2, v2), t2));
+          (TaggedType.to_string ((i2, v2), t2)); *)
         (Hashtbl.find hash_a ((i1, v1), t1), Hashtbl.find hash_b ((i2, v2), t2)))
       (Taggedmap.to_list cos.l)
     |> Taggedmap.of_list
@@ -89,6 +101,8 @@ let recompute_indices (cos : TaggedTypeCospan.t) : TaggedTypeCospan.t =
   let r =
     List.map
       (fun (((i1, v1), t1), ((i2, v2), t2)) ->
+        (* Printf.printf "looking for %s in hash_b\n"
+          (TaggedType.to_string ((i2, v2), t2)); *)
         (Hashtbl.find hash_c ((i1, v1), t1), Hashtbl.find hash_b ((i2, v2), t2)))
       (Taggedmap.to_list cos.r)
     |> Taggedmap.of_list
@@ -132,22 +146,29 @@ let shift_indices (ia : int) (ib : int) (ic : int) (cos : TaggedTypeCospan.t) :
 
 (** performs the tensor product of two taggedtype cospans *)
 let cospan_tensor (c1 : TaggedTypeCospan.t) (c2 : TaggedTypeCospan.t) =
-  Printf.printf "tensor of:\n%s\nand\n%s\n"
-    (TaggedTypeCospan.to_string c1)
-    (TaggedTypeCospan.to_string c2);
   let c2 =
     shift_indices (Taggedset.cardinal c1.a) (Taggedset.cardinal c1.b)
       (Taggedset.cardinal c1.c) c2
   in
+  Printf.printf "tensor of:\n%s\nand\n%s\n"
+    (TaggedTypeCospan.to_string c1)
+    (TaggedTypeCospan.to_string c2);
 
-  TaggedTypeCospan.tensor c1 c2 |> recompute_indices
+  let res = TaggedTypeCospan.tensor c1 c2 |> recompute_indices in
+  Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res);
+  res
 
 (** performs the composition of two taggedtype cospans *)
 let cospan_compose c1 c2 =
   Printf.printf "composing:\n%s\nand\n%s\n"
     (TaggedTypeCospan.to_string c1)
     (TaggedTypeCospan.to_string c2);
-  TaggedTypeCospan.compose c1 c2 |> recompute_indices
+  let res =
+    TaggedTypeCospan.compose c1 c2
+    |> recompute_indices |> TaggedTypeCospan.drop_tags
+  in
+  Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res);
+  res
 
 (** performs the tensor product of two hypergraph cospans *)
 let hg_cospan_tensor ((c1, l1) : hg_cospan) ((c2, l2) : hg_cospan) : hg_cospan =
@@ -178,6 +199,7 @@ let identity_cospan (t : sort list) =
 let swap_cospan (t1 : sort list) (t2 : sort list) =
   let t1len = List.length t1 in
   let t2len = List.length t2 in
+
   let ar = t1 @ t2 in
   let coar = t2 @ t1 in
   let index = ref (-1) in
@@ -185,8 +207,7 @@ let swap_cospan (t1 : sort list) (t2 : sort list) =
     (fun cos _ ->
       index := !index + 1;
 
-      let index_r = if !index < t1len then !index + t1len else !index - t2len in
-
+      let index_r = if !index < t2len then !index + t1len else !index - t2len in
       cos
       |> TaggedTypeCospan.add_elem_a ((!index, List.nth ar !index), None)
       |> TaggedTypeCospan.add_elem_b ((!index, List.nth ar !index), None)
@@ -221,6 +242,7 @@ let discard_and_copy_cospan (t : sort list) =
 (** Given a string diagram A -> B, produces a cospan A * B -> 1 that corresponds
     to it.*)
 let rec cospan_of_circuit (c : circuit) =
+  (* Printf.printf "converting to cospan: \n%s\n" (pp_circuit c); *)
   match c with
   | CId1 -> (TaggedTypeCospan.create (), [])
   | CId s ->
