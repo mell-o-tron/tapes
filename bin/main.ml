@@ -4,6 +4,7 @@ open Ssr_typechecker.Term_to_tape
 open Ssr_typechecker.Tapes
 open Ssr_typechecker.Terms
 open Ssr_typechecker.Ast
+open Ssr_typechecker.Environment
 
 (* open Ssr_typechecker.Imp *)
 open Ssr_typechecker.Errors
@@ -34,9 +35,6 @@ let ast_of_channel inchn =
              - (fst (Sedlexing.lexing_positions lexbuf)).pos_bol,
              "Generic Syntax Error" ))
 
-let sorts = ref []
-let env = Hashtbl.create 10
-let gens = Hashtbl.create 10
 let settings = Hashtbl.create 10
 
 (** typechecks an expression *)
@@ -163,30 +161,31 @@ let check_inclusion_inv_command (e1 : expr) (e2 : expr) (e3 : expr) : unit =
   let inv : tape = get_tape e3 in
   Ssr_typechecker.Tape_inclusion.inclusion_by_invariant t1 t2 inv
 
-(** replaces the generator names with terms *)
-let rec subst_gen_name_term (v : string) (t : Ssr_typechecker.Terms.term) :
-    Ssr_typechecker.Terms.term =
-  match t with
-  | GenVar v ->
-      if Hashtbl.mem gens v then Hashtbl.find gens v
-      else
-        raise
-          (RuntimeError
-             (Printf.sprintf
-                "generator %s has not been defined prior to its use" v))
-  | Otimes (t1, t2) ->
-      Otimes (subst_gen_name_term v t1, subst_gen_name_term v t2)
-  | Oplus (t1, t2) -> Oplus (subst_gen_name_term v t1, subst_gen_name_term v t2)
-  | Compose (t1, t2) ->
-      Compose (subst_gen_name_term v t1, subst_gen_name_term v t2)
-  | _ -> t
-
-let subst_gen_name (v : string) (e : expr) =
-  match e with Term t -> Term (subst_gen_name_term v t) | _ -> e
-
-(** populates the generator variables *)
-let populate_genvars (e : expr) =
-  Hashtbl.fold (fun k _ e1 -> subst_gen_name k e1) gens e
+let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
+    (inv : expr) =
+  let rec get_term e =
+    match e with
+    | Tape _ -> failwith "invariant should be a term, not a tape"
+    | Term t -> t
+    | Var id ->
+        if Hashtbl.mem env id then get_term (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+  let t1, t2 =
+    Ssr_typechecker.Hoare_triples.check_triple ctx t (get_term inv)
+  in
+  Printf.printf "begun drawing\n";
+  draw_command (Term t1) "lhs";
+  Printf.printf "done drawing\n";
+  Printf.printf "begun drawing\n";
+  draw_command (Term t2) "rhs";
+  Printf.printf "done drawing\n"
+(* let t1, t2 =
+    ( Ssr_typechecker.Matrix.term_to_normalized_tape t1,
+      Ssr_typechecker.Matrix.term_to_normalized_tape t2 )
+  in
+  draw_command (Tape t1) "lhs";
+  draw_command (Tape t2) "rhs" *)
 
 (** executes a .tapes program *)
 let rec exec (p : program) =
@@ -205,12 +204,12 @@ let rec exec (p : program) =
             (populate_genvars e2) (populate_genvars e3)
       | SetAxioms fl -> Ssr_typechecker.Fol_encoding.current_axioms := fl
       | DrawCospan (c, path) -> draw_cospan_command c path
-      | DrawCircuit (c, path) -> draw_circuit_command c path)
+      | DrawCircuit (c, path) -> draw_circuit_command c path
+      | CheckTriple (ctx, t, inv) -> check_triple_command ctx t inv)
   | Decl d -> (
       match d with
-      | ExprDecl (id, _typ, e) ->
-          (match e with Term t -> Hashtbl.add defined_terms id t | _ -> ());
-          Hashtbl.add env id (populate_genvars e)
+      | ExprDecl (id, _typ, e) -> (
+          match e with Term t -> Hashtbl.add defined_terms id t | _ -> ())
       | SortDecl id -> sorts := id :: !sorts
       | GenDecl (id, ob1, ob2, kind) ->
           Hashtbl.add gens id

@@ -65,7 +65,24 @@ set (paddingdist : 0.5).
 // draw (split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V)) ; 
 //      (split(V) ; (gen(e, U, V) + (split(U) ; (gen(e, U, V) +  gen(f, U, V)) ; join(V))) ; join(V)) to "example2"
 
-draw of_relation op(star(intersection (gen(R, A, A), gen(S, A, A)))) ; union (gen(R, A, A), gen(S, A, A)) to "union"
+// draw of_relation op(star(intersection (gen(R, A, A), gen(S, A, A)))) ; union (gen(R, A, A), gen(S, A, A)) to "union"
+
+set (rounded_wires : 1.0).
+let normalized : tape = normalize_term(factorial).
+
+draw normalized to "./result_examples/factorial".
+
+check_triple [x : int, y : int]
+{true}
+y := x;
+while (geq1(y)) {
+    y := (dec(x) : int);
+    x := (times(x, y) : int)
+}
+{true}
+
+with invariant id(int * int)
+
 
 // axioms [
 //     plus(pos (), pos()) = pos(),

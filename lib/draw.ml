@@ -607,6 +607,8 @@ and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
     to either tikz or other graphical languages *)
 and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
+  (* Printf.printf "%s\n" (pp_tape t); *)
+  flush stdout;
   let t = tape_to_sum t in
   match t with
   | TId l ->

@@ -1,0 +1,26 @@
+digraph packagedeps {
+  node1 [ label="Ssr_typechecker:
+Ast
+Common_defs
+Draw
+Draw_utils
+Errors
+Finset_conspan
+Fol_encoding
+Hg_cospan
+Imp
+Lexer
+Matrix
+Parser
+Relations
+Rewrite
+Tape_inclusion
+Tapes
+Term_to_tape
+Terms
+Typecheck" ];
+  node0 [ label="Dune:
+exe__Main
+exe__Test_ssr_typechecker" ];
+  node0 -> node1 [ ];
+}

@@ -98,6 +98,7 @@ let rec token lexbuf =
   | "empty" -> EMPTY
   | "top" -> TOP
   | "of_relation" -> OfRelation
+  | "check_triple" -> CheckTriple
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

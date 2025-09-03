@@ -3,6 +3,8 @@
 (*   open Ast (* Define the abstract syntax tree in Ast.ml *) *)
 open Matrix
 open Term_to_tape
+open Environment
+open Ast
 
 let remove_first_last s =
   let len = String.length s in
@@ -10,13 +12,14 @@ let remove_first_last s =
     ""  (* or raise an error if preferred *)
   else
     String.sub s 1 (len - 2)
+
 %}
 
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Fun Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
 %token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan OfMonomial DrawCircuit
-%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation
+%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation CheckTriple
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -31,6 +34,7 @@ let remove_first_last s =
 %nonassoc NOT
 
 %start <Ast.program> main
+%type <Hoare_triples.hoare_triple> hoare_triple
 %%
 
 main:
@@ -38,7 +42,7 @@ main:
 
 program:
   | c=command {Ast.Comm(c)}
-  | d=decl {d}
+  | d=decl {(match d with Decl(ExprDecl (id, _typ, e)) -> Hashtbl.add env id (populate_genvars e) | _ -> ()) ; d}
   | s = setting {s}
   | p1=program DOT p2=program {Ast.Seq(p1, p2)}
   | program DOT error {raise (Errors.ParseError "further commands expected after \".\". There should be no dot at the end of a program")}
@@ -57,6 +61,7 @@ command:
   | AXIOMS LBRACKET fl=separated_nonempty_list(COMMA, fol_formula) RBRACKET {Ast.SetAxioms(fl)}
   | DrawCospan c=circuit To qs=QSTRING {Ast.DrawCospan(c, remove_first_last qs)}
   | DrawCircuit c=circuit To qs=QSTRING {Ast.DrawCircuit(c, remove_first_last qs)}
+  | CheckTriple LBRACKET ctx=context RBRACKET t=hoare_triple WITH INVARIANT e=expr {Ast.CheckTriple(ctx, t, e)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
@@ -75,7 +80,7 @@ expr:
 tape_expr:
   | s=STRING {Ast.Var(s)}
   | t=tape {Ast.Tape(t)}
-  | ToTape t=term {Ast.Tape(Term_to_tape._to_tape(t))}
+  | ToTape t=term {Ast.Tape(Term_to_tape._to_tape(populate_vars_in_term t))}
   | error {raise (Errors.ParseError "tape expression expected")}
 
 term_expr:
@@ -144,17 +149,17 @@ tape:
   | SwapPlus LPAREN t1 = object_type COMMA t2 = object_type RPAREN                                      { Tapes.SwapPlus (Terms.sort_prod_to_list t1, Terms.sort_prod_to_list t2) }
   | t1 = tape SEMICOLON t2 = tape                                                                       { Tapes.TCompose(t1, t2) }
   | Trace LPAREN l = object_type COMMA t = tape RPAREN                                                  { Tapes.Trace(Terms.obj_to_monomial l, t) }
-  | PATH LPAREN f=FLOAT COMMA t = term RPAREN LBRACKET f1=FLOAT RBRACKET                                { snd (List.nth (linearize (int_of_float f) (_to_tape t)) (int_of_float f1))}
+  | PATH LPAREN f=FLOAT COMMA t = term RPAREN LBRACKET f1=FLOAT RBRACKET                                { snd (List.nth (linearize (int_of_float f) (_to_tape (populate_vars_in_term t))) (int_of_float f1))}
   | LPAREN t = tape RPAREN { t }
   | NORMALIZE t1 = tape {Matrix.normalize (t1)}
-  | NORMALIZETERM t1 = term {Matrix.term_to_normalized_tape t1}
+  | NORMALIZETERM t1 = term {Matrix.term_to_normalized_tape (populate_vars_in_term t1)}
   | DELETEPATH idx = FLOAT c1 = circuit 
     {let elimd = fst (Rewrite.eliminate_path_from_left (int_of_float idx) c1) |> Tapes.deep_clean_circuit
      in Printf.printf "taped elimd: %s\n" (Tapes.pp_tape (Tapes.Tape(elimd))); Tapes.Tape(elimd)}
   // | REMEMPTIES LPAREN t1 = tape COMMA ob = object_type RPAREN 
   //   {Rewrite.eliminate_empty_paths_tape (Terms.obj_to_monomial ob) (t1|> Rewrite.merge_embedded_circuits |> Tapes.deep_clean_tape
   //   |> Rewrite.reduce_circuits_tape)}
-  | ToTape LPAREN t = term RPAREN {(Term_to_tape._to_tape(t))}
+  | ToTape LPAREN t = term RPAREN {(Term_to_tape._to_tape(populate_vars_in_term t))}
   | error {raise (Errors.ParseError "tape expected")}
 
 object_type:
@@ -234,3 +239,6 @@ relation:
   | EMPTY LPAREN t1 = object_type RPAREN {Relations.BotRel (Terms.obj_to_monomial t1)}
   | r1=relation SEMICOLON r2=relation {Relations.Compose (r1, r2)}
   | LPAREN r = relation RPAREN {r}
+
+hoare_triple:
+  | OPEN_BRACE prec=imp_pred CLOSED_BRACE com=imp_command OPEN_BRACE post=imp_pred CLOSED_BRACE {Hoare_triples.make_triple prec com post}
