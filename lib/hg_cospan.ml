@@ -320,6 +320,7 @@ let rec cospan_of_circuit (c : circuit) =
         hg_cospan_compose c
           (hg_cospan_tensor (cospan_of_circuit c1) (cospan_of_circuit c2))
       else
-        failwith
-          "composition with non-matching arity and coarity in cospan \
-           translation"
+        raise
+          (Errors.TypeError
+             "composition with non-matching arity and coarity in cospan \
+              translation")

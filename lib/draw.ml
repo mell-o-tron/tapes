@@ -55,6 +55,7 @@ let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
     to circuit t. *)
 and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
     (id_zero_width : bool) : circuit_geometry =
+  (* Printf.printf "%s\n" (pp_circuit t); *)
   let t = circuit_to_seq t |> Tapes.deep_clean_circuit in
   match t with
   | CId s ->
@@ -512,16 +513,17 @@ and aligned_tape_composition posy (TapeGeo geo1) offset summand_list max_len
       right_interface = diag_rintf;
     }
 
-and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
+and non_aligned_tape_composition _t1 t2 posx posy (TapeGeo geo1) offset max_len
     debug =
+  (* Printf.printf "%s\t;\t%s\n" (pp_tape t1) (pp_tape t2); *)
+  flush stdout;
+
   (* draw geo2 in dummy position, to gather its interface height *)
   let (TapeGeo geo2) = tikz_of_tape t2 0.0 0.0 max_len debug in
 
+  let r2_height = tape_interface_height geo2.left_interface in
   let offset_multiplier =
-    abs_float
-      (tape_interface_height geo1.right_interface
-      -. tape_interface_height geo2.left_interface)
-    +. 0.25
+    abs_float (tape_interface_height geo1.right_interface -. r2_height) +. 0.25
   in
 
   (* redraw geo2, with correct tape alignment *)
@@ -532,9 +534,10 @@ and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
       max_len debug
   in
 
-  (* align spacing between binary tape: case spacing(t1) < spacing(t2) *)
+  (* align spacing between binary tape: case spacing(t1) < spacing(t2) 
+  REMOVED FOR PERFORMANCE ISSUES *)
   let (TapeGeo geo1) =
-    if
+    (* if
       is_interface_binary geo1.right_interface
       && is_interface_binary geo2.left_interface
       && get_space_between_nonempty_summands geo1.right_interface
@@ -546,12 +549,13 @@ and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
       (* Constrain len to <= geo1.length ? *)
       oplus_dist := prev_opldist;
       res)
-    else TapeGeo geo1
+    else  *)
+    TapeGeo geo1
   in
-
-  (* align spacing between binary tape: case spacing(t1) > spacing(t2) *)
+  (* align spacing between binary tape: case spacing(t1) > spacing(t2) 
+     REMOVED FOR PERFORMANCE ISSUES *)
   let (TapeGeo geo2) =
-    if
+    (* if
       is_interface_binary geo1.right_interface
       && is_interface_binary geo2.left_interface
       && get_space_between_nonempty_summands geo1.right_interface
@@ -570,7 +574,8 @@ and non_aligned_tape_composition t1 t2 posx posy (TapeGeo geo1) offset max_len
       in
       oplus_dist := prev_opldist;
       res)
-    else TapeGeo geo2
+    else *)
+    TapeGeo geo2
   in
 
   (* horizontal adjustment *)
@@ -609,7 +614,7 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
   (* Printf.printf "%s\n" (pp_tape t); *)
   flush stdout;
-  let t = tape_to_sum t in
+  let t = t |> tape_to_sum in
   match t with
   | TId l ->
       if l = [] || l = [ [] ] then
@@ -1056,23 +1061,32 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
 (** Adds labels to drawings *)
 let label_tape (ri : tape_draw_interface) (li : tape_draw_interface)
     (ar : string list list) (coar : string list list) =
+  (* Printf.printf "ri: %s\t li: %s\n"
+    (show_tape_draw_interface ri)
+    (show_tape_draw_interface li); *)
   let ri_flattened =
-    List.map (fun (x, y) -> (x -. (0.5 /. !scale_x), y)) (flatten_tape ri)
+    List.map
+      (fun (x, y) -> (x -. (0.5 /. !scale_x), y))
+      (flatten_tape_nonempty ri)
   in
   let li_flattened =
-    List.map (fun (x, y) -> (x +. (0.5 /. !scale_x), y)) (flatten_tape li)
+    List.map
+      (fun (x, y) -> (x +. (0.5 /. !scale_x), y))
+      (flatten_tape_nonempty li)
   in
   let ar_flattened = List.flatten ar in
   let coar_flattened = List.flatten coar in
-  (* 
+
   Printf.printf "%d, %d, %d, %d\n" (List.length ri_flattened)
     (List.length li_flattened) (List.length ar_flattened)
-    (List.length coar_flattened); *)
+    (List.length coar_flattened);
 
   if
     List.length ri_flattened != List.length ar_flattened
     || List.length li_flattened != List.length coar_flattened
-  then failwith "Interfaces don't match with arity and coarity of term"
+  then
+    raise
+      (Errors.TypeError "Interfaces don't match with arity and coarity of term")
   else
     let f ar_or_coar i (x, y) =
       Printf.sprintf "\\node () at (%f, %f) {%s};\n" x y (List.nth ar_or_coar i)

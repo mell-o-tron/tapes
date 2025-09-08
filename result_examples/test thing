@@ -1,0 +1,12 @@
+\def\xscale{0.500000}
+\def\yscale{1.000000}
+\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
+\splittape {0.000000} {0.000000} {0} {1.125000} {0.500000} {0.600000} {0.250000}
+
+\cuttape {4.375000} {1.250000} {0} {0.500000} {0.600000}
+
+\cuttape {4.375000} {0.000000} {0} {0.500000} {0.600000}
+
+
+
+\end{tikzpicture}

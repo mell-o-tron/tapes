@@ -337,7 +337,7 @@ let rec get_circuit_path (idx : int) (c : circuit) :
 
       (composed, continuation)
 
-(** removes the ith path of a circuit, from the left *)
+(** removes the ith path of a circuit, from the left TODO remove this *)
 let rec eliminate_path_from_left (idx : int) (c : circuit) =
   let c = c |> clean_circuit in
   match c with

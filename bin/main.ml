@@ -73,7 +73,9 @@ let rec draw_command (e : expr) (path : string) =
       let tc = typecheck t in
       if tc then
         Ssr_typechecker.Draw.draw_tape (deep_clean_tape (_to_tape t)) path
-      else raise (RuntimeError "Cannot draw term: does not typecheck.")
+      else
+        raise
+          (RuntimeError (Printf.sprintf "Cannot draw term: does not typecheck."))
   | Var id ->
       if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
@@ -110,7 +112,7 @@ let draw_normal_command (e : expr) (path : string) : unit =
 let draw_trace_nf_command (e : expr) (path : string) : unit =
   let rec get_term e =
     match e with
-    | Tape _ -> failwith "can only take trace normal form of term"
+    | Tape _ -> raise (TypeError "can only take trace normal form of term")
     | Term t -> t
     | Var id ->
         if Hashtbl.mem env id then get_term (Hashtbl.find env id)
@@ -165,7 +167,7 @@ let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
     (inv : expr) =
   let rec get_term e =
     match e with
-    | Tape _ -> failwith "invariant should be a term, not a tape"
+    | Tape _ -> raise (TypeError "invariant should be a term, not a tape")
     | Term t -> t
     | Var id ->
         if Hashtbl.mem env id then get_term (Hashtbl.find env id)
@@ -174,12 +176,19 @@ let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
   let t1, t2 =
     Ssr_typechecker.Hoare_triples.check_triple ctx t (get_term inv)
   in
+
+  Printf.printf "t1: %s\n" (show_term t1);
+  Printf.printf "t2: %s\n" (show_term t2);
+
   Printf.printf "begun drawing\n";
-  draw_command (Term t1) "lhs";
+  draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t1))) "lhs";
   Printf.printf "done drawing\n";
   Printf.printf "begun drawing\n";
-  draw_command (Term t2) "rhs";
-  Printf.printf "done drawing\n"
+  draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t2))) "rhs";
+  Printf.printf "done drawing\n";
+  Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
+    (_to_tape t2)
+
 (* let t1, t2 =
     ( Ssr_typechecker.Matrix.term_to_normalized_tape t1,
       Ssr_typechecker.Matrix.term_to_normalized_tape t2 )

@@ -201,7 +201,8 @@ module Make (Tagged : TaggedType) = struct
   let compose (t1 : t) (t2 : t) =
     (* check for composability c1 == a2*)
     if not (Taggedset.equal t1.c t2.a) then
-      failwith "incompatible interfaces, cannot compose cospans."
+      raise
+        (Errors.TypeError "incompatible interfaces, cannot compose cospans.")
     else
       let uf = UF.new_store () in
       (* A1 -> B1 <- X      X -> B2 <- C2. Take disjoint union of B1 and B2 *)

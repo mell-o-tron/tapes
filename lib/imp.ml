@@ -164,7 +164,7 @@ let union (t1 : term) (t2 : term) =
   let coart2 = Typecheck.coarity t2 in
   if art1 = art2 && coart1 = coart2 then
     Compose (Compose (Split art1, Oplus (t1, t2)), Join coart1)
-  else failwith "cannot apply union: arities or coarities don't match"
+  else raise (TypeError "cannot apply union: arities or coarities don't match")
 
 (** Given a context and a predicate, produces the coreflexive for the predicate
 *)

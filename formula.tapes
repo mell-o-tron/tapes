@@ -12,9 +12,9 @@ set (paddingdist : 0.5).
 set (scalex : 0.7).
 
 let non_inv_example : term = gen(f, A, B) * gen (g, C, D).
-let inv_example : term = (id(A) * s*(C, B) * id(D)) ; gen(f, A*B, 1) * gen (g, C*D, 1).
+let inv_example : term = (id(A) * s*(C, B) * id(D)) ; (gen(f, A*B, 1) * gen (g, C*D, 1)).
 
-draw non_inv_example to "non_inv".
+// draw non_inv_example to "non_inv".
 draw inv_example to "inv".
 
 // let A : sort.   let B : sort.   let C : sort.
@@ -35,7 +35,7 @@ END_IMP.
 
 
 check factorial.
-draw factorial to "./result_examples/factorial".
+draw factorial to "./result_examples/factorio".
 
 set (scalex : 0.9).
 set (rounded_wires : 1.0).
@@ -72,16 +72,21 @@ let normalized : tape = normalize_term(factorial).
 
 draw normalized to "./result_examples/factorial".
 
-check_triple [x : int, y : int]
-{true}
-y := x;
-while (geq1(y)) {
-    y := (dec(x) : int);
-    x := (times(x, y) : int)
-}
-{true}
+draw split (1) ; (cut(1) + cut(1)) to "./result_examples/auauauo".
 
-with invariant id(int * int)
+axioms [
+    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y)))
+].
+
+check_triple [x : int, y : int]
+{pos(x) and pos (y)}
+while (true) {
+    x := plus (x, y) : int
+}
+{pos(x)}
+with invariant 
+codiscard(int*int)
+
 
 
 // axioms [

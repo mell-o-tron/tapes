@@ -108,6 +108,8 @@ let strip_of_latex s =
   let s = Str.global_replace (re "$") "" s in
   let s = Str.global_replace (re "{") "" s in
   let s = Str.global_replace (re "}") "" s in
+  (* TODO what to do? *)
+  let s = Str.global_replace (re "^\\dagger") "_inv" s in
   s
 
 (** counts the occurrences of a string in a substring *)
@@ -226,7 +228,9 @@ let rec judgment_of_circuit_direct (c : circuit) : judgment =
   | Gen ("$eq$", ar, coar, Relation) when coar = [] && List.length ar = 2 ->
       (ar, coar, Lit (Pos (Equals (Var ("x", 0), Var ("x", 1)))))
   | Gen ("$eq$", _, _, _) ->
-      failwith "eq should be a relation symbol with arity 2 and coarity 0"
+      raise
+        (Errors.TypeError
+           "eq should be a relation symbol with arity 2 and coarity 0")
   | Gen ("$\\overline{eq}$", ar, coar, Relation) ->
       (ar, coar, Lit (Neg (Equals (Var ("x", 0), Var ("x", 1)))))
   | Gen (name, ar, coar, Relation) ->
@@ -389,7 +393,10 @@ let rec circuit_of_monomial (t : tape) =
   | TId [ s ] -> bigcid s
   | TCompose (t1, t2) ->
       CCompose (circuit_of_monomial t1, circuit_of_monomial t2)
-  | _ -> failwith "tape is not monomial and non-traced"
+  | _ ->
+      raise
+        (Errors.TypeError
+           "Tried to obtain circuit from tape that is not monomial or is traced")
 
 let formula_of_monomial (t : tape) = circuit_of_monomial t |> formula_of_circuit
 

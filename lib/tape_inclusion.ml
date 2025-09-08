@@ -37,7 +37,7 @@ let generate_implication_problems (t1 : tape) (t2 : tape) =
       "matrix dimensions are not matching: cannot generate implication problems"
 
 (** given two tapes with matching traces and an invariant, produces the
-    inclusion problems *)
+    inclusion problems TODO remove this*)
 let inclusion_by_invariant (t1 : tape) (t2 : tape) (invariant : tape) =
   match (t1, t2) with
   | Trace (sl1, t1), Trace (sl2, t2) when sl1 = sl2 ->

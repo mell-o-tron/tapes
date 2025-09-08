@@ -1,5 +1,6 @@
 open Terms
 open Imp
+open Common_defs
 
 (* open Tape_inclusion *)
 open Rewrite
@@ -20,10 +21,18 @@ let check_triple (c : context) (t : hoare_triple) (inv : term) =
 
   let t1 = Compose (term_inverse prec_term, com_term) |> trace_normal_form in
   let untraced_t1 =
-    match t1 with Trace (_, t) -> t | _ -> failwith "program has no cycle"
+    match t1 with
+    | Trace (_, t) -> t
+    | _ ->
+        raise
+          (Errors.TypeError
+             "Triples can currently be checked only in programs with cycles")
   in
-  let inv_t1 = untraced_t1 in
-  (* let inv_t1 = Compose (inv, untraced_t1) in *)
+  let inv_t1 = Compose (Oplus (inv, Id [ [] ]), untraced_t1) in
+  Printf.printf "coarity 1: %s\n"
+    (pp_sort_list_list (Typecheck.coarity (Split [ [] ])));
+  Printf.printf "arity 2: %s\n"
+    (pp_sort_list_list (Typecheck.arity (Oplus (inv, term_inverse post_term))));
   let inv_t2 =
     Compose
       (Join [ [] ], Compose (Split [ [] ], Oplus (inv, term_inverse post_term)))

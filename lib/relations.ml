@@ -55,7 +55,7 @@ let rec term_of_rel (rel : relation) =
       let coar2 = coarity t2 in
       if ar1 = ar2 && coar1 = coar2 then
         Compose (Split ar1, Compose (Oplus (t1, t2), Join coar1))
-      else failwith "incompatible relations in union"
+      else raise (Errors.TypeError "incompatible relations in union")
   | Intersection (r1, r2) ->
       let t1 = term_of_rel r1 in
       let t2 = term_of_rel r2 in
@@ -65,7 +65,7 @@ let rec term_of_rel (rel : relation) =
       let coar2 = coarity t2 in
       if ar1 = ar2 && coar1 = coar2 then
         Compose (Copy ar1, Compose (Otimes (t1, t2), CoCopy coar1))
-      else failwith "incompatible relations in intersection"
+      else raise (Errors.TypeError "incompatible relations in intersection")
   | Op r1 -> term_inverse (term_of_rel r1)
   | Star r1 -> kleene_star (term_of_rel r1)
   | IdRel l1 -> Id [ l1 ]

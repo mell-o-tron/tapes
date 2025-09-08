@@ -719,13 +719,7 @@ let circuit_intf_is_empty cintf =
 (** destroys empty interfaces in a tape interface *)
 let destroy_empty_interfaces t =
   let l = list_of_tape_interface t in
-  List.filter
-    (fun t ->
-      match t with
-      | EmptyInterface _ | EmptyTape _ -> false
-      | TapeInterface (_, _, c) -> not (circuit_intf_is_empty c)
-      | _ -> true)
-    l
+  List.filter (fun t -> match t with EmptyInterface _ -> false | _ -> true) l
   |> tape_interface_of_list
 
 (** bring a tape interface to a list-like normal form *)
@@ -964,7 +958,7 @@ let tid_to_normal_form (l : Common_defs.sort list list) =
 
 let rec is_tape_identity (t : tape) =
   match t with
-  | TId0 | Tape CId1 | Tape (CId _) -> true
+  | TId0 | Tape CId1 | Tape (CId _) | TId [ [] ] -> true
   | Oplus (t1, t2) -> is_tape_identity t1 && is_tape_identity t2
   | Tape (Otimes (c1, c2)) ->
       is_tape_identity (Tape c1) && is_tape_identity (Tape c2)
@@ -1065,6 +1059,7 @@ let align_circuit_interface_to_x c x =
   circuit_interface_map
     (function
       | CircuitPin (_, y) -> CircuitPin (x, y)
+      | EmptyCircuitPin (_, y) -> EmptyCircuitPin (x, y)
       | _ -> failwith "should not be called 1")
     c
 
@@ -1085,6 +1080,13 @@ let rec flatten_tape (t : tape_draw_interface) =
   | EmptyTape _ -> []
   | TapeInterface (_, _, c) -> flatten_circuit c
   | TapeTens (t1, t2) -> flatten_tape t1 @ flatten_tape t2
+  | EmptyInterface _ -> []
+
+let rec flatten_tape_nonempty (t : tape_draw_interface) =
+  match t with
+  | EmptyTape _ -> []
+  | TapeInterface (_, _, c) -> flatten_circuit_nonempty c
+  | TapeTens (t1, t2) -> flatten_tape_nonempty t1 @ flatten_tape_nonempty t2
   | EmptyInterface _ -> []
 
 (* same as circuit align interfaces but for tapes. *)
@@ -1194,7 +1196,7 @@ let tape_connect_interfaces (ina : tape_draw_interface)
             failwith "trying to connect incompatible tape interfaces")
       ina inb
   in
-  (* printf [] "\n-----\noutput: %s\n-----\n" res; *)
+
   res
 
 let max_x_in_diags (ds : tape_geometry list) =
