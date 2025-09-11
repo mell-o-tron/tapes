@@ -18,8 +18,8 @@ let remove_first_last s =
 %token Id SwapTimes SwapPlus Otimes Oplus Ldistr Gen Fun Zero One Split Cut Join Spawn Copy MultiCopy CoCopy Discard CoDiscard
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
-%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan OfMonomial DrawCircuit
-%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation CheckTriple
+%token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan OfEmbeddedTape DrawCircuit
+%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation CheckTriple ToFOL Invert Print
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -62,6 +62,8 @@ command:
   | DrawCospan c=circuit To qs=QSTRING {Ast.DrawCospan(c, remove_first_last qs)}
   | DrawCircuit c=circuit To qs=QSTRING {Ast.DrawCircuit(c, remove_first_last qs)}
   | CheckTriple LBRACKET ctx=context RBRACKET t=hoare_triple WITH INVARIANT e=expr {Ast.CheckTriple(ctx, t, e)}
+  | ToFOL c=circuit   {Ast.ToFOL (c)}
+  | Print qs=QSTRING {Ast.Print(remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
 
@@ -111,10 +113,11 @@ term:
   | s = STRING {Terms.GenVar(s)}
   | BEGIN_IMP LBRACKET RBRACKET i = imp_command END_IMP {Imp.eval_command [] i}
   | BEGIN_IMP LBRACKET ctx=context RBRACKET i = imp_command END_IMP {let x = Imp.eval_command ctx i in (*print_endline (Tapes.pp_tape(Term_to_tape._to_tape x )) ;*) x }
-  | BEGIN_TEST LBRACKET RBRACKET p = imp_pred END_TEST {Imp.corefl [] p}
-  | BEGIN_TEST LBRACKET ctx=context RBRACKET p = imp_pred END_TEST {Imp.corefl ctx p}
+  | BEGIN_TEST LBRACKET RBRACKET p = imp_pred END_TEST {Imp.eval_pred [] p}
+  | BEGIN_TEST LBRACKET ctx=context RBRACKET p = imp_pred END_TEST {Imp.eval_pred ctx p}
   | NORMALIZETRACE t1 = term {let res = Rewrite.trace_normal_form t1 in Printf.printf "term: %s\n" (Terms.show_term res); res}
   | OfRelation r = relation {Relations.term_of_rel r}
+  | Invert t=term {Terms.term_inverse (populate_vars_in_term t)}
   | error {raise (Errors.ParseError "term expected")}
 
 context:
@@ -134,7 +137,7 @@ circuit:
   | Discard LPAREN s = STRING RPAREN {Tapes.Gen("discard", [s], [], Terms.Relation)}
   | CoDiscard LPAREN s = STRING RPAREN {Tapes.Gen("codiscard", [], [s], Terms.Relation)}
   | LPAREN c = circuit RPAREN                                                                           { c }
-  | OfMonomial LPAREN t = tape RPAREN {Fol_encoding.circuit_of_monomial (Tapes.deep_clean_tape t)}
+  | OfEmbeddedTape LPAREN t = tape RPAREN {Fol_encoding.circuit_of_embedded_tape (Tapes.deep_clean_tape t)}
   | error {raise (Errors.ParseError "circuit expected")}
 
 tape:

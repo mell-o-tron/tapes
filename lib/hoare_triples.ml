@@ -1,6 +1,6 @@
 open Terms
 open Imp
-open Common_defs
+(* open Common_defs *)
 
 (* open Tape_inclusion *)
 open Rewrite
@@ -29,10 +29,10 @@ let check_triple (c : context) (t : hoare_triple) (inv : term) =
              "Triples can currently be checked only in programs with cycles")
   in
   let inv_t1 = Compose (Oplus (inv, Id [ [] ]), untraced_t1) in
-  Printf.printf "coarity 1: %s\n"
+  (* Printf.printf "coarity 1: %s\n"
     (pp_sort_list_list (Typecheck.coarity (Split [ [] ])));
   Printf.printf "arity 2: %s\n"
-    (pp_sort_list_list (Typecheck.arity (Oplus (inv, term_inverse post_term))));
+    (pp_sort_list_list (Typecheck.arity (Oplus (inv, term_inverse post_term)))); *)
   let inv_t2 =
     Compose
       (Join [ [] ], Compose (Split [ [] ], Oplus (inv, term_inverse post_term)))

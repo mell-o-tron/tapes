@@ -90,7 +90,7 @@ let rec token lexbuf =
   | "delete_path" -> DELETEPATH
   | "remove_empties" -> REMEMPTIES
   | "draw_cospan" -> DrawCospan
-  | "of_monomial" -> OfMonomial
+  | "of_embedded" -> OfEmbeddedTape
   | "union" -> UNION
   | "intersection" -> INTERSECTION
   | "op" -> OP
@@ -99,6 +99,9 @@ let rec token lexbuf =
   | "top" -> TOP
   | "of_relation" -> OfRelation
   | "check_triple" -> CheckTriple
+  | "to_fol" -> ToFOL
+  | "invert" -> Invert
+  | "print" -> Print
   | white_space -> token lexbuf
   | "," -> COMMA
   (*  | number -> INT (int_of_string (Sedlexing.Latin1.lexeme lexbuf))*)

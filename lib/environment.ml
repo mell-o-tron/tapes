@@ -33,6 +33,8 @@ let subst_gen_name (v : string) (e : expr) tbl =
 let populate_genvars (e : expr) =
   e |> Hashtbl.fold (fun k _ e1 -> subst_gen_name k e1 gens) gens
 
+let is_term = function Term _ -> true | _ -> false
+
 let populate_vars_in_term (t : term) =
   let rec get_term e =
     match e with
@@ -43,5 +45,7 @@ let populate_vars_in_term (t : term) =
         else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
   in
   let t_env = Hashtbl.create 10 in
-  Hashtbl.iter (fun x y -> Hashtbl.add t_env x (get_term y)) env;
+  Hashtbl.iter
+    (fun x y -> if is_term y then Hashtbl.add t_env x (get_term y))
+    env;
   t |> Hashtbl.fold (fun k _ e1 -> subst_gen_name_term k e1 t_env) t_env

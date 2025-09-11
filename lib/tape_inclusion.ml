@@ -4,6 +4,21 @@ open Fol_encoding
 open ANSITerminal
 open Typecheck
 
+let run_spass dir =
+  Printf.printf "Running SPASS on generated problems:\n";
+  flush stdout;
+  Sys.readdir dir
+  |> Array.iter (fun file ->
+         let cmd =
+           Printf.sprintf
+             "SPASS %s/%s | grep -E \"Proof found|Completion \
+              found|Process.*SPASS spent\""
+             dir file
+         in
+         match Sys.command cmd with
+         | 0 -> ()
+         | _ -> Printf.eprintf "SPASS failed on %s\n" file)
+
 (** Given two tapes, generates the problems that, collectively, represent the
     inclusion t1 <= t2*)
 let generate_implication_problems (t1 : tape) (t2 : tape) =
@@ -31,7 +46,9 @@ let generate_implication_problems (t1 : tape) (t2 : tape) =
           close_out oc
         with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
       problems;
-    Printf.printf "SPASS files generated in ./problems directory.\n")
+    Printf.printf "SPASS files generated in ./problems directory.\n";
+    flush stdout;
+    run_spass "./problems")
   else
     failwith
       "matrix dimensions are not matching: cannot generate implication problems"

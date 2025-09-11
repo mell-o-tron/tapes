@@ -72,18 +72,11 @@ let rec clean_circuit (c : circuit) =
 
 (** simplifies a circuit recursively and until reaching a fixpoint.*)
 let deep_clean_circuit (c : circuit) =
-  let rec fix_ids (c : circuit) =
-    match c with
-    | CCompose (t1, t2) -> CCompose (fix_ids t1, fix_ids t2)
-    | Otimes (t1, t2) -> Otimes (fix_ids t1, fix_ids t2)
-    | _ -> c
-  in
-
   let rec aux (c : circuit) =
     let c1 = clean_circuit c in
     if c = c1 then c else aux c1
   in
-  fix_ids (aux c)
+  aux c
 
 (* let rec clean_tape (t : tape) =
   match t with
@@ -225,11 +218,25 @@ let rec multi_join_pol n (p : string list list) =
   else if n = 2 then join_to_tape p
   else TCompose (Oplus (id_to_tape p, multi_join_pol (n - 1) p), join_to_tape p)
 
+let invert_generator s ar coar =
+  let t0 = Otimes (id_to_circuit coar, Gen ("codiscard", [], ar, Relation)) in
+  let t1 = Otimes (id_to_circuit coar, Gen ("copy", ar, ar @ ar, Relation)) in
+  let t2 =
+    Otimes
+      ( Otimes (id_to_circuit coar, Gen (s, ar, coar, Relation)),
+        id_to_circuit ar )
+  in
+  let t3 =
+    Otimes (Gen ("cocopy", coar @ coar, coar, Relation), id_to_circuit ar)
+  in
+  let t4 = Otimes (Gen ("discard", coar, [], Relation), id_to_circuit ar) in
+  CCompose (t0, CCompose (t1, CCompose (t2, CCompose (t3, t4))))
+
 let rec circuit_inverse (c : circuit) =
   match c with
   | CId _ | CId1 -> c
   (* the inverse of a function is, in general, a relation. *)
-  | Gen (s, ar, coar, _) -> Gen (s ^ "$^\\dagger$", coar, ar, Relation)
+  | Gen (s, ar, coar, _) -> invert_generator s ar coar
   | CCompose (c1, c2) -> CCompose (circuit_inverse c2, circuit_inverse c1)
   | Otimes (c1, c2) -> Otimes (circuit_inverse c1, circuit_inverse c2)
   | SwapTimes (s1, s2) -> SwapTimes (s2, s1)

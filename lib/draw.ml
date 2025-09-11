@@ -56,7 +56,7 @@ let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
 and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
     (id_zero_width : bool) : circuit_geometry =
   (* Printf.printf "%s\n" (pp_circuit t); *)
-  let t = circuit_to_seq t |> Tapes.deep_clean_circuit in
+  (* let t = circuit_to_seq t |> Tapes.deep_clean_circuit in *)
   match t with
   | CId s ->
       let l = if id_zero_width then 0. else 1. in
@@ -305,12 +305,15 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
                       pos = (posx, posy);
                       arity = ar_size;
                       coarity = coar_size;
-                      name;
+                      name =
+                        (match kind with
+                        | OpRelation -> name ^ "$^\\dagger$"
+                        | _ -> name);
                       otimesdist = !otimes_dist;
                       sorts = (ar, coar);
                       style =
                         (match kind with
-                        | Relation -> "boxstyle"
+                        | Relation | OpRelation -> "boxstyle"
                         | Function -> "trianglestyle"
                         | Corefl -> "circlestyle");
                     };

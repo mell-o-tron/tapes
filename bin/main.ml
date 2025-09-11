@@ -176,18 +176,34 @@ let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
   let t1, t2 =
     Ssr_typechecker.Hoare_triples.check_triple ctx t (get_term inv)
   in
-
-  Printf.printf "t1: %s\n" (show_term t1);
-  Printf.printf "t2: %s\n" (show_term t2);
-
-  Printf.printf "begun drawing\n";
-  draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t1))) "lhs";
-  Printf.printf "done drawing\n";
-  Printf.printf "begun drawing\n";
-  draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t2))) "rhs";
-  Printf.printf "done drawing\n";
+  Sys.catch_break true;
+  (* Printf.printf "t1: %s\n" (show_term t1);
+  Printf.printf "t2: %s\n" (show_term t2); *)
+  Printf.printf "begun drawing lhs, press CTRL-C to skip\n";
+  (try
+     draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t1))) "lhs"
+   with Sys.Break -> Printf.printf "skipping...\n");
+  Printf.printf "begun drawing lhs, press CTRL-C to skip\n";
+  (try
+     draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t2))) "rhs"
+   with Sys.Break -> Printf.printf "skipping...\n");
+  Sys.catch_break false;
+  (* Printf.printf "done drawing\n"; *)
   Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
     (_to_tape t2)
+
+let to_fol_command (c : circuit) =
+  let formula = Ssr_typechecker.Fol_encoding.formula_of_circuit c in
+  Printf.printf
+    "==============================\n\
+     circuit:\t%s\n\
+     To FOL: \t%s\n\
+     Simplified:\t%s\n\
+     ==============================\n"
+    (pp_circuit c)
+    (Ssr_typechecker.Fol_encoding.pp_formula formula)
+    (Ssr_typechecker.Fol_encoding.pp_formula
+       (Ssr_typechecker.Fol_encoding.simplify_formula formula))
 
 (* let t1, t2 =
     ( Ssr_typechecker.Matrix.term_to_normalized_tape t1,
@@ -214,7 +230,9 @@ let rec exec (p : program) =
       | SetAxioms fl -> Ssr_typechecker.Fol_encoding.current_axioms := fl
       | DrawCospan (c, path) -> draw_cospan_command c path
       | DrawCircuit (c, path) -> draw_circuit_command c path
-      | CheckTriple (ctx, t, inv) -> check_triple_command ctx t inv)
+      | CheckTriple (ctx, t, inv) -> check_triple_command ctx t inv
+      | ToFOL c -> to_fol_command c
+      | Print s -> Printf.printf "%s\n" (Scanf.unescaped s))
   | Decl d -> (
       match d with
       | ExprDecl (id, _typ, e) -> (

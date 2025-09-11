@@ -150,24 +150,24 @@ let cospan_tensor (c1 : TaggedTypeCospan.t) (c2 : TaggedTypeCospan.t) =
     shift_indices (Taggedset.cardinal c1.a) (Taggedset.cardinal c1.b)
       (Taggedset.cardinal c1.c) c2
   in
-  Printf.printf "tensor of:\n%s\nand\n%s\n"
+  (* Printf.printf "tensor of:\n%s\nand\n%s\n"
     (TaggedTypeCospan.to_string c1)
-    (TaggedTypeCospan.to_string c2);
+    (TaggedTypeCospan.to_string c2); *)
 
   let res = TaggedTypeCospan.tensor c1 c2 |> recompute_indices in
-  Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res);
+  (* Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res); *)
   res
 
 (** performs the composition of two taggedtype cospans *)
 let cospan_compose c1 c2 =
-  Printf.printf "composing:\n%s\nand\n%s\n"
+  (* Printf.printf "composing:\n%s\nand\n%s\n"
     (TaggedTypeCospan.to_string c1)
-    (TaggedTypeCospan.to_string c2);
+    (TaggedTypeCospan.to_string c2); *)
   let res =
     TaggedTypeCospan.compose c1 c2
     |> recompute_indices |> TaggedTypeCospan.drop_tags
   in
-  Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res);
+  (* Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res); *)
   res
 
 (** performs the tensor product of two hypergraph cospans *)

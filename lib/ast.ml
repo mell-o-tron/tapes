@@ -23,6 +23,8 @@ type command =
   | DrawCircuit of Tapes.circuit * string
   | CheckTriple of Imp.context * Hoare_triples.hoare_triple * expr
       (** triple and invariant *)
+  | ToFOL of Tapes.circuit
+  | Print of string
 
 type decl =
   | ExprDecl of iden * exprtype * expr

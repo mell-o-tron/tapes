@@ -1,6 +1,6 @@
 open Tapes
 open Hg_cospan
-open Common_defs
+(* open Common_defs *)
 
 type term =
   | Var of string * int
@@ -9,6 +9,7 @@ type term =
 type atom =
   | Equals of term * term
   | Pred of string * term list
+  | PredOp of string * term list
 
 type literal =
   | Pos of atom
@@ -26,26 +27,32 @@ type formula =
 
 (** basic simplification for FOL formulas *)
 let rec simplify_formula (f : formula) : formula =
-  match f with
-  | Top -> Top
-  | Bot -> Top
-  | Lit _ -> f
-  | And (f1, Top) -> f1
-  | And (Top, f1) -> f1
-  | Or (_, Top) -> Top
-  | Or (Top, _) -> Top
-  | And (_, Bot) -> Bot
-  | And (Bot, _) -> Bot
-  | Or (f1, Bot) -> f1
-  | Or (Bot, f1) -> f1
-  | And (f1, f2) -> And (simplify_formula f1, simplify_formula f2)
-  | Or (f1, f2) -> Or (simplify_formula f1, simplify_formula f2)
-  | Not Top -> Bot
-  | Not Bot -> Top
-  | Not f -> Not (simplify_formula f)
-  | Exists (_, Top) -> Top
-  | Exists (z, f) -> Exists (z, simplify_formula f)
-  | Forall (z, f) -> Forall (z, simplify_formula f)
+  let rec aux = function
+    | Top -> Top
+    | Bot -> Bot
+    | Lit (Pos (PredOp (s, l))) -> Lit (Pos (Pred (s, List.rev l)))
+    | Lit (Neg (PredOp (s, l))) -> Lit (Neg (Pred (s, List.rev l)))
+    | Lit (Pos (Equals (a, b))) when a = b -> Top
+    | Lit lit -> Lit lit
+    | And (f1, Top) -> f1
+    | And (Top, f1) -> f1
+    | Or (_, Top) -> Top
+    | Or (Top, _) -> Top
+    | And (_, Bot) -> Bot
+    | And (Bot, _) -> Bot
+    | Or (f1, Bot) -> f1
+    | Or (Bot, f1) -> f1
+    | And (f1, f2) -> And (aux f1, aux f2)
+    | Or (f1, f2) -> Or (aux f1, aux f2)
+    | Not Top -> Bot
+    | Not Bot -> Top
+    | Not f -> Not (aux f)
+    | Exists (_, Top) -> Top
+    | Exists (z, f) -> Exists (z, aux f)
+    | Forall (z, f) -> Forall (z, aux f)
+  in
+  let res = aux f in
+  if res = f then res else simplify_formula res
 
 let string_of_var (v, i) = v ^ string_of_int i
 
@@ -65,10 +72,13 @@ let spassify_atom (a : atom) =
   | Pred (name, l) ->
       Printf.sprintf "%s(%s)" name
         (List.map spassify_term l |> String.concat ",")
+  | PredOp (name, l) ->
+      Printf.sprintf "%s(%s)" name
+        (List.map spassify_term (List.rev l) |> String.concat ",")
 
 (** transforms a formula into a SPASS-compatible formula *)
 let rec spassify (f : formula) =
-  let f = simplify_formula f in
+  (* let f = simplify_formula f in *)
   match f with
   | Exists (v, f1) ->
       Printf.sprintf "exists([%s], %s)" (string_of_var v) (spassify f1)
@@ -81,6 +91,45 @@ let rec spassify (f : formula) =
   | Lit (Neg atom) -> Printf.sprintf "not (%s)" (spassify_atom atom)
   | Top -> Printf.sprintf "true"
   | Bot -> Printf.sprintf "false"
+
+let string_of_var (v, i) = v ^ string_of_int i
+
+(** pretty-print a term in human-readable Unicode syntax *)
+let rec pp_term (t : term) : string =
+  match t with
+  | Var (x, i) -> string_of_var (x, i)
+  | Func (name, l) ->
+      if l = [] then name
+      else
+        Printf.sprintf "%s(%s)" name (List.map pp_term l |> String.concat ", ")
+
+(** pretty-print an atom with Unicode-friendly symbols *)
+let pp_atom (a : atom) : string =
+  match a with
+  | Equals (t1, t2) -> Printf.sprintf "%s = %s" (pp_term t1) (pp_term t2)
+  | Pred (name, l) ->
+      if l = [] then name
+      else
+        Printf.sprintf "%s(%s)" name (List.map pp_term l |> String.concat ", ")
+  | PredOp (name, l) ->
+      (* reverse args still respected *)
+      Printf.sprintf "%s(%s)" name
+        (List.map pp_term (List.rev l) |> String.concat ", ")
+
+(** pretty-print a formula with Unicode quantifiers and connectives *)
+let rec pp_formula (f : formula) : string =
+  (* let f = simplify_formula f in *)
+  match f with
+  | Exists (v, f1) ->
+      Printf.sprintf "∃%s. (%s)" (string_of_var v) (pp_formula f1)
+  | Forall (v, f1) -> Printf.sprintf "∀%s. %s" (string_of_var v) (pp_formula f1)
+  | And (f1, f2) -> Printf.sprintf "(%s ∧ %s)" (pp_formula f1) (pp_formula f2)
+  | Or (f1, f2) -> Printf.sprintf "(%s ∨ %s)" (pp_formula f1) (pp_formula f2)
+  | Not f1 -> Printf.sprintf "¬(%s)" (pp_formula f1)
+  | Lit (Pos atom) -> pp_atom atom
+  | Lit (Neg atom) -> Printf.sprintf "¬%s" (pp_atom atom)
+  | Top -> "⊤"
+  | Bot -> "⊥"
 
 let current_axioms : formula list ref = ref []
 
@@ -147,6 +196,7 @@ let subst_atom a z x =
   match a with
   | Equals (t1, t2) -> Equals (subst_term t1 z x, subst_term t2 z x)
   | Pred (name, l) -> Pred (name, List.map (fun t -> subst_term t z x) l)
+  | PredOp (name, l) -> PredOp (name, List.map (fun t -> subst_term t z x) l)
 
 (** Applies substitution to formulas *)
 let rec subst f z x =
@@ -173,6 +223,8 @@ let free_vars_atom (a : atom) bound_list =
   | Equals (t1, t2) ->
       free_vars_term t1 bound_list @ free_vars_term t2 bound_list
   | Pred (_, tl) ->
+      List.map (fun t -> free_vars_term t bound_list) tl |> List.flatten
+  | PredOp (_, tl) ->
       List.map (fun t -> free_vars_term t bound_list) tl |> List.flatten
 
 (** Gathers the free variables from a formula *)
@@ -241,6 +293,14 @@ let rec judgment_of_circuit_direct (c : circuit) : judgment =
       if sign_of_latex name then
         (ar, coar, Lit (Pos (Pred (strip_of_latex name, l))))
       else (ar, coar, Lit (Neg (Pred (strip_of_latex name, l))))
+  | Gen (name, ar, coar, OpRelation) ->
+      let l =
+        List.mapi (fun i _ -> Var ("x", i)) ar
+        @ List.mapi (fun i _ -> Var ("y", i)) coar
+      in
+      if sign_of_latex name then
+        (ar, coar, Lit (Pos (PredOp (strip_of_latex name, l))))
+      else (ar, coar, Lit (Neg (PredOp (strip_of_latex name, l))))
   | Gen (name, ar, coar, Function) ->
       let l = List.mapi (fun i _ -> Var ("x", i)) ar in
       (ar, coar, eq_terms (Func (strip_of_latex name, l), Var ("y", 0)))
@@ -281,8 +341,7 @@ let split_last lst =
   | last :: rev_rest -> (List.rev rev_rest, last)
 
 let formula_of_hg_cospan ((cos, l) : hg_cospan) =
-  Printf.printf "formula of cospan: %s" (pp_hg_cospan (cos, l));
-
+  (* Printf.printf "formula of cospan: %s" (pp_hg_cospan (cos, l)); *)
   let he_formuals =
     let acc_ar = ref 0 in
     List.map
@@ -299,9 +358,9 @@ let formula_of_hg_cospan ((cos, l) : hg_cospan) =
                 in
                 Lit (Pos (Pred (strip_of_latex name, vars)))
           | Function ->
-              Printf.printf "vars (as relation) are: %s\n" (pp_sort_list arity);
+              (* Printf.printf "vars (as relation) are: %s\n" (pp_sort_list arity); *)
               let ins, _ = split_last arity in
-              Printf.printf "vars (as function) are: %s\n" (pp_sort_list ins);
+              (* Printf.printf "vars (as function) are: %s\n" (pp_sort_list ins); *)
               let vars = List.mapi (fun i _ -> Var ("y", !acc_ar + i)) ins in
               Lit
                 (Pos
@@ -314,9 +373,11 @@ let formula_of_hg_cospan ((cos, l) : hg_cospan) =
       l
   in
   let he_formula =
-    List.fold_left (fun a b -> And (a, b)) Top he_formuals |> simplify_formula
+    List.fold_left
+      (fun a b -> And (a, b))
+      Top he_formuals (*|> simplify_formula*)
   in
-  Printf.printf "hyper_edges: %s\n" (spassify he_formula);
+  (* Printf.printf "hyper_edges: %s\n" (spassify he_formula); *)
   let g (i : int) =
     (* Printf.printf "looking for %d in %s\n" i
       (Taggedset.to_list cos.c |> TaggedTypeCospan.string_of_elem_list); *)
@@ -329,7 +390,7 @@ let formula_of_hg_cospan ((cos, l) : hg_cospan) =
   let y_vars = ys (Taggedset.cardinal cos.c) in
   let z_vars = List.map (fun (_, i) -> ("z", g i)) y_vars in
   let substituted_he_formula = substs he_formula z_vars y_vars in
-  Printf.printf "substituted hyper_edges: %s\n" (spassify he_formula);
+  (* Printf.printf "substituted hyper_edges: %s\n" (spassify he_formula); *)
   let f (i : int) =
     let elem =
       List.find (fun ((j, _), _) -> i = j) (cos.a |> Taggedset.to_list)
@@ -372,14 +433,14 @@ let formula_of_hg_cospan ((cos, l) : hg_cospan) =
     !existentially_quantified
 
 let formula_of_circuit_cospan (c : circuit) =
-  Printf.printf "formula of circuit: %s\n" (pp_circuit c);
+  (* Printf.printf "formula of circuit: %s\n" (pp_circuit c); *)
   let cos = cospan_of_circuit c in
   formula_of_hg_cospan cos
 
 let formula_of_circuit = formula_of_circuit_cospan
 
 let rec list_disj l =
-  match l with [] -> Top | [ x ] -> x | x :: rest -> Or (x, list_disj rest)
+  match l with [] -> Bot | [ x ] -> x | x :: rest -> Or (x, list_disj rest)
 
 let rec bigcid m =
   match m with
@@ -387,23 +448,25 @@ let rec bigcid m =
   | [ s ] -> CId s
   | s :: rest -> Otimes (CId s, bigcid rest)
 
-let rec circuit_of_monomial (t : tape) =
+let rec circuit_of_embedded_tape (t : tape) =
   match t with
   | Tape c -> c
   | TId [ s ] -> bigcid s
   | TCompose (t1, t2) ->
-      CCompose (circuit_of_monomial t1, circuit_of_monomial t2)
+      CCompose (circuit_of_embedded_tape t1, circuit_of_embedded_tape t2)
   | _ ->
       raise
         (Errors.TypeError
            "Tried to obtain circuit from tape that is not monomial or is traced")
 
-let formula_of_monomial (t : tape) = circuit_of_monomial t |> formula_of_circuit
+let formula_of_embedded_tape (t : tape) =
+  circuit_of_embedded_tape t |> formula_of_circuit
 
 let fol_matrix_of_tape (t : tape) =
   let m = Matrix.get_matrix t in
   Matrix.matrix_mapij
-    (fun _ _ l -> List.map formula_of_monomial l |> list_disj)
+    (fun _ _ l ->
+      List.map formula_of_embedded_tape l |> list_disj (*|> simplify_formula*))
     m
 
 (** Helper: unique-ify a list of (string * int) pairs *)
@@ -421,6 +484,7 @@ let rec functions_of_term (t : term) : (string * int) list =
 let functions_of_atom = function
   | Equals (t1, t2) -> functions_of_term t1 @ functions_of_term t2
   | Pred (_, args) -> List.concat_map functions_of_term args
+  | PredOp (_, args) -> List.concat_map functions_of_term args
 
 (** Traverse a literal to collect function symbols *)
 let functions_of_literal = function Pos a | Neg a -> functions_of_atom a
@@ -442,6 +506,7 @@ let get_all_functions (fml : formula) : (string * int) list =
 let predicates_of_atom = function
   | Equals _ -> []
   | Pred (name, args) -> [ (strip_of_latex name, List.length args) ]
+  | PredOp (name, args) -> [ (strip_of_latex name, List.length args) ]
 
 (** Traverse a literal to collect predicate symbols *)
 let predicates_of_literal = function Pos a | Neg a -> predicates_of_atom a

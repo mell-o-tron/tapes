@@ -22,7 +22,6 @@ draw inv_example to "inv".
 
 set (rounded_wires : 0.0).
 
-
 let factorial : term = 
 
 BEGIN_IMP [x : int, y : int]
@@ -68,62 +67,5 @@ set (paddingdist : 0.5).
 // draw of_relation op(star(intersection (gen(R, A, A), gen(S, A, A)))) ; union (gen(R, A, A), gen(S, A, A)) to "union"
 
 set (rounded_wires : 1.0).
-let normalized : tape = normalize_term(factorial).
 
-draw normalized to "./result_examples/factorial".
-
-draw split (1) ; (cut(1) + cut(1)) to "./result_examples/auauauo".
-
-axioms [
-    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y)))
-].
-
-check_triple [x : int, y : int]
-{pos(x) and pos (y)}
-while (true) {
-    x := plus (x, y) : int
-}
-{pos(x)}
-with invariant 
-codiscard(int*int)
-
-
-
-// axioms [
-//     plus(pos (), pos()) = pos(),
-//     minus(neg (), pos()) = neg(),
-//     plus(pos(), neg()) = unk(),
-//     minus(neg(), neg()) = unk(),
-
-//     forall x . forall y . plus(x, y) = plus(y, x),
-
-//     not(pos() = neg()),
-//     not(pos() = zero()),
-//     not(neg() = zero()),
-//     not(unk() = pos()),
-//     not(unk() = neg()),
-//     not(unk() = zero())
-// ].
-
-// let program : term = 
-//     BEGIN_IMP [x : sign]
-//     x := pos() : sign;
-//     while (not(eq(x, zero() : sign))) {
-//         x := plus(x, pos() : sign) : sign
-//     }
-//     END_IMP.
-
-// let program2 : term = 
-//     BEGIN_IMP [x : sign, y:sign]
-//     // x := pos() : sign;
-//     // y := neg() : sign;
-//     while (not(eq (x, zero() : sign))) {
-//         x := plus(neg() : sign, pos() : sign) : sign
-//     }
-//     END_IMP.
-
-// check_inclusion (program2, program2) with invariant 
-//     BEGIN_TEST [x : sign, y : sign]
-//     eq(x, pos() : sign) and
-//     eq(y, pos() : sign)
-//     END_TEST
+draw(invert(gen(R, int*int*int*int, int*int))) to "test_invert"

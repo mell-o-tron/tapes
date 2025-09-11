@@ -1,0 +1,80 @@
+set (alignsummands : 0.0).  // for now these have to be float
+set (oldalignment : 0.0).
+set (zerolenids : 0.0).
+
+set (wrap_trace_ids : 1.0).
+
+set (rounded_wires : 1.0).
+set (join_wires : 1.0).
+set (otimesdist : 0.5).
+set (oplusdist : 0.25).
+set (paddingdist : 0.5).
+set (scalex : 0.7).
+
+
+axioms [
+    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y)))
+].
+
+print "\n============\nshould work:\n============\n".
+
+check_triple [x : int, y : int]
+{pos(x) and pos (y)}
+while (pos(y)) {
+    x := plus (x, y) : int
+}
+{pos(x)}
+with invariant 
+invert(
+    BEGIN_TEST[x : int, y : int]
+    pos(x)
+    END_TEST
+).
+
+print "\n============\nshould fail:\n============\n".
+
+axioms [
+    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y))),
+    forall x . pos(x) implies not(neg(x)),
+    forall x . neg(x) implies not(pos(x))
+].
+
+check_triple [x : int, y : int]
+{pos(x) and pos (y)}
+while (pos(y)) {
+    x := plus (x, y) : int
+}
+{neg(x)}
+with invariant 
+invert(
+    BEGIN_TEST[x : int, y : int]
+    neg(x)
+    END_TEST
+).
+
+print "\n============\nEuclid:\n============\n".
+
+axioms [
+    forall v. forall w. (v = w) implies (mcd(v, w) = v),
+    forall v. forall w. gt(v, w) implies (mcd(v, w) = mcd(minus(v, w), w)),
+    forall v. forall w. lt(v, w) implies (mcd(v, w) = mcd(v, minus(w, v))),
+    forall v. forall w. lt(v, w) iff (gt(v, w) or (v = w))
+].
+
+check_triple [x : nat, y : nat, a : nat, b : nat]
+{eq(x, a) and eq(y, b)}
+while (not(eq(x, y))) {
+    if (gt(x, y)) then {
+        x := minus (x, y) : nat
+    }
+    else {
+        y := minus (y, x) : nat
+    }
+}
+{eq(x, y) and eq(x, mcd(a, b) : nat)}
+with invariant 
+invert(
+    BEGIN_TEST [x : nat, y : nat, a : nat, b : nat]
+    eq(mcd(x, y) : nat, mcd(a, b) : nat)
+    END_TEST
+)

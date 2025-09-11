@@ -31,7 +31,7 @@
       "patterns": [
         {
           "name": "keyword.control.tapes",
-          "match": "\\b(?:let|check|draw|to|if|then|else|while|do|BEGIN_IMP|END_IMP|true|false)\\b"
+          "match": "\\b(?:set|let|check|draw|to|if|then|else|while|do|BEGIN_IMP|END_IMP|true|false|forall|exists|and|or|not|with|invariant|axioms|check_triple|draw_circuit|draw_matrix|draw_normal_form|draw_trace_normal_form|BEGIN_TEST|END_TEST|BEGIN_IMP|END_IMP|invert|to_fol|draw_cospan)\\b"
         }
       ]
     },
@@ -39,7 +39,7 @@
       "patterns": [
         {
           "name": "storage.type.tapes",
-          "match": "\\b(?:tape|term|sort|to_tape)\\b"
+          "match": "\\b(?:tape|term|sort|to_tape|normalize_term|normalize|of_relation)\\b"
         }
       ]
     },
@@ -47,7 +47,7 @@
       "patterns": [
         {
           "name": "support.function.constructor.tapes",
-          "match": "\\b(?:id|s\\+|s\\*|dl|gen)\\b"
+          "match": "\\b(?:id|s\\+|s\\*|dl|gen|copy|cocopy|discard|codiscard|split|join|cut|spawn)\\b"
         }
       ]
     },
@@ -55,7 +55,7 @@
       "patterns": [
         {
           "name": "keyword.operator.tapes",
-          "match": "\\.|;|:|=|\\+|and|or|not"
+          "match": "\\.|;|:|=|\\+|and|or|not|implies|star|op"
         }
       ]
     },
