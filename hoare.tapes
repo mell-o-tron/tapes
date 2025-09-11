@@ -4,7 +4,7 @@ set (zerolenids : 0.0).
 
 set (wrap_trace_ids : 1.0).
 
-set (rounded_wires : 1.0).
+set (rounded_wires : 0.0).
 set (join_wires : 1.0).
 set (otimesdist : 0.5).
 set (oplusdist : 0.25).
@@ -54,10 +54,21 @@ invert(
 
 print "\n============\nEuclid:\n============\n".
 
+draw BEGIN_IMP [x : nat, y : nat, a : nat, b : nat]
+while (not(eq(x, y))) {
+    if (gt(x, y)) then {
+        x := minus (x, y) : nat
+    }
+    else {
+        y := minus (y, x) : nat
+    }
+}
+END_IMP to "gcd_algorithm".
+
 axioms [
-    forall v. forall w. (v = w) implies (mcd(v, w) = v),
-    forall v. forall w. gt(v, w) implies (mcd(v, w) = mcd(minus(v, w), w)),
-    forall v. forall w. lt(v, w) implies (mcd(v, w) = mcd(v, minus(w, v))),
+    forall v. forall w. (v = w) implies (gcd(v, w) = v),
+    forall v. forall w. gt(v, w) implies (gcd(v, w) = gcd(minus(v, w), w)),
+    forall v. forall w. lt(v, w) implies (gcd(v, w) = gcd(v, minus(w, v))),
     forall v. forall w. lt(v, w) iff (gt(v, w) or (v = w))
 ].
 
@@ -71,10 +82,10 @@ while (not(eq(x, y))) {
         y := minus (y, x) : nat
     }
 }
-{eq(x, y) and eq(x, mcd(a, b) : nat)}
+{eq(x, y) and eq(x, gcd(a, b) : nat)}
 with invariant 
 invert(
     BEGIN_TEST [x : nat, y : nat, a : nat, b : nat]
-    eq(mcd(x, y) : nat, mcd(a, b) : nat)
+    eq(gcd(x, y) : nat, gcd(a, b) : nat)
     END_TEST
 )

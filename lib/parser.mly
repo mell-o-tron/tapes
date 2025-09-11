@@ -156,12 +156,6 @@ tape:
   | LPAREN t = tape RPAREN { t }
   | NORMALIZE t1 = tape {Matrix.normalize (t1)}
   | NORMALIZETERM t1 = term {Matrix.term_to_normalized_tape (populate_vars_in_term t1)}
-  | DELETEPATH idx = FLOAT c1 = circuit 
-    {let elimd = fst (Rewrite.eliminate_path_from_left (int_of_float idx) c1) |> Tapes.deep_clean_circuit
-     in Printf.printf "taped elimd: %s\n" (Tapes.pp_tape (Tapes.Tape(elimd))); Tapes.Tape(elimd)}
-  // | REMEMPTIES LPAREN t1 = tape COMMA ob = object_type RPAREN 
-  //   {Rewrite.eliminate_empty_paths_tape (Terms.obj_to_monomial ob) (t1|> Rewrite.merge_embedded_circuits |> Tapes.deep_clean_tape
-  //   |> Rewrite.reduce_circuits_tape)}
   | ToTape LPAREN t = term RPAREN {(Term_to_tape._to_tape(populate_vars_in_term t))}
   | error {raise (Errors.ParseError "tape expected")}
 

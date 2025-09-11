@@ -276,31 +276,38 @@ let rec judgment_of_circuit_direct (c : circuit) : judgment =
       (ar, coar, And (eq_vars ("x", 0) ("y", 0), eq_vars ("x", 1) ("y", 0)))
   | Gen ("discard", ar, coar, _) | Gen ("codiscard", ar, coar, _) ->
       (ar, coar, Top)
-  (* EQ does not seem to be translated *)
   | Gen ("$eq$", ar, coar, Relation) when coar = [] && List.length ar = 2 ->
       (ar, coar, Lit (Pos (Equals (Var ("x", 0), Var ("x", 1)))))
+  | Gen ("$eq$", ar, coar, NegRelation) when coar = [] && List.length ar = 2 ->
+      (ar, coar, Lit (Neg (Equals (Var ("x", 0), Var ("x", 1)))))
   | Gen ("$eq$", _, _, _) ->
       raise
         (Errors.TypeError
            "eq should be a relation symbol with arity 2 and coarity 0")
-  | Gen ("$\\overline{eq}$", ar, coar, Relation) ->
-      (ar, coar, Lit (Neg (Equals (Var ("x", 0), Var ("x", 1)))))
   | Gen (name, ar, coar, Relation) ->
       let l =
         List.mapi (fun i _ -> Var ("x", i)) ar
         @ List.mapi (fun i _ -> Var ("y", i)) coar
       in
-      if sign_of_latex name then
-        (ar, coar, Lit (Pos (Pred (strip_of_latex name, l))))
-      else (ar, coar, Lit (Neg (Pred (strip_of_latex name, l))))
+      (* if sign_of_latex name then *)
+      (ar, coar, Lit (Pos (Pred (strip_of_latex name, l))))
+      (* else (ar, coar, Lit (Neg (Pred (strip_of_latex name, l)))) *)
+  | Gen (name, ar, coar, NegRelation) ->
+      let l =
+        List.mapi (fun i _ -> Var ("x", i)) ar
+        @ List.mapi (fun i _ -> Var ("y", i)) coar
+      in
+      (* if sign_of_latex name then *)
+      (ar, coar, Lit (Neg (Pred (strip_of_latex name, l))))
+      (* else (ar, coar, Lit (Neg (Pred (strip_of_latex name, l)))) *)
   | Gen (name, ar, coar, OpRelation) ->
       let l =
         List.mapi (fun i _ -> Var ("x", i)) ar
         @ List.mapi (fun i _ -> Var ("y", i)) coar
       in
-      if sign_of_latex name then
-        (ar, coar, Lit (Pos (PredOp (strip_of_latex name, l))))
-      else (ar, coar, Lit (Neg (PredOp (strip_of_latex name, l))))
+      (* if sign_of_latex name then *)
+      (ar, coar, Lit (Pos (PredOp (strip_of_latex name, l))))
+      (* else (ar, coar, Lit (Neg (PredOp (strip_of_latex name, l)))) *)
   | Gen (name, ar, coar, Function) ->
       let l = List.mapi (fun i _ -> Var ("x", i)) ar in
       (ar, coar, eq_terms (Func (strip_of_latex name, l), Var ("y", 0)))
@@ -357,6 +364,15 @@ let formula_of_hg_cospan ((cos, l) : hg_cospan) =
                   List.mapi (fun i _ -> Var ("y", !acc_ar + i)) arity
                 in
                 Lit (Pos (Pred (strip_of_latex name, vars)))
+          | NegRelation ->
+              if strip_of_latex name = "eq" && List.length arity = 2 then
+                Lit
+                  (Neg (Equals (Var ("y", !acc_ar + 0), Var ("y", !acc_ar + 1))))
+              else
+                let vars =
+                  List.mapi (fun i _ -> Var ("y", !acc_ar + i)) arity
+                in
+                Lit (Neg (Pred (strip_of_latex name, vars)))
           | Function ->
               (* Printf.printf "vars (as relation) are: %s\n" (pp_sort_list arity); *)
               let ins, _ = split_last arity in

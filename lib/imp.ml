@@ -123,11 +123,10 @@ let rec eval_pred (c : context) (p : imp_pred) =
           Compose
             ( args,
               Gen
-                ( (if s then Printf.sprintf "$%s$" name
-                   else Printf.sprintf "$\\overline{%s}$" name),
+                ( Printf.sprintf "$%s$" name,
                   [ List.map (fun x -> get_type c x) l |> List.flatten ],
                   obj_to_polynomial Ob1,
-                  Relation ) ) )
+                  if s then Relation else NegRelation ) ) )
   | Top -> Discard [ eval_context c ]
   | Bottom -> Compose (Cut [ eval_context c ], Spawn (obj_to_polynomial Ob1))
   | Or (pred1, pred2) ->

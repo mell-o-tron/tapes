@@ -33,6 +33,7 @@ module Taggedmap = TaggedTypeCospan.Taggedmap
 type hyperedge_kind =
   | Function
   | Relation
+  | NegRelation
 [@@deriving show]
 
 type hyperedge = {
@@ -293,7 +294,11 @@ let rec cospan_of_circuit (c : circuit) =
           {
             name;
             arity = arcoar;
-            kind = (if k = Function then Function else Relation);
+            kind =
+              (match k with
+              | Function -> Function
+              | NegRelation -> NegRelation
+              | _ -> Relation);
           };
         ] )
   | Otimes (c1, c2) ->

@@ -61,6 +61,29 @@ let rec pp_tape (t : tape) : string =
   | Trace (lst, t) ->
       Printf.sprintf "Tr_{%s}(%s)" (pp_sort_list lst) (pp_tape t)
 
+(** debug utility *)
+let find_and_print_gen name (t : tape) : unit =
+  let rec circuit_find (c : circuit) : gen_kind option =
+    match c with
+    | CId _ | CId1 -> None
+    | Gen (gname, _, _, kind) -> if gname = name then Some kind else None
+    | CCompose (c1, c2) | Otimes (c1, c2) -> (
+        match circuit_find c1 with Some k -> Some k | None -> circuit_find c2)
+    | SwapTimes _ -> None
+  in
+  let rec tape_find (t : tape) : gen_kind option =
+    match t with
+    | TId _ | TId0 | Cut _ | Split _ | Spawn _ | Join _ -> None
+    | Tape c -> circuit_find c
+    | TCompose (t1, t2) | Oplus (t1, t2) -> (
+        match tape_find t1 with Some k -> Some k | None -> tape_find t2)
+    | Trace (_, t') -> tape_find t'
+    | SwapPlus _ -> None
+  in
+  match tape_find t with
+  | Some kind -> print_endline (show_gen_kind kind)
+  | None -> print_endline "not found"
+
 (* basic circuit simplification *)
 let rec clean_circuit (c : circuit) =
   match c with
@@ -218,12 +241,21 @@ let rec multi_join_pol n (p : string list list) =
   else if n = 2 then join_to_tape p
   else TCompose (Oplus (id_to_tape p, multi_join_pol (n - 1) p), join_to_tape p)
 
-let invert_generator s ar coar =
+let invert_generator s ar coar (kind : gen_kind) =
   let t0 = Otimes (id_to_circuit coar, Gen ("codiscard", [], ar, Relation)) in
   let t1 = Otimes (id_to_circuit coar, Gen ("copy", ar, ar @ ar, Relation)) in
   let t2 =
     Otimes
-      ( Otimes (id_to_circuit coar, Gen (s, ar, coar, Relation)),
+      ( Otimes
+          ( id_to_circuit coar,
+            Gen
+              ( s,
+                ar,
+                coar,
+                match kind with
+                | NegRelation -> NegRelation
+                | Function -> Function
+                | _ -> Relation ) ),
         id_to_circuit ar )
   in
   let t3 =
@@ -236,7 +268,7 @@ let rec circuit_inverse (c : circuit) =
   match c with
   | CId _ | CId1 -> c
   (* the inverse of a function is, in general, a relation. *)
-  | Gen (s, ar, coar, _) -> invert_generator s ar coar
+  | Gen (s, ar, coar, kind) -> invert_generator s ar coar kind
   | CCompose (c1, c2) -> CCompose (circuit_inverse c2, circuit_inverse c1)
   | Otimes (c1, c2) -> Otimes (circuit_inverse c1, circuit_inverse c2)
   | SwapTimes (s1, s2) -> SwapTimes (s2, s1)

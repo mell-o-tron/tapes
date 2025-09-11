@@ -110,16 +110,6 @@ let get_matrix (t : tape) =
                      t |> Rewrite.merge_embedded_circuits |> deep_clean_tape
                      |> Rewrite.reduce_circuits_tape
                    in
-                   let t =
-                     (* try
-                       print_sll (tape_arity t);
-                       Rewrite.eliminate_empty_paths_tape
-                         (List.hd (tape_arity t))
-                         t
-                     with _ -> t *)
-                     t
-                   in
-                   (* Printf.printf "tape: %s\n" (pp_tape t); *)
                    t))
           coar)
       paths

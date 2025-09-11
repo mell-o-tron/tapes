@@ -7,6 +7,8 @@ open Hg_cospan
 
 (* Drawing circuits *)
 
+let circuit_memo = Hashtbl.create 100
+
 (** adds debug measures to circuit drawings *)
 let rec tikz_of_circuit_meas (t : circuit) (posx : float) (posy : float)
     (debug : bool) (id_zero_width : bool) : circuit_geometry =
@@ -57,299 +59,318 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
     (id_zero_width : bool) : circuit_geometry =
   (* Printf.printf "%s\n" (pp_circuit t); *)
   (* let t = circuit_to_seq t |> Tapes.deep_clean_circuit in *)
-  match t with
-  | CId s ->
-      let l = if id_zero_width then 0. else 1. in
-      CircGeo
-        {
-          tikz =
-            [
-              BId
-                {
-                  fresh_name = fresh_id ();
-                  pos = (posx, posy);
-                  len = (if id_zero_width then 0. else 1.);
-                  sort = s;
-                };
-            ];
-          height = 0.;
-          length = l;
-          left_interface = CircuitPin (posx, posy);
-          right_interface = CircuitPin (posx +. l, posy);
-        }
-  | SwapTimes (s1, s2) ->
-      let swapheight = !otimes_dist in
-      CircGeo
-        {
-          tikz =
-            [
-              BSwap
-                {
-                  fresh_name = fresh_swap ();
-                  pos = (posx, posy);
-                  scaley = !otimes_dist;
-                  sorts = (s1, s2);
-                };
-            ];
-          height = swapheight;
-          length = 1.;
-          left_interface =
-            CircuitTens
-              (CircuitPin (posx, posy +. swapheight), CircuitPin (posx, posy));
-          right_interface =
-            CircuitTens
-              ( CircuitPin (posx +. 1., posy +. swapheight),
-                CircuitPin (posx +. 1., posy) );
-        }
-  | Otimes (CId1, t2) -> tikz_of_circuit_meas t2 posx posy debug id_zero_width
-  | Otimes (t1, CId1) -> tikz_of_circuit_meas t1 posx posy debug id_zero_width
-  | CCompose (CId _, c2) -> tikz_of_circuit c2 posx posy debug id_zero_width
-  | CCompose (c2, CId _) -> tikz_of_circuit c2 posx posy debug id_zero_width
-  | Otimes (t1, t2) ->
-      let (CircGeo
-             {
-               tikz = diag2;
-               height = h2;
-               length = l2;
-               left_interface = li2;
-               right_interface = ri2;
-             }) =
-        tikz_of_circuit_meas t2 posx posy debug id_zero_width
-      in
-      let (CircGeo
-             {
-               tikz = diag1;
-               height = h1;
-               length = l1;
-               left_interface = li1;
-               right_interface = ri1;
-             }) =
-        tikz_of_circuit_meas t1 posx
-          (posy +. h2 +. !otimes_dist)
-          debug id_zero_width
-      in
+  if Hashtbl.mem circuit_memo t then
+    (* let _ = Printf.printf "found!\n" in *)
+    move_circuit_geometry (Hashtbl.find circuit_memo t) (posx, posy)
+  else
+    let res =
+      match t with
+      | CId s ->
+          let l = if id_zero_width then 0. else 1. in
+          CircGeo
+            {
+              tikz =
+                [
+                  BId
+                    {
+                      fresh_name = fresh_id ();
+                      pos = (posx, posy);
+                      len = (if id_zero_width then 0. else 1.);
+                      sort = s;
+                    };
+                ];
+              height = 0.;
+              length = l;
+              left_interface = CircuitPin (posx, posy);
+              right_interface = CircuitPin (posx +. l, posy);
+            }
+      | SwapTimes (s1, s2) ->
+          let swapheight = !otimes_dist in
+          CircGeo
+            {
+              tikz =
+                [
+                  BSwap
+                    {
+                      fresh_name = fresh_swap ();
+                      pos = (posx, posy);
+                      scaley = !otimes_dist;
+                      sorts = (s1, s2);
+                    };
+                ];
+              height = swapheight;
+              length = 1.;
+              left_interface =
+                CircuitTens
+                  ( CircuitPin (posx, posy +. swapheight),
+                    CircuitPin (posx, posy) );
+              right_interface =
+                CircuitTens
+                  ( CircuitPin (posx +. 1., posy +. swapheight),
+                    CircuitPin (posx +. 1., posy) );
+            }
+      | Otimes (CId1, t2) ->
+          tikz_of_circuit_meas t2 posx posy debug id_zero_width
+      | Otimes (t1, CId1) ->
+          tikz_of_circuit_meas t1 posx posy debug id_zero_width
+      | CCompose (CId _, c2) -> tikz_of_circuit c2 posx posy debug id_zero_width
+      | CCompose (c2, CId _) -> tikz_of_circuit c2 posx posy debug id_zero_width
+      | Otimes (t1, t2) ->
+          let (CircGeo
+                 {
+                   tikz = diag2;
+                   height = h2;
+                   length = l2;
+                   left_interface = li2;
+                   right_interface = ri2;
+                 }) =
+            tikz_of_circuit_meas t2 posx posy debug id_zero_width
+          in
+          let (CircGeo
+                 {
+                   tikz = diag1;
+                   height = h1;
+                   length = l1;
+                   left_interface = li1;
+                   right_interface = ri1;
+                 }) =
+            tikz_of_circuit_meas t1 posx
+              (posy +. h2 +. !otimes_dist)
+              debug id_zero_width
+          in
 
-      (* print_endline "===";
+          (* print_endline "===";
       print_endline (pp_circuit t1);
       print_endline "---";
       print_endline (pp_circuit t2);
       print_endline "==="; *)
-      let rec is_all_empty intf =
-        match intf with
-        | EmptyCircuit -> true
-        | CircuitTens (intf1, EmptyCircuit) -> is_all_empty intf1
-        | CircuitTens (EmptyCircuit, intf1) -> is_all_empty intf1
-        | CircuitTens (intf1, intf2) -> is_all_empty intf1 && is_all_empty intf2
-        | _ -> false
-      in
+          let rec is_all_empty intf =
+            match intf with
+            | EmptyCircuit -> true
+            | CircuitTens (intf1, EmptyCircuit) -> is_all_empty intf1
+            | CircuitTens (EmptyCircuit, intf1) -> is_all_empty intf1
+            | CircuitTens (intf1, intf2) ->
+                is_all_empty intf1 && is_all_empty intf2
+            | _ -> false
+          in
 
-      let ri1_aligned, ri2_aligned =
-        if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
-          circuit_align_interfaces ri1 ri2
-        else (ri1, ri2)
-      in
-      let connections =
-        if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
-          circuit_connect_interfaces ri1 ri1_aligned
-          @ circuit_connect_interfaces ri2 ri2_aligned
-        else []
-      in
-      (* TODO perform check to avoid redundant connections *)
-      CircGeo
-        {
-          tikz =
-            diag1 @ diag2 @ connections
-            (* @ debug_get_circuit_interface ri1_aligned "red"
+          let ri1_aligned, ri2_aligned =
+            if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
+              circuit_align_interfaces ri1 ri2
+            else (ri1, ri2)
+          in
+          let connections =
+            if (not (is_all_empty ri1)) && not (is_all_empty ri2) then
+              circuit_connect_interfaces ri1 ri1_aligned
+              @ circuit_connect_interfaces ri2 ri2_aligned
+            else []
+          in
+          (* TODO perform check to avoid redundant connections *)
+          CircGeo
+            {
+              tikz =
+                diag1 @ diag2 @ connections
+                (* @ debug_get_circuit_interface ri1_aligned "red"
             @ debug_get_circuit_interface ri2_aligned "green"; *);
-          height = h1 +. h2 +. !otimes_dist;
-          length = max l1 l2;
-          left_interface = CircuitTens (li1, li2);
-          right_interface = CircuitTens (ri1_aligned, ri2_aligned);
-        }
-  | CCompose (t1, t2) ->
-      let (CircGeo geo1) = tikz_of_circuit t1 posx posy debug !zero_len_ids in
-      let (CircGeo geo2) = tikz_of_circuit t2 0. 0. debug !zero_len_ids in
-      let offset_multiplier =
-        abs_float
-          (circuit_interface_height geo1.right_interface
-          -. circuit_interface_height geo2.left_interface)
-        +. 0.25
-      in
-      let offset = 1.0 *. offset_multiplier in
-      let base = base_of_circuit_interface geo1.right_interface in
-      let base = if Option.is_some base then snd (Option.get base) else posy in
-      let (CircGeo geo2) =
-        tikz_of_circuit t2
-          (posx +. geo1.length +. offset)
-          (base
-          +. (circuit_interface_height geo1.right_interface /. 2.)
-          -. (circuit_interface_height geo2.left_interface /. 2.))
-          debug !zero_len_ids
-      in
-      CircGeo
-        {
-          tikz =
-            geo1.tikz @ geo2.tikz
-            @ circuit_connect_interfaces geo1.right_interface
-                geo2.left_interface;
-          height = max geo1.height geo2.height;
-          length = geo1.length +. geo2.length +. offset;
-          left_interface = geo1.left_interface;
-          right_interface = geo2.right_interface;
-        }
-  | Gen (name, ar, coar, kind) -> (
-      match name with
-      | "copy" when coar = ar @ ar ->
+              height = h1 +. h2 +. !otimes_dist;
+              length = max l1 l2;
+              left_interface = CircuitTens (li1, li2);
+              right_interface = CircuitTens (ri1_aligned, ri2_aligned);
+            }
+      | CCompose (t1, t2) ->
+          let (CircGeo geo1) =
+            tikz_of_circuit t1 posx posy debug !zero_len_ids
+          in
+          let (CircGeo geo2) = tikz_of_circuit t2 0. 0. debug !zero_len_ids in
+          let offset_multiplier =
+            abs_float
+              (circuit_interface_height geo1.right_interface
+              -. circuit_interface_height geo2.left_interface)
+            +. 0.25
+          in
+          let offset = 1.0 *. offset_multiplier in
+          let base = base_of_circuit_interface geo1.right_interface in
+          let base =
+            if Option.is_some base then snd (Option.get base) else posy
+          in
+          let (CircGeo geo2) =
+            tikz_of_circuit t2
+              (posx +. geo1.length +. offset)
+              (base
+              +. (circuit_interface_height geo1.right_interface /. 2.)
+              -. (circuit_interface_height geo2.left_interface /. 2.))
+              debug !zero_len_ids
+          in
           CircGeo
             {
               tikz =
-                [
-                  BCopy
-                    {
-                      fresh_name = fresh_gen ();
-                      pos = (posx, posy);
-                      scaley = !otimes_dist;
-                      sort = "TODO";
-                    };
-                ];
-              height = !otimes_dist;
-              length = 1.;
-              left_interface = CircuitPin (posx, posy +. (!otimes_dist /. 2.));
-              right_interface =
-                CircuitTens
-                  ( CircuitPin (posx +. 1., posy +. !otimes_dist),
-                    CircuitPin (posx +. 1., posy) );
+                geo1.tikz @ geo2.tikz
+                @ circuit_connect_interfaces geo1.right_interface
+                    geo2.left_interface;
+              height = max geo1.height geo2.height;
+              length = geo1.length +. geo2.length +. offset;
+              left_interface = geo1.left_interface;
+              right_interface = geo2.right_interface;
             }
-      | "cocopy" when ar = coar @ coar ->
-          CircGeo
-            {
-              tikz =
-                [
-                  BCoCopy
-                    {
-                      fresh_name = fresh_gen ();
-                      pos = (posx, posy);
-                      scaley = !otimes_dist;
-                      sort = "TODO";
-                    };
-                ];
-              height = !otimes_dist;
-              length = 1.;
-              left_interface =
-                CircuitTens
-                  ( CircuitPin (posx, posy +. !otimes_dist),
-                    CircuitPin (posx, posy) );
-              right_interface =
-                CircuitPin (posx +. 1., posy +. (!otimes_dist /. 2.));
-            }
-      | "discard" when coar = [] ->
-          CircGeo
-            {
-              tikz =
-                [
-                  BDiscard
-                    {
-                      fresh_name = fresh_gen ();
-                      pos = (posx, posy);
-                      sort = "TODO";
-                    };
-                ];
-              height = 0.;
-              length = 1.;
-              left_interface = CircuitPin (posx, posy);
-              right_interface = EmptyCircuitPin (posx +. 1., posy);
-            }
-      | "codiscard" when ar = [] ->
-          CircGeo
-            {
-              tikz =
-                [
-                  BCoDiscard
-                    {
-                      fresh_name = fresh_gen ();
-                      pos = (posx, posy);
-                      sort = "TODO";
-                    };
-                ];
-              height = 0.;
-              length = 1.;
-              left_interface = EmptyCircuitPin (posx, posy);
-              right_interface = CircuitPin (posx +. 1., posy);
-            }
-      | _ ->
-          let ar_size = List.length ar in
-          let coar_size = List.length coar in
+      | Gen (name, ar, coar, kind) -> (
+          match name with
+          | "copy" when coar = ar @ ar ->
+              CircGeo
+                {
+                  tikz =
+                    [
+                      BCopy
+                        {
+                          fresh_name = fresh_gen ();
+                          pos = (posx, posy);
+                          scaley = !otimes_dist;
+                          sort = "TODO";
+                        };
+                    ];
+                  height = !otimes_dist;
+                  length = 1.;
+                  left_interface =
+                    CircuitPin (posx, posy +. (!otimes_dist /. 2.));
+                  right_interface =
+                    CircuitTens
+                      ( CircuitPin (posx +. 1., posy +. !otimes_dist),
+                        CircuitPin (posx +. 1., posy) );
+                }
+          | "cocopy" when ar = coar @ coar ->
+              CircGeo
+                {
+                  tikz =
+                    [
+                      BCoCopy
+                        {
+                          fresh_name = fresh_gen ();
+                          pos = (posx, posy);
+                          scaley = !otimes_dist;
+                          sort = "TODO";
+                        };
+                    ];
+                  height = !otimes_dist;
+                  length = 1.;
+                  left_interface =
+                    CircuitTens
+                      ( CircuitPin (posx, posy +. !otimes_dist),
+                        CircuitPin (posx, posy) );
+                  right_interface =
+                    CircuitPin (posx +. 1., posy +. (!otimes_dist /. 2.));
+                }
+          | "discard" when coar = [] ->
+              CircGeo
+                {
+                  tikz =
+                    [
+                      BDiscard
+                        {
+                          fresh_name = fresh_gen ();
+                          pos = (posx, posy);
+                          sort = "TODO";
+                        };
+                    ];
+                  height = 0.;
+                  length = 1.;
+                  left_interface = CircuitPin (posx, posy);
+                  right_interface = EmptyCircuitPin (posx +. 1., posy);
+                }
+          | "codiscard" when ar = [] ->
+              CircGeo
+                {
+                  tikz =
+                    [
+                      BCoDiscard
+                        {
+                          fresh_name = fresh_gen ();
+                          pos = (posx, posy);
+                          sort = "TODO";
+                        };
+                    ];
+                  height = 0.;
+                  length = 1.;
+                  left_interface = EmptyCircuitPin (posx, posy);
+                  right_interface = CircuitPin (posx +. 1., posy);
+                }
+          | _ ->
+              let ar_size = List.length ar in
+              let coar_size = List.length coar in
 
-          let height =
-            float_of_int (max (max (ar_size - 1) (coar_size - 1)) 0)
-            *. !otimes_dist
-          in
-          let arshift =
-            if ar_size < coar_size then
-              float_of_int (coar_size - ar_size) /. 2. *. !otimes_dist
-            else 0.
-          in
-          let coarshift =
-            if ar_size > coar_size then
-              float_of_int (ar_size - coar_size) /. 2. *. !otimes_dist
-            else 0.
-          in
+              let height =
+                float_of_int (max (max (ar_size - 1) (coar_size - 1)) 0)
+                *. !otimes_dist
+              in
+              let arshift =
+                if ar_size < coar_size then
+                  float_of_int (coar_size - ar_size) /. 2. *. !otimes_dist
+                else 0.
+              in
+              let coarshift =
+                if ar_size > coar_size then
+                  float_of_int (ar_size - coar_size) /. 2. *. !otimes_dist
+                else 0.
+              in
 
+              CircGeo
+                {
+                  tikz =
+                    [
+                      BGen
+                        {
+                          fresh_name = fresh_gen ();
+                          pos = (posx, posy);
+                          arity = ar_size;
+                          coarity = coar_size;
+                          name =
+                            (match kind with
+                            | OpRelation -> name ^ "$^\\dagger$"
+                            | NegRelation ->
+                                "$\\overline{\\text{" ^ name ^ "}}$"
+                            | _ -> name);
+                          otimesdist = !otimes_dist;
+                          sorts = (ar, coar);
+                          style =
+                            (match kind with
+                            | Relation | OpRelation | NegRelation -> "boxstyle"
+                            | Function -> "trianglestyle"
+                            | Corefl -> "circlestyle");
+                        };
+                    ];
+                  height;
+                  length = 2.;
+                  left_interface =
+                    (if ar_size = 0 then EmptyCircuitPin (posx, posy)
+                     else
+                       circuit_interface_rev
+                         (circuit_interface_init ar_size (fun i ->
+                              CircuitPin
+                                ( posx,
+                                  (float_of_int (i - 1) *. !otimes_dist)
+                                  +. posy +. arshift )))
+                       |> circuit_interface_normalize);
+                  right_interface =
+                    (if coar_size = 0 then EmptyCircuitPin (posx +. 2., posy)
+                     else
+                       circuit_interface_rev
+                         (circuit_interface_init coar_size (fun i ->
+                              CircuitPin
+                                ( posx +. 2.,
+                                  (float_of_int (i - 1) *. !otimes_dist)
+                                  +. posy +. coarshift )))
+                       |> circuit_interface_normalize);
+                })
+      | CId1 ->
           CircGeo
             {
-              tikz =
-                [
-                  BGen
-                    {
-                      fresh_name = fresh_gen ();
-                      pos = (posx, posy);
-                      arity = ar_size;
-                      coarity = coar_size;
-                      name =
-                        (match kind with
-                        | OpRelation -> name ^ "$^\\dagger$"
-                        | _ -> name);
-                      otimesdist = !otimes_dist;
-                      sorts = (ar, coar);
-                      style =
-                        (match kind with
-                        | Relation | OpRelation -> "boxstyle"
-                        | Function -> "trianglestyle"
-                        | Corefl -> "circlestyle");
-                    };
-                ];
-              height;
-              length = 2.;
-              left_interface =
-                (if ar_size = 0 then EmptyCircuitPin (posx, posy)
-                 else
-                   circuit_interface_rev
-                     (circuit_interface_init ar_size (fun i ->
-                          CircuitPin
-                            ( posx,
-                              (float_of_int (i - 1) *. !otimes_dist)
-                              +. posy +. arshift )))
-                   |> circuit_interface_normalize);
-              right_interface =
-                (if coar_size = 0 then EmptyCircuitPin (posx +. 2., posy)
-                 else
-                   circuit_interface_rev
-                     (circuit_interface_init coar_size (fun i ->
-                          CircuitPin
-                            ( posx +. 2.,
-                              (float_of_int (i - 1) *. !otimes_dist)
-                              +. posy +. coarshift )))
-                   |> circuit_interface_normalize);
-            })
-  | CId1 ->
-      CircGeo
-        {
-          tikz = [ EmptyBlock ];
-          height = 0.;
-          length = 0.;
-          left_interface = EmptyCircuit;
-          right_interface = EmptyCircuit;
-        }
+              tikz = [ EmptyBlock ];
+              height = 0.;
+              length = 0.;
+              left_interface = EmptyCircuit;
+              right_interface = EmptyCircuit;
+            }
+    in
+    Hashtbl.add circuit_memo t (move_circuit_geometry res (-.posx, -.posy));
+    res
 
 (** draws sums of tapes *)
 let rec draw_oplus t1 t2 posx posy max_len debug =

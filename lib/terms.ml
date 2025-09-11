@@ -4,6 +4,7 @@ open Common_defs
 type gen_kind =
   | Relation
   | OpRelation
+  | NegRelation
   | Function
   | Corefl
 [@@deriving show, compare]
@@ -176,10 +177,23 @@ let rec decompose_ldistr (p : sort list list) (q : sort list list)
                 (obj_to_polynomial
                    (Obtimes (obj_of_polynomial p1, obj_of_polynomial r))) ) )
 
-let invert_generator s ar coar =
+let invert_generator s ar coar (kind : gen_kind) =
   let t0 = Otimes (Id coar, CoDiscard ar) in
   let t1 = Otimes (Id coar, Copy ar) in
-  let t2 = Otimes (Otimes (Id coar, Gen (s, ar, coar, Relation)), Id ar) in
+  let t2 =
+    Otimes
+      ( Otimes
+          ( Id coar,
+            Gen
+              ( s,
+                ar,
+                coar,
+                match kind with
+                | NegRelation -> NegRelation
+                | Function -> Function
+                | _ -> Relation ) ),
+        Id ar )
+  in
   let t3 = Otimes (CoCopy coar, Id ar) in
   let t4 = Otimes (Discard coar, Id ar) in
   Compose (t0, Compose (t1, Compose (t2, Compose (t3, t4))))
@@ -197,7 +211,7 @@ let rec term_inverse (t : term) =
   | Join l -> Split l
   | Split l -> Join l
   | Trace (l, t1) -> Trace (l, term_inverse t1)
-  | Gen (s, ar, coar, _) -> invert_generator s ar coar
+  | Gen (s, ar, coar, kind) -> invert_generator s ar coar kind
   | Ldistr (l1, l2, l3) -> term_inverse (decompose_ldistr l1 l2 l3)
   | Copy l1 -> CoCopy l1
   | CoCopy l1 -> Copy l1
