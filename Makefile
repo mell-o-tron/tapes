@@ -26,6 +26,7 @@ hoare: build
 	
 run: build
 	opam exec -- dune build --profile=dev
+	OCAMLRUNPARAM=b ./_build/default/bin/main.exe ./formula.tapes
 
 profile: build
 	timeout 30s perf record -F 99 -g --call-graph dwarf _build/default/bin/main.exe hoare.tapes

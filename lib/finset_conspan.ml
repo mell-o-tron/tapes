@@ -3,7 +3,6 @@ module type TaggedType = sig
   type t
 
   val compare : t -> t -> int
-  val compare_val : t -> t -> int
   val get_tag : t -> int
   val set_tag : t -> int -> t
   val discard_tag : t -> t

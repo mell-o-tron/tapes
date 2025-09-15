@@ -52,18 +52,8 @@ invert(
     END_TEST
 ).
 
-print "\n============\nEuclid:\n============\n".
 
-draw BEGIN_IMP [x : nat, y : nat, a : nat, b : nat]
-while (not(eq(x, y))) {
-    if (gt(x, y)) then {
-        x := minus (x, y) : nat
-    }
-    else {
-        y := minus (y, x) : nat
-    }
-}
-END_IMP to "gcd_algorithm".
+print "\n============\nEuclid:\n============\n".
 
 axioms [
     forall v. forall w. (v = w) implies (gcd(v, w) = v),

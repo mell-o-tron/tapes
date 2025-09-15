@@ -28,7 +28,7 @@ type imp_comm =
   | Seq of imp_comm * imp_comm
   | Assign of iden * imp_expr
 
-type context = (iden * iden) list
+type context = (iden * sort) list
 (** List of (name, sort)*)
 
 type split_context_t = {
@@ -192,14 +192,6 @@ let rec eval_command (c : context) (com : imp_comm) =
         (Compose (corefl c p, eval_command c com1))
         (Compose (corefl c (negate p), eval_command c com2))
   | WhileDo (p, com1) ->
-      (* Printf.printf "corefl:\tAr : %s,\tCoar : %s\n"
-        (Typecheck.arity (corefl c p) |> Typecheck.string_of_sort_list_list)
-        (Typecheck.coarity (corefl c p) |> Typecheck.string_of_sort_list_list);
-      Printf.printf "command:\tAr : %s,\tCoar : %s\n"
-        (Typecheck.arity (eval_command c com1)
-        |> Typecheck.string_of_sort_list_list)
-        (Typecheck.coarity (eval_command c com1)
-        |> Typecheck.string_of_sort_list_list); *)
       Compose
         ( kleene_star (Compose (corefl c p, eval_command c com1)),
           corefl c (negate p) )

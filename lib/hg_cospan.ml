@@ -14,7 +14,6 @@ module TaggedType = struct
   type t = (int * sort) * int option [@@deriving compare]
 
   let compare (e1 : t) (e2 : t) = compare e1 e2
-  let compare_val _ _ = failwith "not implemented"
 
   let get_tag ((_, s) : t) =
     try Option.get s with _ -> failwith "tag is empty, could not get tag."

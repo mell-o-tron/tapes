@@ -69,8 +69,8 @@ let rec term_of_rel (rel : relation) =
   | Op r1 -> term_inverse (term_of_rel r1)
   | Star r1 -> kleene_star (term_of_rel r1)
   | IdRel l1 -> Id [ l1 ]
-  | TopRel l1 -> Compose (Cut [ l1 ], Spawn [ l1 ])
-  | BotRel l1 -> Compose (Spawn [ l1 ], Cut [ l1 ])
+  | TopRel l1 -> Compose (Discard [ l1 ], CoDiscard [ l1 ])
+  | BotRel l1 -> Compose (Cut [ l1 ], Spawn [ l1 ])
   | Compose (r1, r2) ->
       let t1 = term_of_rel r1 in
       let t2 = term_of_rel r2 in

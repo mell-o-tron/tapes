@@ -15,7 +15,7 @@ let non_inv_example : term = gen(f, A, B) * gen (g, C, D).
 let inv_example : term = (id(A) * s*(C, B) * id(D)) ; (gen(f, A*B, 1) * gen (g, C*D, 1)).
 
 // draw non_inv_example to "non_inv".
-draw inv_example to "inv".
+// draw inv_example to "inv".
 
 // let A : sort.   let B : sort.   let C : sort.
 // let f : A -> C * C * C.
@@ -59,6 +59,8 @@ set (otimesdist : 0.6).
 set (oplusdist : 0.25).
 set (paddingdist : 0.5).
 
+draw discard(X) ; codiscard (X) to "should_be_true"
+
 // draw split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V) to "example1".
 
 // draw (split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V)) ; 
@@ -66,6 +68,6 @@ set (paddingdist : 0.5).
 
 // draw of_relation op(star(intersection (gen(R, A, A), gen(S, A, A)))) ; union (gen(R, A, A), gen(S, A, A)) to "union"
 
-set (rounded_wires : 1.0).
+// set (rounded_wires : 1.0).
 
-draw(invert(gen(R, int*int*int*int, int*int))) to "test_invert"
+// draw(invert(gen(R, int*int*int*int, int*int))) to "test_invert"

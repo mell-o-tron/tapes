@@ -114,10 +114,10 @@ let print_sll (l : sort list list) =
     l;
   print_string "]\n"
 
-(* checks if arity and coarity match in compositions *)
+(** Typechecks terms *)
 let rec typecheck (t : term) =
   match t with
-  | Compose (t1, t2) -> arity t2 = coarity t1
+  | Compose (t1, t2) -> arity t2 = coarity t1 && typecheck t1 && typecheck t2
   | Oplus (t1, t2) -> typecheck t1 && typecheck t2
   | Otimes (t1, t2) -> typecheck t1 && typecheck t2
   | Trace (l, t1) ->
@@ -199,14 +199,17 @@ let rec tape_coarity (t : tape) =
 (* checks if arity and coarity match in compositions *)
 let rec circuit_typecheck (t : circuit) =
   match t with
-  | CCompose (t1, t2) -> circuit_arity t2 = circuit_coarity t1
+  | CCompose (t1, t2) ->
+      circuit_arity t2 = circuit_coarity t1
+      && circuit_typecheck t1 && circuit_typecheck t2
   | Otimes (t1, t2) -> circuit_typecheck t1 && circuit_typecheck t2
   | _ -> true
 
 (* checks if arity and coarity match in compositions *)
 let rec tape_typecheck (t : tape) =
   match t with
-  | TCompose (t1, t2) -> tape_arity t2 = tape_coarity t1
+  | TCompose (t1, t2) ->
+      tape_arity t2 = tape_coarity t1 && tape_typecheck t1 && tape_typecheck t2
   | Oplus (t1, t2) -> tape_typecheck t1 && tape_typecheck t2
   | Tape c1 -> circuit_typecheck c1
   | Trace (l1, t1) -> (
