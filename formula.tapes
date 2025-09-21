@@ -34,7 +34,7 @@ END_IMP.
 
 
 check factorial.
-draw factorial to "./result_examples/factorio".
+// draw factorial to "./result_examples/factorio".
 
 set (scalex : 0.9).
 set (rounded_wires : 1.0).
@@ -46,7 +46,7 @@ let big_test_sum : term = (split(A*A);((split(A*A) ; ((gen(f, A * A, A) + gen(g,
 set (rounded_wires : 0.0).
 
 
-draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
+// draw_normal_form big_test_sum to "./result_examples/big_test_matrix".
 
 
 set (rounded_wires : 0.0).
@@ -59,7 +59,7 @@ set (otimesdist : 0.6).
 set (oplusdist : 0.25).
 set (paddingdist : 0.5).
 
-draw discard(X) ; codiscard (X) to "should_be_true"
+// draw discard(X) ; codiscard (X) to "should_be_true".
 
 // draw split(U) ; ((split(U) ; (gen(c, U, V) +  gen(c, U, V)) ; join(V)) + gen(d, U, V)) ; join(V) to "example1".
 
@@ -71,3 +71,38 @@ draw discard(X) ; codiscard (X) to "should_be_true"
 // set (rounded_wires : 1.0).
 
 // draw(invert(gen(R, int*int*int*int, int*int))) to "test_invert"
+
+
+set (rounded_wires : 1.0).
+
+// draw 
+
+// trace(X, 
+
+// (split(X) + split(X)) ; 
+// (gen(a, X, X) + gen(b, X, X) + gen(c, X, X) + gen(d, X, X)) ;
+// (id(X) + s+(X,X) + id(X));
+// (join(X) + join(X))
+// )
+
+// to "nfthing".
+
+// draw 
+// (gen(I, X, X) + gen (P, 1, X)) ;
+// (split(X) + split(X)) ; 
+// (gen(a, X, X) + gen(b, X, X) + gen(c, X, X) + gen(d, X, X)) ;
+// (id(X) + s+(X,X) + id(X));
+// (join(X) + join(X))
+
+// to "lhs".
+
+draw
+(split(1) + split(1)) ; 
+(id(1) + s+(1,1) + id(1));
+(join(1) + join(1));
+(gen(I, 1, X) + gen(Q, 1, X))
+
+to "rhs".
+
+
+draw_circuit (id(A) * codiscard(A)) ; cocopy(A) to "aaaaaa"

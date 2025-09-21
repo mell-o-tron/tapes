@@ -126,9 +126,11 @@ let rec clean_tape (t : tape) =
   | Tape c -> Tape (deep_clean_circuit c)
   | Trace ([], t1) -> clean_tape t1
   | Trace (l, t) -> Trace (l, clean_tape t)
-  | SwapPlus ([], []) -> TId0
+  (* | SwapPlus ([], []) ->
+      Printf.printf "boom!\n";
+      TId0
   | SwapPlus ([], l) -> TId [ l ]
-  | SwapPlus (l, []) -> TId [ l ]
+  | SwapPlus (l, []) -> TId [ l ] *)
   | TId [] -> TId0
   | _ -> t
 
@@ -190,7 +192,9 @@ let rec unwrap_swapplus_tape (l1 : sort list list) (l2 : sort list list) =
 
 (** constructs polynomial tape swap, alias for [unwrap_swapplus_tape]*)
 let swapplus_to_tape (p : sort list list) (q : sort list list) =
-  unwrap_swapplus_tape p q
+  let res = unwrap_swapplus_tape p q in
+  (* Printf.printf "%s\n" (pp_tape res); *)
+  res
 
 (* given a [string list list], it constructs the corresponding split, using coherence axioms of commutative monoids - FP1 *)
 let rec split_to_tape (l1 : sort list list) =

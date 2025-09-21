@@ -687,16 +687,26 @@ let circuit_interface_height (c : circuit_draw_interface) =
 (********************************************************************************************************)
 (* Tape interface utils *)
 
+let rec is_empty_circ c =
+  match c with
+  | EmptyCircuit -> true
+  | EmptyCircuitPin _ -> true
+  | CircuitTens (c1, c2) -> is_empty_circ c1 && is_empty_circ c2
+  | _ -> false
+
 let rec clean_tape_interface t =
   match t with
+  | TapeInterface (p1, p2, c) when is_empty_circ c -> EmptyTape (p1, p2)
   | TapeTens (EmptyInterface _, t1) -> clean_tape_interface t1
   | TapeTens (t1, EmptyInterface _) -> clean_tape_interface t1
+  | TapeTens (t1, t2) ->
+      TapeTens (clean_tape_interface t1, clean_tape_interface t2)
   | _ -> t
 
 (** this gets rid of all empty interfaces. *)
-let rec deep_clean_interface t =
-  let ct = clean_tape_interface t in
-  if t == ct then ct else deep_clean_interface ct
+let deep_clean_interface t = clean_tape_interface t
+(* let ct = clean_tape_interface t in
+  if t == ct then ct else deep_clean_interface ct *)
 
 (** given a tape interface, turns it into a list *)
 let rec list_of_tape_interface t =
@@ -805,7 +815,10 @@ let rec tape_interface_to_block_map2
   | EmptyTape _, EmptyTape _ | TapeInterface _, TapeInterface _ -> f t1 t2
   | TapeTens (t11, t21), TapeTens (t12, t22) ->
       f t11 t12 @ tape_interface_to_block_map2 f t21 t22
-  | EmptyInterface _, EmptyInterface _ -> [] (* TODO is this right?*)
+  | EmptyInterface _, EmptyInterface _
+  | TapeInterface (_, _, EmptyCircuit), EmptyTape _
+  | EmptyTape _, TapeInterface (_, _, EmptyCircuit) ->
+      [] (* TODO is this right?*)
   | _ ->
       print_endline
         ("failure: \n"
@@ -1184,7 +1197,8 @@ let tape_connect_interfaces (ina : tape_draw_interface)
     tape_interface_to_block_map2
       (fun t1 t2 ->
         match (t1, t2) with
-        | EmptyTape _, EmptyTape _ -> []
+        | EmptyTape (_pos_bot1, _pos_top1), EmptyTape (_pos_bot2, _pos_top2) ->
+            construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2
         | ( TapeInterface (_pos_bot1, _pos_top1, c1),
             TapeInterface (_pos_bot2, _pos_top2, c2) ) ->
             construct_tape_between _pos_bot1 _pos_top1 _pos_bot2 _pos_top2

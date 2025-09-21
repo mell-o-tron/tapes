@@ -1,16 +1,13 @@
-\input{./tikz_out/macros}
-\begin{document}
-
 \def\xscale{0.500000}
 \def\yscale{1.000000}
 \begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
-\codiscardcirc {6}{0.000000}{0.600000}
+\id{2}{0.000000}{0.600000}{0}
 
-\id{2}{0.000000}{0.000000}{0}
+\codiscardcirc {6}{0.000000}{0.000000}
 
-\draw [in=180, out=0] (1.000000,0.600000) to (1.000000,0.600000);
+\draw [in=180, out=0] (0.000000,0.600000) to (1.000000,0.600000);
 
-\draw [in=180, out=0] (0.000000,0.000000) to (1.000000,0.000000);
+\draw [in=180, out=0] (1.000000,0.000000) to (1.000000,0.000000);
 
 \cocopycirc {7}{1.250000}{0.000000}{0.600000}
 
@@ -19,6 +16,3 @@
 \draw [in=180, out=0] (1.000000,0.000000) to (1.250000,0.000000);
 
 \end{tikzpicture}
-
-
-\end{document} 

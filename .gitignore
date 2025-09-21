@@ -1,4 +1,5 @@
 result.pdf
 _build
 test.perf
-
+perf.data
+perf.data.old

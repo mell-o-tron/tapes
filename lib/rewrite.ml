@@ -113,7 +113,9 @@ let rec match_tapes_by_interface (l1 : tape list) (l2 : tape list) =
   | [ t1 ], l2 ->
       let t2 = tape_list_to_sum l2 in
       if tape_typecheck (TCompose (t1, t2)) then [ TCompose (t1, t2) ]
-      else failwith "incompatible interfaces in matching"
+      else (
+        Printf.printf "\t%s \n\n \t%s\n" (pp_tape t1) (pp_tape t2);
+        failwith (Printf.sprintf "incompatible interfaces in matching"))
   | l1, [ t2 ] ->
       let t1 = tape_list_to_sum l1 in
       if tape_typecheck (TCompose (t1, t2)) then [ TCompose (t1, t2) ]
@@ -232,17 +234,11 @@ let rec trace_normal_form (t : term) : term =
       trace_normal_form (Compose (trace_normal_form t1, trace_normal_form t2))
   | Oplus (Trace (l1, t1), Trace (l2, t2)) ->
       let sl = Terms.SwapPlus (l2, remainder_of_prefix l1 (arity t1)) in
-      (* Printf.printf "sl: %s\n" (show_term sl); *)
       let sr = Terms.SwapPlus (remainder_of_prefix l1 (coarity t1), l2) in
-      (* Printf.printf "sr: %s\n" (show_term sr); *)
       let idl1 = Id l1 in
-      (* Printf.printf "idl1: %s\n" (show_term idl1); *)
       let idl2 = Id (remainder_of_prefix l2 (arity t2)) in
-      (* Printf.printf "idl2: %s\n" (show_term idl2); *)
       let idr1 = Id l1 in
-      (* Printf.printf "idr1: %s\n" (show_term idr1); *)
       let idr2 = Id (remainder_of_prefix l2 (coarity t2)) in
-      (* Printf.printf "idr2: %s\n" (show_term idr2); *)
       let t3 =
         Compose
           ( Oplus (idl1, Oplus (sl, idl2)),

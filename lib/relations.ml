@@ -77,4 +77,4 @@ let rec term_of_rel (rel : relation) =
       let ar2 = arity t2 in
       let coar1 = coarity t1 in
       if ar2 = coar1 then Compose (t1, t2)
-      else failwith "incompatible relations in composition"
+      else raise (Errors.TypeError "incompatible relations in composition")

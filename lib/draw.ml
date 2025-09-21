@@ -636,12 +636,12 @@ and non_aligned_tape_composition _t1 t2 posx posy (TapeGeo geo1) offset max_len
     to either tikz or other graphical languages *)
 and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
-  (* Printf.printf "%s\n" (pp_tape t); *)
+  Printf.printf "%s\n" (pp_tape t);
   flush stdout;
   let t = t |> tape_to_sum in
   match t with
   | TId l ->
-      if l = [] || l = [ [] ] then
+      if l = [] then
         TapeGeo
           {
             tikz = [ TB EmptyTBlock ];
@@ -649,6 +649,28 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
             length = 0.;
             left_interface = EmptyTape ((posx, posy), (posx, posy));
             right_interface = EmptyTape ((posx, posy), (posx, posy));
+          }
+      else if l = [ [] ] then
+        let _ = Printf.printf "aoaoao" in
+        TapeGeo
+          {
+            tikz =
+              [
+                TB
+                  (BTape
+                     {
+                       pos = (posx, posy);
+                       width = 1.;
+                       height = 2. *. !tape_padding;
+                     });
+              ];
+            height = 2. *. !tape_padding;
+            length = 1.;
+            left_interface =
+              EmptyTape ((posx, posy), (posx, posy +. (2. *. !tape_padding)));
+            right_interface =
+              EmptyTape
+                ((posx +. 1., posy), (posx +. 1., posy +. (2. *. !tape_padding)));
           }
       else tikz_of_tape (tid_to_normal_form l) posx posy max_len debug
   | TId0 ->
@@ -1153,6 +1175,8 @@ let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
   (* print_endline (pp_tape ast); *)
   match tikz_of_tape (ast |> tape_to_sum) posx posy infinity false with
   | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } ->
+      List.iter (fun x -> Printf.printf "%s\n" (show_block x)) s;
+
       let header =
         Printf.sprintf
           "\\def\\xscale{%f}\n\

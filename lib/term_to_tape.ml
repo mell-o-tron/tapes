@@ -45,9 +45,7 @@ let rec swaptimes_to_tape (p : sort list list) (q : sort list list) =
 let rec left_whiskering_mon (u : sort list) (t : tape) =
   match t with
   | TId0 -> TId0
-  | TId s ->
-      TId (List.map (fun x -> u @ x) s)
-      (* CHECK this case is missing in tech report *)
+  | TId s -> TId (List.map (fun x -> u @ x) s)
   | Tape c -> Tape (Otimes (id_to_circuit u, c))
   | SwapPlus (v, w) -> SwapPlus (u @ v, u @ w)
   | TCompose (t1, t2) ->
@@ -62,9 +60,7 @@ let rec left_whiskering_mon (u : sort list) (t : tape) =
 let rec right_whiskering_mon (u : sort list) (t : tape) =
   match t with
   | TId0 -> TId0
-  | TId s ->
-      TId (List.map (fun x -> x @ u) s)
-      (* CHECK this case is missing in tech report *)
+  | TId s -> TId (List.map (fun x -> x @ u) s)
   | Tape c -> Tape (Otimes (c, id_to_circuit u))
   | SwapPlus (v, w) -> SwapPlus (v @ u, w @ u)
   | TCompose (t1, t2) ->
