@@ -98,7 +98,8 @@ let rec token lexbuf =
   | "empty" -> EMPTY
   | "top" -> TOP
   | "of_relation" -> OfRelation
-  | "check_triple" -> CheckTriple
+  | "check_hoare" -> CheckTriple
+  | "check_rel_hoare" -> CheckRelHoare
   | "to_fol" -> ToFOL
   | "invert" -> Invert
   | "print" -> Print

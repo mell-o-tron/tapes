@@ -12,45 +12,45 @@ set (paddingdist : 0.5).
 set (scalex : 0.7).
 
 
-axioms [
-    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y)))
-].
+// axioms [
+//     forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y)))
+// ].
 
-print "\n============\nshould work:\n============\n".
+// print "\n============\nshould work:\n============\n".
 
-check_triple [x : int, y : int]
-{pos(x) and pos (y)}
-while (pos(y)) {
-    x := plus (x, y) : int
-}
-{pos(x)}
-with invariant 
-invert(
-    BEGIN_TEST[x : int, y : int]
-    pos(x)
-    END_TEST
-).
+// check_hoare [x : int, y : int]
+// {pos(x) and pos (y)}
+// while (pos(y)) {
+//     x := plus (x, y) : int
+// }
+// {pos(x)}
+// with invariant 
+// invert(
+//     BEGIN_TEST[x : int, y : int]
+//     pos(x)
+//     END_TEST
+// ).
 
-print "\n============\nshould fail:\n============\n".
+// print "\n============\nshould fail:\n============\n".
 
-axioms [
-    forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y))),
-    forall x . pos(x) implies not(neg(x)),
-    forall x . neg(x) implies not(pos(x))
-].
+// axioms [
+//     forall x . forall y. ((pos(x) and pos(y)) implies pos(plus(x, y))),
+//     forall x . pos(x) implies not(neg(x)),
+//     forall x . neg(x) implies not(pos(x))
+// ].
 
-check_triple [x : int, y : int]
-{pos(x) and pos (y)}
-while (pos(y)) {
-    x := plus (x, y) : int
-}
-{neg(x)}
-with invariant 
-invert(
-    BEGIN_TEST[x : int, y : int]
-    neg(x)
-    END_TEST
-).
+// check_hoare [x : int, y : int]
+// {pos(x) and pos (y)}
+// while (pos(y)) {
+//     x := plus (x, y) : int
+// }
+// {neg(x)}
+// with invariant 
+// invert(
+//     BEGIN_TEST[x : int, y : int]
+//     neg(x)
+//     END_TEST
+// ).
 
 
 print "\n============\nEuclid:\n============\n".
@@ -62,7 +62,7 @@ axioms [
     forall v. forall w. lt(v, w) iff (gt(v, w) or (v = w))
 ].
 
-check_triple [x : nat, y : nat, a : nat, b : nat]
+check_hoare [x : nat, y : nat, a : nat, b : nat]
 {eq(x, a) and eq(y, b)}
 while (not(eq(x, y))) {
     if (gt(x, y)) then {

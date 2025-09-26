@@ -19,7 +19,7 @@ let remove_first_last s =
 %token LPAREN RPAREN LBRACKET RBRACKET COLON SEMICOLON COMMA EOF EQUALS Term Tape Trace DOT Let Sort Draw Check DrawMatrix DrawNF DrawTraceNF To ToTape ARROW Set REF
 %token BEGIN_IMP END_IMP IF THEN ELSE WHILE DO SKIP ABORT ASSIGN AND OR NOT TRUE FALSE OPEN_BRACE CLOSED_BRACE PATH NORMALIZE NORMALIZETERM NORMALIZETRACE CHECKINCLUSION WITH INVARIANT BEGIN_TEST END_TEST
 %token AXIOMS FORALL EXISTS IMPLIES IFF DELETEPATH REMEMPTIES DrawCospan OfEmbeddedTape DrawCircuit
-%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation CheckTriple ToFOL Invert Print
+%token UNION INTERSECTION OP STAR EMPTY TOP OfRelation CheckTriple ToFOL Invert Print CheckRelHoare
 
 %token <string> STRING QSTRING
 %token <float> FLOAT
@@ -62,6 +62,7 @@ command:
   | DrawCospan c=circuit To qs=QSTRING {Ast.DrawCospan(c, remove_first_last qs)}
   | DrawCircuit c=circuit To qs=QSTRING {Ast.DrawCircuit(c, remove_first_last qs)}
   | CheckTriple LBRACKET ctx=context RBRACKET t=hoare_triple WITH INVARIANT e=expr {Ast.CheckTriple(ctx, t, e)}
+  | CheckRelHoare LBRACKET ctx1=context COMMA ctx2=context RBRACKET t=rel_hoare_triple WITH INVARIANT e=expr {Ast.CheckRelHoare(ctx1, ctx2, t, e)}
   | ToFOL c=circuit   {Ast.ToFOL (c)}
   | Print qs=QSTRING {Ast.Print(remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
@@ -239,3 +240,6 @@ relation:
 
 hoare_triple:
   | OPEN_BRACE prec=imp_pred CLOSED_BRACE com=imp_command OPEN_BRACE post=imp_pred CLOSED_BRACE {Hoare_triples.make_triple prec com post}
+
+rel_hoare_triple:
+  | OPEN_BRACE prec=imp_pred CLOSED_BRACE com1=imp_command COMMA com2=imp_command OPEN_BRACE post=imp_pred CLOSED_BRACE {Hoare_triples.make_rel_triple prec com1 com2 post}

@@ -26,8 +26,10 @@ let rec subst_gen_name_term (v : string) (t : term) tbl : term =
   | _ -> t
 
 let subst_gen_name (v : string) (e : expr) tbl =
-  Printf.printf "%s\n" v;
-  match e with Term t -> Term (subst_gen_name_term v t tbl) | _ -> e
+  (* Printf.printf "%s\n" v; *)
+  match e with
+  | Term t -> Term (subst_gen_name_term v t tbl)
+  | _ -> e
 
 (** populates the generator variables *)
 let populate_genvars (e : expr) =

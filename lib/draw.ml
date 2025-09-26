@@ -193,6 +193,9 @@ and tikz_of_circuit (t : circuit) (posx : float) (posy : float) (debug : bool)
           let base =
             if Option.is_some base then snd (Option.get base) else posy
           in
+          (* Printf.printf "base: %f\nrintf size: %f\nlintf size: %f\n" base
+            (circuit_interface_height geo1.right_interface)
+            (circuit_interface_height geo2.left_interface /. 2.); *)
           let (CircGeo geo2) =
             tikz_of_circuit t2
               (posx +. geo1.length +. offset)
@@ -636,7 +639,7 @@ and non_aligned_tape_composition _t1 t2 posx posy (TapeGeo geo1) offset max_len
     to either tikz or other graphical languages *)
 and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
     (debug : bool) : tape_geometry =
-  Printf.printf "%s\n" (pp_tape t);
+  (* Printf.printf "%s\n" (pp_tape t); *)
   flush stdout;
   let t = t |> tape_to_sum in
   match t with
@@ -651,7 +654,7 @@ and tikz_of_tape (t : tape) (posx : float) (posy : float) (max_len : float)
             right_interface = EmptyTape ((posx, posy), (posx, posy));
           }
       else if l = [ [] ] then
-        let _ = Printf.printf "aoaoao" in
+        (* let _ = Printf.printf "aoaoao" in *)
         TapeGeo
           {
             tikz =
@@ -1175,8 +1178,7 @@ let tikzpicture_of_ast (ast : tape) (posx : float) (posy : float) =
   (* print_endline (pp_tape ast); *)
   match tikz_of_tape (ast |> tape_to_sum) posx posy infinity false with
   | TapeGeo { tikz = s; left_interface = li; right_interface = ri; _ } ->
-      List.iter (fun x -> Printf.printf "%s\n" (show_block x)) s;
-
+      (* List.iter (fun x -> Printf.printf "%s\n" (show_block x)) s; *)
       let header =
         Printf.sprintf
           "\\def\\xscale{%f}\n\

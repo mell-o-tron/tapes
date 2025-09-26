@@ -51,7 +51,7 @@ set (rounded_wires : 0.0).
 
 set (rounded_wires : 0.0).
 
-draw_circuit discard(A) * (copy(A) ; (discard(A) * id(A) ; (gen(pos, 1, A) * discard(A)))) to "./result_examples/test_circuit".
+// draw_circuit discard(A) * (copy(A) ; (discard(A) * id(A) ; (gen(pos, 1, A) * discard(A)))) to "./result_examples/test_circuit".
 
 set (zerolenids : 1.0).
 set (scalex : 0.5).
@@ -96,13 +96,218 @@ set (rounded_wires : 1.0).
 
 // to "lhs".
 
-draw
-(split(1) + split(1)) ; 
-(id(1) + s+(1,1) + id(1));
-(join(1) + join(1));
-(gen(I, 1, X) + gen(Q, 1, X))
+// draw
+// (split(1) + split(1)) ; 
+// (id(1) + s+(1,1) + id(1));
+// (join(1) + join(1));
+// (gen(I, 1, X) + gen(Q, 1, X))
 
-to "rhs".
+// to "rhs".
 
 
-draw_circuit (id(A) * codiscard(A)) ; cocopy(A) to "aaaaaa"
+
+ draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(neq, nat*nat, 1) * id(nat*nat*nat*nat)));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(gt, nat*nat, 1) * id(nat*nat*nat*nat)));
+(id(nat) * copy(nat) * id(nat*nat));
+(fun(minus, nat*nat, nat) * id(nat*nat*nat))
+ to "1".
+
+ draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(neq, nat*nat, 1) * id(nat*nat*nat*nat)));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(ngt, nat*nat, 1) * id(nat*nat*nat*nat)));
+(copy(nat) * id(nat) * id(nat*nat));
+(id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))
+ to "2".
+
+  draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(eq, nat*nat, 1) * id(nat*nat*nat*nat)))
+ to "3".
+
+   draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * id(nat*nat*nat));
+((gen(gt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+(id(nat) * copy(nat) * id(nat*nat));
+(fun(minus, nat*nat, nat) * id(nat*nat*nat))
+ to "4".
+
+draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * id(nat*nat*nat));
+((gen(ngt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+(copy(nat) * id(nat) * id(nat*nat));
+(id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))
+ to "5".
+
+ draw 
+codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat))
+ to "6".
+
+ 
+draw (split (1) + split(1)) ; (split (1) + id(1) + split(1) + id(1)) ; 
+(codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(neq, nat*nat, 1) * id(nat*nat*nat*nat)));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(gt, nat*nat, 1) * id(nat*nat*nat*nat)));
+(id(nat) * copy(nat) * id(nat*nat));
+(fun(minus, nat*nat, nat) * id(nat*nat*nat))) + 
+(codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(neq, nat*nat, 1) * id(nat*nat*nat*nat)));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(ngt, nat*nat, 1) * id(nat*nat*nat*nat)));
+(copy(nat) * id(nat) * id(nat*nat));
+(id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))) + 
+(codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+(id (nat) * (cocopy(nat) ; discard(nat)) * id(nat*nat));
+(id (nat) * codiscard(nat*nat) * id(nat * nat));
+(id (nat) * (copy(nat)*copy(nat)) * id(nat * nat));
+(id (nat) * (id(nat) * s*(nat, nat) * id(nat)) * id(nat * nat));
+(id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
+((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
+((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(eq, nat*nat, 1) * id(nat*nat*nat*nat)))) + 
+( codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * id(nat*nat*nat));
+((gen(gt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+(id(nat) * copy(nat) * id(nat*nat));
+(fun(minus, nat*nat, nat) * id(nat*nat*nat))) + 
+( codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * id(nat*nat*nat));
+((gen(ngt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
+(copy(nat) * id(nat) * id(nat*nat));
+(id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))) + 
+( codiscard(nat*nat*nat*nat) ; 
+(copy(nat)*copy(nat)*copy(nat)*copy(nat));
+(id(nat) * s*(nat, nat) * id(nat) * id(nat) * s*(nat, nat) * id(nat));
+(gen(eq, nat*nat, 1) * id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat));
+((copy(nat)*copy(nat)) * id(nat * nat));
+(id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
+((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat))) 
+ ; (join (nat*nat*nat*nat) + id(nat*nat*nat*nat) + join(nat*nat*nat*nat) + id(nat*nat*nat*nat)) ; 
+id(nat*nat*nat*nat) + s+(nat*nat*nat*nat, nat*nat*nat*nat) + id(nat*nat*nat*nat);
+ (join (nat*nat*nat*nat) + join(nat*nat*nat*nat))  to "aaaa".
+
+draw 
+
+(split (1) + split(1));
+(
+  ((codiscard(nat) * codiscard(nat) * codiscard(nat) * codiscard(nat));
+  (copy(nat) * copy(nat) * copy(nat) * copy(nat));
+  (id(nat) * s*(nat, nat) * id(nat * nat) * s*(nat, nat) * id(nat));
+  (id(nat * nat) * fun(gcd, nat*nat, nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+  (id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat))
+  )
+  +
+  (
+    (codiscard(nat)*codiscard(nat));
+    (copy(nat) * copy(nat));
+    (id(nat) * s*(nat, nat) * id(nat));
+    (fun(gcd, nat*nat, nat) * id(nat*nat));
+    (id(nat) * codiscard(nat) * id(nat*nat));
+    (copy(nat) * copy(nat) * id(nat*nat));
+    (id(nat) * gen(eq, nat*nat, 1) * id(nat*nat*nat))
+  )
+  +
+  ((codiscard(nat) * codiscard(nat) * codiscard(nat) * codiscard(nat));
+  (copy(nat) * copy(nat) * copy(nat) * copy(nat));
+  (id(nat) * s*(nat, nat) * id(nat * nat) * s*(nat, nat) * id(nat));
+  (id(nat * nat) * fun(gcd, nat*nat, nat) * fun(gcd, nat*nat, nat) * id(nat*nat));
+  (id(nat*nat) * gen(eq, nat*nat, 1) * id(nat*nat))
+  )
+  +
+  (
+    (codiscard(nat)*codiscard(nat));
+    (copy(nat) * copy(nat));
+    (id(nat) * s*(nat, nat) * id(nat));
+    (fun(gcd, nat*nat, nat) * id(nat*nat));
+    (id(nat) * codiscard(nat) * id(nat*nat));
+    (copy(nat) * copy(nat) * id(nat*nat));
+    (id(nat) * gen(eq, nat*nat, 1) * id(nat*nat*nat))
+  )
+) ; (join(nat*nat*nat*nat) + join(nat*nat*nat*nat))
+to "bbbb".
+
+draw (of_relation union(gen(R, A, A), gen(S, A, A))) to "union"

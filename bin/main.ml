@@ -192,6 +192,37 @@ let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
   Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
     (_to_tape t2)
 
+let check_rel_hoare_command ctx1 ctx2
+    (t : Ssr_typechecker.Hoare_triples.relational_hoare_quadruple) (inv : expr)
+    =
+  let rec get_term e =
+    match e with
+    | Tape _ -> raise (TypeError "invariant should be a term, not a tape")
+    | Term t -> t
+    | Var id ->
+        if Hashtbl.mem env id then get_term (Hashtbl.find env id)
+        else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
+  in
+  let t1, t2 =
+    Ssr_typechecker.Hoare_triples.check_relational_triple ctx1 ctx2 t
+      (get_term inv)
+  in
+  Sys.catch_break true;
+  (* Printf.printf "t1: %s\n" (show_term t1);
+  Printf.printf "t2: %s\n" (show_term t2); *)
+  Printf.printf "begun drawing lhs, press CTRL-C to skip\n";
+  (try
+     draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t1))) "lhs"
+   with Sys.Break -> Printf.printf "skipping...\n");
+  Printf.printf "begun drawing lhs, press CTRL-C to skip\n";
+  (try
+     draw_command (Tape (Ssr_typechecker.Matrix.normalize (_to_tape t2))) "rhs"
+   with Sys.Break -> Printf.printf "skipping...\n");
+  Sys.catch_break false;
+  (* Printf.printf "done drawing\n"; *)
+  Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
+    (_to_tape t2)
+
 let to_fol_command (c : circuit) =
   let formula = Ssr_typechecker.Fol_encoding.formula_of_circuit c in
   Printf.printf
@@ -231,6 +262,8 @@ let rec exec (p : program) =
       | DrawCospan (c, path) -> draw_cospan_command c path
       | DrawCircuit (c, path) -> draw_circuit_command c path
       | CheckTriple (ctx, t, inv) -> check_triple_command ctx t inv
+      | CheckRelHoare (ctx1, ctx2, t, inv) ->
+          check_rel_hoare_command ctx1 ctx2 t inv
       | ToFOL c -> to_fol_command c
       | Print s -> Printf.printf "%s\n" (Scanf.unescaped s))
   | Decl d -> (

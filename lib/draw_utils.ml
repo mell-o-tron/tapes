@@ -674,9 +674,13 @@ let rec circuit_interface_of_list l =
 
 (** returns the height of a circuit interface *)
 let circuit_interface_height (c : circuit_draw_interface) =
+  Printf.printf "getting height of intf: %s\n" (show_circuit_draw_interface c);
   try
     let top = top_of_circuit_interface c in
     let bot = base_of_circuit_interface c in
+    Printf.printf "top: %f, bottom: %f\n"
+      (snd (Option.get top))
+      (snd (Option.get bot));
     snd (Option.get top) -. snd (Option.get bot)
   with _ -> 0.
 (* match circuit_interface_normalize c with
