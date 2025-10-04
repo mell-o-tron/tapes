@@ -2,9 +2,11 @@ open Terms
 open Tapes
 open Common_defs
 
+(** Converts a list of sort lists to a string representation. *)
 let string_of_sort_list_list l =
   String.concat "," (List.map (fun x -> "[" ^ String.concat "," x ^ "]") l)
 
+(** Checks if the first list is a prefix of the second list. *)
 let rec is_prefix prefix lst =
   match (prefix, lst) with
   | [], _ -> true (* empty list is always a prefix *)
@@ -13,6 +15,8 @@ let rec is_prefix prefix lst =
       is_prefix xs ys (* heads match: keep checking tails *)
   | _ -> false (* mismatch *)
 
+(** Returns the remainder of a list after removing a prefix. Raises if not a
+    prefix. *)
 let rec remainder_of_prefix prefix lst =
   match (prefix, lst) with
   | [], ys -> ys
@@ -20,6 +24,7 @@ let rec remainder_of_prefix prefix lst =
   | x :: xs, y :: ys when x = y -> remainder_of_prefix xs ys
   | _ -> invalid_arg "remainder_of_prefix: first argument is not a prefix"
 
+(** Computes the arity of a copy term. *)
 let rec arity_of_copy l =
   match l with
   | [] -> []
@@ -29,7 +34,7 @@ let rec arity_of_copy l =
       @ arity (Spawn (times_on_objects p1 [ u ]))
       @ arity_of_copy p1
 
-(* returns the arity of a term *)
+(** Returns the arity of a term. *)
 and arity (t : term) =
   match t with
   | Id l1 -> l1
@@ -63,6 +68,7 @@ and arity (t : term) =
 
 (*  | _ -> failwith("arity not yet implemented")*)
 
+(** Computes the coarity of a copy term. *)
 let rec coarity_of_copy l =
   match l with
   | [] -> []
@@ -72,7 +78,7 @@ let rec coarity_of_copy l =
       @ arity (Ldistr (p1, [ u ], p1))
 (* arity because it's the coarity of the inverse ldistr*)
 
-(* returns the coarity of a term *)
+(** Returns the coarity of a term. *)
 and coarity (t : term) =
   match t with
   | Id l1 -> l1
@@ -104,6 +110,7 @@ and coarity (t : term) =
   | Discard _ -> [ [] ]
   | CoDiscard l1 -> l1
 
+(** Pretty-prints a sort list list to stdout. *)
 let print_sll (l : sort list list) =
   print_string "[ ";
   List.iter
@@ -114,7 +121,7 @@ let print_sll (l : sort list list) =
     l;
   print_string "]\n"
 
-(** Typechecks terms *)
+(** Typechecks terms for arity/coarity compatibility. *)
 let rec typecheck (t : term) =
   match t with
   | Compose (t1, t2) -> arity t2 = coarity t1 && typecheck t1 && typecheck t2
@@ -130,6 +137,7 @@ let rec typecheck (t : term) =
       && typecheck t1
   | _ -> true
 
+(** Returns the arity of a circuit. *)
 let rec circuit_arity (c : circuit) =
   match c with
   | CId s -> [ s ]
@@ -139,6 +147,7 @@ let rec circuit_arity (c : circuit) =
   | Otimes (c1, c2) -> circuit_arity c1 @ circuit_arity c2
   | SwapTimes (s1, s2) -> [ s1; s2 ]
 
+(** Returns the coarity of a circuit. *)
 let rec circuit_coarity (c : circuit) =
   match c with
   | CId s -> [ s ]
@@ -148,6 +157,7 @@ let rec circuit_coarity (c : circuit) =
   | Otimes (c1, c2) -> circuit_coarity c1 @ circuit_coarity c2
   | SwapTimes (s1, s2) -> [ s2; s1 ]
 
+(** Returns the arity of a tape. *)
 let rec tape_arity (t : tape) =
   match t with
   | TId sll -> sll
@@ -172,6 +182,7 @@ let rec tape_arity (t : tape) =
                     (pp_sort_list u) (pp_sort_list l1)))
       | [] -> raise (Errors.TypeError "Applied trace to tape of empty arity"))
 
+(** Returns the coarity of a tape. *)
 let rec tape_coarity (t : tape) =
   match t with
   | TId sll -> sll
@@ -196,7 +207,7 @@ let rec tape_coarity (t : tape) =
                     (pp_sort_list u) (pp_sort_list l1)))
       | [] -> raise (Errors.TypeError "Applied trace to tape of empty coarity"))
 
-(* checks if arity and coarity match in compositions *)
+(** Typechecks circuits for arity/coarity compatibility. *)
 let rec circuit_typecheck (t : circuit) =
   match t with
   | CCompose (t1, t2) ->
@@ -205,7 +216,7 @@ let rec circuit_typecheck (t : circuit) =
   | Otimes (t1, t2) -> circuit_typecheck t1 && circuit_typecheck t2
   | _ -> true
 
-(* checks if arity and coarity match in compositions *)
+(** Typechecks tapes for arity/coarity compatibility. *)
 let rec tape_typecheck (t : tape) =
   match t with
   | TCompose (t1, t2) ->

@@ -29,6 +29,7 @@ module TaggedTypeCospan = Make (TaggedType)
 module Taggedset = TaggedTypeCospan.Taggedset
 module Taggedmap = TaggedTypeCospan.Taggedmap
 
+(** Type representing the kind of a hyperedge in a hypergraph. *)
 type hyperedge_kind =
   | Function
   | Relation
@@ -40,15 +41,20 @@ type hyperedge = {
   arity : sort list;
   kind : hyperedge_kind;
 }
+(** Type representing a hyperedge with a name, arity, and kind. *)
 
+(** Pretty-prints a hyperedge as a string. *)
 let pp_hyperedge { name; arity; kind } =
   Printf.sprintf "%s(%s; %s)\n" (show_hyperedge_kind kind) name
     (pp_sort_list arity)
 
+(** Pretty-prints a list of hyperedges as a string. *)
 let pp_hyperedge_list l = List.map pp_hyperedge l |> String.concat ", "
 
 type hg_cospan = TaggedTypeCospan.t * hyperedge list
+(** Type representing a hypergraph cospan: a cospan and a list of hyperedges. *)
 
+(** Pretty-prints a hypergraph cospan as a string. *)
 let pp_hg_cospan ((cos, l) : hg_cospan) =
   Printf.sprintf "(%s, [%s])"
     (TaggedTypeCospan.to_string cos)
@@ -110,7 +116,7 @@ let recompute_indices (cos : TaggedTypeCospan.t) : TaggedTypeCospan.t =
 
   { a; b; c; l; r }
 
-(** shifts all the indices of elements *)
+(** Shifts all the indices of elements in a cospan by given amounts. *)
 let shift_indices (ia : int) (ib : int) (ic : int) (cos : TaggedTypeCospan.t) :
     TaggedTypeCospan.t =
   let a =
@@ -144,7 +150,7 @@ let shift_indices (ia : int) (ib : int) (ic : int) (cos : TaggedTypeCospan.t) :
 
   { a; b; c; l; r }
 
-(** performs the tensor product of two taggedtype cospans *)
+(** Computes the tensor product of two tagged type cospans. *)
 let cospan_tensor (c1 : TaggedTypeCospan.t) (c2 : TaggedTypeCospan.t) =
   let c2 =
     shift_indices (Taggedset.cardinal c1.a) (Taggedset.cardinal c1.b)
@@ -158,7 +164,7 @@ let cospan_tensor (c1 : TaggedTypeCospan.t) (c2 : TaggedTypeCospan.t) =
   (* Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res); *)
   res
 
-(** performs the composition of two taggedtype cospans *)
+(** Computes the composition of two tagged type cospans. *)
 let cospan_compose c1 c2 =
   (* Printf.printf "composing:\n%s\nand\n%s\n"
     (TaggedTypeCospan.to_string c1)
@@ -170,11 +176,12 @@ let cospan_compose c1 c2 =
   (* Printf.printf "result is %s\n" (TaggedTypeCospan.to_string res); *)
   res
 
-(** performs the tensor product of two hypergraph cospans *)
+(** Computes the tensor product of two hypergraph cospans. *)
 let hg_cospan_tensor ((c1, l1) : hg_cospan) ((c2, l2) : hg_cospan) : hg_cospan =
   (cospan_tensor c1 c2, l1 @ l2)
 
-(** performs the composition of two taggedtype cospans *)
+(** Computes the composition of a tagged type cospan with a hypergraph cospan.
+*)
 let hg_cospan_compose (c : TaggedTypeCospan.t) ((c2, l2) : hg_cospan) :
     hg_cospan =
   (cospan_compose c c2, l2)
@@ -221,7 +228,8 @@ let swap_cospan (t1 : sort list) (t2 : sort list) =
     (TaggedTypeCospan.create ())
     ar
 
-(** given a type, produces a cospan corresponding to discard(t) ; copy(t) *)
+(** Constructs a cospan corresponding to discard(t); copy(t) for a list of
+    sorts. *)
 let discard_and_copy_cospan (t : sort list) =
   let n = List.length t in
   let index = ref (-1) in

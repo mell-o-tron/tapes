@@ -2,11 +2,17 @@ open Ast
 open Terms
 open Errors
 
+(** List of available sorts in the environment. *)
 let sorts : string list ref = ref []
+
+(** Hashtable mapping variable names to expressions. *)
 let env : (string, expr) Hashtbl.t = Hashtbl.create 10
+
+(** Hashtable mapping generator names to terms. *)
 let gens : (string, term) Hashtbl.t = Hashtbl.create 10
 
-(** replaces the generator names with terms *)
+(** Replaces generator variable names with their corresponding terms in a term.
+*)
 let rec subst_gen_name_term (v : string) (t : term) tbl : term =
   match t with
   | GenVar v ->
@@ -25,18 +31,24 @@ let rec subst_gen_name_term (v : string) (t : term) tbl : term =
   | Trace (a, t1) -> Trace (a, subst_gen_name_term v t1 tbl)
   | _ -> t
 
+(** Replaces generator variable names with their corresponding terms in an
+    expression. *)
 let subst_gen_name (v : string) (e : expr) tbl =
   (* Printf.printf "%s\n" v; *)
   match e with
   | Term t -> Term (subst_gen_name_term v t tbl)
   | _ -> e
 
-(** populates the generator variables *)
+(** Populates generator variables in the environment by substituting their
+    definitions. *)
 let populate_genvars (e : expr) =
   e |> Hashtbl.fold (fun k _ e1 -> subst_gen_name k e1 gens) gens
 
+(** Checks if an expression is a term. *)
 let is_term = function Term _ -> true | _ -> false
 
+(** Populates variables in a term by substituting their definitions from the
+    environment. *)
 let populate_vars_in_term (t : term) =
   let rec get_term e =
     match e with

@@ -1,0 +1,22 @@
+$\vcenter{\hbox{\def\xscale{0.500000}
+\def\yscale{1.000000}
+\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
+\node [circle, draw] (cospan_node_a0) at (0, 1.000000) {A0};\node [circle, draw] (cospan_node_b0) at (1, 2.000000) {A0};
+\node [circle, draw] (cospan_node_b1) at (1, 1.000000) {A1};
+\node [circle, draw] (cospan_node_b2) at (1, 0.000000) {A2};\node [circle, draw] (cospan_node_c0) at (2, 2.500000) {A0};
+\node [circle, draw] (cospan_node_c1) at (2, 1.500000) {A1};
+\node [circle, draw] (cospan_node_c2) at (2, 0.500000) {A2};
+\node [circle, draw] (cospan_node_c3) at (2, -0.500000) {A3};\draw [->] (cospan_node_a0) -- (cospan_node_b0);\draw [->] (cospan_node_c0) -- (cospan_node_b0);
+\draw [->] (cospan_node_c1) -- (cospan_node_b2);
+\draw [->] (cospan_node_c2) -- (cospan_node_b2);
+\draw [->] (cospan_node_c3) -- (cospan_node_b1);
+\end{tikzpicture}}}$\quad$;$\quad
+$\vcenter{\hbox{\def\xscale{0.500000}
+\def\yscale{1.000000}
+\begin{tikzpicture}[inner sep=0,outer sep=0, xscale = \xscale, yscale = \yscale]
+\gen {13}{0.000000}{1.200000}{2}{0}{P}{0.600000}{boxstyle}
+
+\gen {12}{0.000000}{0.000000}{2}{0}{Q}{0.600000}{boxstyle}
+
+
+\end{tikzpicture}}}$

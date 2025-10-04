@@ -6,7 +6,6 @@ open Draw_utils
 open Hg_cospan
 
 (* Drawing circuits *)
-
 let circuit_memo = Hashtbl.create 100
 
 (** adds debug measures to circuit drawings *)
@@ -453,11 +452,14 @@ and draw_tape_composition t1 t2 posx posy max_len debug =
         debug
 (* let _ = printf [ red ] "debug: NON aligned composition\n" in *)
 
+(** Aligns the centers of two tape interfaces horizontally, given a position. *)
 and align_interface_centers intf1 intf2 posx =
   (try snd (base_of_tape_interface intf1) with Failure _ -> posx)
   +. (tape_interface_height intf1 /. 2.)
   -. (tape_interface_height intf2 /. 2.)
 
+(** Performs aligned horizontal composition of a tape with a list of summands.
+*)
 and aligned_tape_composition posy (TapeGeo geo1) offset summand_list max_len
     debug =
   let _ = printf [ blue ] "debug: aligned composition\n" in
@@ -540,6 +542,7 @@ and aligned_tape_composition posy (TapeGeo geo1) offset summand_list max_len
       right_interface = diag_rintf;
     }
 
+(** Performs non-aligned horizontal composition of two tapes. *)
 and non_aligned_tape_composition _t1 t2 posx posy (TapeGeo geo1) offset max_len
     debug =
   (* Printf.printf "%s\t;\t%s\n" (pp_tape t1) (pp_tape t2); *)
@@ -1166,7 +1169,9 @@ let draw_circuit (ast : circuit) (path : string) =
           (String.concat "\n" (List.map tikz_of_circuit_block s))
           footer;
         (* write something *)
-        close_out oc
+        close_out oc;
+        Printf.printf "Drawing of circuit saved at path: \t'%s'\n"
+          (sprintf [ green ] "%s" path)
       with Sys_error e -> eprintf [ red ] "System error: \"%s\"\n" e)
 
 (** given a tape, produces a tikz picture *)
@@ -1333,6 +1338,7 @@ let draw_tape_at_pos (ast : tape) (path : string) (posx : float) (posy : float)
 (** draws a tape diagram *)
 let draw_tape (ast : tape) (path : string) = draw_tape_at_pos ast path 0. 0.
 
+(** Converts a cospan to its TikZ representation as a string. *)
 let tikz_of_cospan (cos : TaggedTypeCospan.t) =
   let a = cos.a |> Taggedset.to_list in
   let b = cos.b |> Taggedset.to_list in
@@ -1399,6 +1405,7 @@ let tikz_of_cospan (cos : TaggedTypeCospan.t) =
 
   a_string ^ b_string ^ c_string ^ l_string ^ r_string
 
+(** Draws the hyperedges as a TikZ string diagram. *)
 let draw_hyperedges (l : hyperedge list) =
   let l =
     List.map (fun { name; arity; _ } -> Gen (name, arity, [], Relation)) l
@@ -1409,6 +1416,7 @@ let draw_hyperedges (l : hyperedge list) =
   let (CircGeo geom) = tikz_of_circuit c 0. 0. false false in
   tikz_of_block_list (List.map (fun x -> CB x) geom.tikz)
 
+(** Draws a cospan and saves it to the given path. *)
 let draw_cospan (cos : TaggedTypeCospan.t) (path : string) =
   let header =
     Printf.sprintf
@@ -1431,6 +1439,7 @@ let draw_cospan (cos : TaggedTypeCospan.t) (path : string) =
       (sprintf [ green ] "%s" path)
   with Sys_error e -> eprintf [ red; Bold ] "System error: \"%s\"\n" e
 
+(** Draws a hypergraph cospan and saves it to the given path. *)
 let draw_hg_cospan ((cos, l) : hg_cospan) (path : string) =
   let header =
     Printf.sprintf

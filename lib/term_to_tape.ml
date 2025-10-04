@@ -2,7 +2,7 @@ open Terms
 open Tapes
 open Common_defs
 
-(* Definition 4.5 of technical report *)
+(** Implements Definition 4.5 of the technical report. *)
 let rec ldistr_to_tape (p : sort list list) (q : sort list list)
     (r : sort list list) =
   match p with
@@ -30,7 +30,8 @@ let rec ldistr_to_tape (p : sort list list) (q : sort list list)
                 (obj_to_polynomial
                    (Obtimes (obj_of_polynomial p1, obj_of_polynomial r))) ) )
 
-(* Definition 4.6 of technical report *)
+(** Converts a swap-times polynomial to a tape. Implements Definition 4.6 of the
+    technical report. *)
 let rec swaptimes_to_tape (p : sort list list) (q : sort list list) =
   match q with
   | [] -> TId0
@@ -42,6 +43,7 @@ let rec swaptimes_to_tape (p : sort list list) (q : sort list list) =
       TCompose
         (ldistr_to_tape p [ m ] q1, Oplus (sum_of_swaps, swaptimes_to_tape p q1))
 
+(** Applies left whiskering to a monomial tape. *)
 let rec left_whiskering_mon (u : sort list) (t : tape) =
   match t with
   | TId0 -> TId0
@@ -57,6 +59,7 @@ let rec left_whiskering_mon (u : sort list) (t : tape) =
   | Spawn v -> Spawn (u @ v)
   | Trace (v, t) -> Trace (u @ v, left_whiskering_mon u t)
 
+(** Applies right whiskering to a monomial tape. *)
 let rec right_whiskering_mon (u : sort list) (t : tape) =
   match t with
   | TId0 -> TId0
@@ -73,11 +76,13 @@ let rec right_whiskering_mon (u : sort list) (t : tape) =
   | Spawn v -> Spawn (v @ u)
   | Trace (v, t) -> Trace (v @ u, right_whiskering_mon u t)
 
+(** Applies left whiskering to polynomial tape. *)
 let rec left_whiskering (u : sort list list) (t : tape) =
   match u with
   | [] -> TId0
   | a :: rest -> Oplus (left_whiskering_mon a t, left_whiskering rest t)
 
+(** Applies right whiskering to a polynomial tape. *)
 let rec right_whiskering (u : sort list list) (t : tape) =
   let p = Typecheck.tape_arity t in
   let q = Typecheck.tape_coarity t in
@@ -92,11 +97,13 @@ let rec right_whiskering (u : sort list list) (t : tape) =
             ( Oplus (right_whiskering_mon a t, right_whiskering rest t),
               inv_dl a rest ) )
 
+(** Computes the tensor product of two tapes. *)
 let otimes_to_tape (t1 : tape) (t2 : tape) =
   let p = Typecheck.tape_arity t1 in
   let s = Typecheck.tape_coarity t2 in
   TCompose (left_whiskering p t2, right_whiskering s t1)
 
+(** Given a list of sorts, produces copy circuit. *)
 let rec copy_monomial_to_circuit (l : sort list) : circuit =
   match l with
   | [] -> CId1
@@ -109,6 +116,7 @@ let rec copy_monomial_to_circuit (l : sort list) : circuit =
             (CId x, Otimes (unwrap_swaptimes_circuit [ x ] xs, id_to_circuit xs))
         )
 
+(** Given a list of lists of sorts, produces copy tape. *)
 let rec copy_to_tape (l : sort list list) : tape =
   match l with
   | [] -> TId0
@@ -121,6 +129,7 @@ let rec copy_to_tape (l : sort list list) : tape =
             ( Oplus (spawn_to_tape (times_on_objects p1 [ u ]), copy_to_tape p1),
               tape_inverse (ldistr_to_tape p1 [ u ] p1) ) )
 
+(**Given a list of sorts, produces cocopy circuit. *)
 let rec cocopy_monomial_to_circuit (l : sort list) : circuit =
   match l with
   | [] -> CId1
@@ -132,6 +141,7 @@ let rec cocopy_monomial_to_circuit (l : sort list) : circuit =
             ( Gen ("cocopy", [ x; x ], [ x ], Relation),
               cocopy_monomial_to_circuit xs ) )
 
+(** Given a list of lists of sorts, produces cocopy tape. *)
 let rec cocopy_to_tape (l : sort list list) : tape =
   match l with
   | [] -> TId0
@@ -145,28 +155,33 @@ let rec cocopy_to_tape (l : sort list list) : tape =
               Oplus (cut_to_tape (times_on_objects p1 [ u ]), cocopy_to_tape p1)
             ) )
 
+(** Given a list of sorts, produces discard circuit. *)
 let discard_to_tape_mon (l : sort list) : circuit =
   let l = List.map (fun x -> Gen ("discard", [ x ], [], Relation)) l in
   List.fold_right (fun x y -> Otimes (x, y)) l CId1
 
+(** Given a list of lists of sorts, produces discard tape. *)
 let discard_to_tape (l : sort list list) : tape =
   let l = List.map (fun x -> Tape (discard_to_tape_mon x)) l in
   let res = List.fold_right (fun x y -> Oplus (x, y)) l TId0 in
   res |> deep_clean_tape
 
+(** Given a list of sorts, produces codiscard circuit. *)
 let codiscard_to_tape_mon (l : sort list) : circuit =
   let l = List.map (fun x -> Gen ("codiscard", [], [ x ], Relation)) l in
   List.fold_right (fun x y -> Otimes (x, y)) l CId1
 
+(** Given a list of lists of sorts, produces codiscard tape. *)
 let codiscard_to_tape (l : sort list list) : tape =
   let l = List.map (fun x -> Tape (codiscard_to_tape_mon x)) l in
   List.fold_right (fun x y -> Oplus (x, y)) l TId0 |> deep_clean_tape
 
-(** Transforms polynomial trace of term to nested monomial trace of tape *)
+(** Transforms a polynomial trace of a term to a nested monomial trace of a
+    tape. *)
 let iterate_trace (l : sort list list) (t : tape) : tape =
   List.fold_left (fun t1 u -> Trace (u, t1)) t (List.rev l)
 
-(** converts term into tape (when possible) *)
+(** Converts a term into a tape, when possible. *)
 let rec _to_tape (t : term) =
   match t with
   | Id l -> id_to_tape l

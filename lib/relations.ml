@@ -3,7 +3,7 @@ open Terms
 open Typecheck
 
 type relation =
-  | RelGen of string * sort list * sort list
+  | RelGen of string * sort list
   | Union of relation * relation
   | Intersection of relation * relation
   | Op of relation
@@ -14,8 +14,8 @@ type relation =
   | Compose of relation * relation
 
 let rec pp_relation = function
-  | RelGen (name, l1, l2) ->
-      Printf.sprintf "%s ⊆ (%s) × (%s)" name (pp_sort_list l1) (pp_sort_list l2)
+  | RelGen (name, l1) ->
+      Printf.sprintf "%s ⊆ (%s) × (%s)" name (pp_sort_list l1) (pp_sort_list l1)
   | Union (r1, r2) ->
       Printf.sprintf "(%s) ∪ (%s)" (pp_relation r1) (pp_relation r2)
   | Intersection (r1, r2) ->
@@ -45,7 +45,7 @@ let kleene_star (t : term) =
 
 let rec term_of_rel (rel : relation) =
   match rel with
-  | RelGen (name, l1, l2) -> Gen (name, [ l1 ], [ l2 ], Relation)
+  | RelGen (name, l1) -> Gen (name, [ l1 ], [ l1 ], Relation)
   | Union (r1, r2) ->
       let t1 = term_of_rel r1 in
       let t2 = term_of_rel r2 in

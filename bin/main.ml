@@ -12,7 +12,7 @@ open ANSITerminal
 
 let inchn = open_in Sys.argv.(1)
 
-(** given an input channel, returns an AST *)
+(** Given an input channel, returns an AST. *)
 let ast_of_channel inchn =
   let lexbuf = Sedlexing.Latin1.from_channel inchn in
   let lexer = Sedlexing.with_tokenizer Ssr_typechecker.Lexer.token lexbuf in
@@ -35,9 +35,10 @@ let ast_of_channel inchn =
              - (fst (Sedlexing.lexing_positions lexbuf)).pos_bol,
              "Generic Syntax Error" ))
 
+(** Hashtable for storing settings. *)
 let settings = Hashtbl.create 10
 
-(** typechecks an expression *)
+(** Typechecks an expression and prints the result. *)
 let rec typecheck_command (e : expr) =
   match e with
   | Tape t ->
@@ -58,7 +59,7 @@ let rec typecheck_command (e : expr) =
       if Hashtbl.mem env id then typecheck_command (Hashtbl.find env id)
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
-(** draws a tape / term *)
+(** Draws a tape or term to a given path. *)
 let rec draw_command (e : expr) (path : string) =
   match e with
   | Tape t ->
@@ -80,7 +81,7 @@ let rec draw_command (e : expr) (path : string) =
       if Hashtbl.mem env id then draw_command (Hashtbl.find env id) path
       else raise (RuntimeError (Printf.sprintf "Variable %s not found" id))
 
-(** draws a diagram and the corresponding matrix *)
+(** Draws a diagram and the corresponding matrix. *)
 let draw_matrix_command (e : expr) (path : string) : unit =
   let rec get_tape e =
     match e with
@@ -94,7 +95,7 @@ let draw_matrix_command (e : expr) (path : string) : unit =
   let t : tape = get_tape e in
   Ssr_typechecker.Draw.draw_tape_and_matrix t path
 
-(** draws the normal form of a diagram*)
+(** Draws the normal form of a diagram. *)
 let draw_normal_command (e : expr) (path : string) : unit =
   let rec get_tape e =
     match e with
@@ -108,7 +109,7 @@ let draw_normal_command (e : expr) (path : string) : unit =
   let t : tape = get_tape e in
   Ssr_typechecker.Draw.draw_tape_matrix_and_normalform t path
 
-(** draws a diagram and its trace-normal form*)
+(** Draws a diagram and its trace-normal form. *)
 let draw_trace_nf_command (e : expr) (path : string) : unit =
   let rec get_term e =
     match e with
@@ -123,11 +124,12 @@ let draw_trace_nf_command (e : expr) (path : string) : unit =
   Ssr_typechecker.Draw.draw_term_trace_normalform t path
 
 (** Draws the finite set cospan obtained by translating a circuit and discarding
-    the generators *)
+    the generators. *)
 let draw_cospan_command (c : circuit) (path : string) : unit =
   let cos = Ssr_typechecker.Hg_cospan.cospan_of_circuit c in
   Ssr_typechecker.Draw.draw_hg_cospan cos path
 
+(** Draws a circuit diagram to a given path. *)
 let draw_circuit_command (c : circuit) (path : string) : unit =
   Ssr_typechecker.Draw.draw_circuit c path
 
@@ -163,6 +165,7 @@ let check_inclusion_inv_command (e1 : expr) (e2 : expr) (e3 : expr) : unit =
   let inv : tape = get_tape e3 in
   Ssr_typechecker.Tape_inclusion.inclusion_by_invariant t1 t2 inv
 
+(** Checks a Hoare triple and draws the corresponding diagrams. *)
 let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
     (inv : expr) =
   let rec get_term e =
@@ -192,6 +195,7 @@ let check_triple_command ctx (t : Ssr_typechecker.Hoare_triples.hoare_triple)
   Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
     (_to_tape t2)
 
+(** Checks a relational Hoare quadruple and draws the corresponding diagrams. *)
 let check_rel_hoare_command ctx1 ctx2
     (t : Ssr_typechecker.Hoare_triples.relational_hoare_quadruple) (inv : expr)
     =
@@ -223,6 +227,7 @@ let check_rel_hoare_command ctx1 ctx2
   Ssr_typechecker.Tape_inclusion.generate_implication_problems (_to_tape t1)
     (_to_tape t2)
 
+(** Converts a circuit to first-order logic and prints the result. *)
 let to_fol_command (c : circuit) =
   let formula = Ssr_typechecker.Fol_encoding.formula_of_circuit c in
   Printf.printf
@@ -236,14 +241,7 @@ let to_fol_command (c : circuit) =
     (Ssr_typechecker.Fol_encoding.pp_formula
        (Ssr_typechecker.Fol_encoding.simplify_formula formula))
 
-(* let t1, t2 =
-    ( Ssr_typechecker.Matrix.term_to_normalized_tape t1,
-      Ssr_typechecker.Matrix.term_to_normalized_tape t2 )
-  in
-  draw_command (Tape t1) "lhs";
-  draw_command (Tape t2) "rhs" *)
-
-(** executes a .tapes program *)
+(** Executes a program AST. *)
 let rec exec (p : program) =
   match p with
   | Comm c -> (
@@ -301,7 +299,7 @@ let rec exec (p : program) =
       | "join_wires" -> Ssr_typechecker.Draw_utils.join_wires := not (f = 0.)
       | _ -> ())
 
-(** entry-point *)
+(** Entry-point for the program. *)
 let main () =
   try
     let p = ast_of_channel inchn in

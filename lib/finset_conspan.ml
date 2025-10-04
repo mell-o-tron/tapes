@@ -1,4 +1,4 @@
-(** The type of an element equipped with a tag *)
+(** The type of an element equipped with a tag. *)
 module type TaggedType = sig
   type t
 
@@ -9,6 +9,7 @@ module type TaggedType = sig
   val to_string : t -> string
 end
 
+(** The type of a cospan over tagged elements. *)
 module type Cospan = sig
   type elt
   type t
@@ -24,6 +25,7 @@ module type Cospan = sig
   val equal : t -> t -> bool
 end
 
+(** Functor to construct a cospan module for a given tagged type. *)
 module Make (Tagged : TaggedType) = struct
   type elt = Tagged.t
 
@@ -47,7 +49,7 @@ module Make (Tagged : TaggedType) = struct
       l
     |> String.concat ","
 
-  (** Creates a string that represents the cospan *)
+  (** Creates a string that represents the cospan. *)
   let to_string t =
     Printf.sprintf
       "{\n\
@@ -63,7 +65,7 @@ module Make (Tagged : TaggedType) = struct
       (string_of_pair_list (Taggedmap.to_list t.l))
       (string_of_pair_list (Taggedmap.to_list t.r))
 
-  (** Creates an empty cospan *)
+  (** Creates an empty cospan. *)
   let create : unit -> t =
    fun () ->
     {
@@ -109,18 +111,20 @@ module Make (Tagged : TaggedType) = struct
           cosp.r;
     }
 
-  (** Performs the disjoint union of to sets of tagged elements, using the tags
+  (** Performs the disjoint union of two sets of tagged elements, using the tags
       to preserve the origin of each element. *)
   let disjoint_union s1 s2 =
     let labeled_set_1 = Taggedset.map (fun x -> Tagged.set_tag x 0) s1 in
     let labeled_set_2 = Taggedset.map (fun x -> Tagged.set_tag x 1) s2 in
     Taggedset.union labeled_set_1 labeled_set_2
 
+  (** Removes tags from all elements in a set. *)
   let discard_set_tags s =
     Taggedset.fold
       (fun x acc -> Taggedset.add (Tagged.discard_tag x) acc)
       s Taggedset.empty
 
+  (** Removes tags from all elements in a cospan. *)
   let drop_tags (cosp : t) : t =
     let drop_set_tags s =
       Taggedset.fold
@@ -184,13 +188,14 @@ module Make (Tagged : TaggedType) = struct
         |> Taggedmap.of_list;
     }
 
-  (** equality check for cospans *)
+  (** Equality check for cospans. *)
   let equal (t1 : t) (t2 : t) =
     Taggedmap.equal (fun x y -> Tagged.compare x y = 0) t1.r t2.r
     && Taggedmap.equal (fun x y -> Tagged.compare x y = 0) t1.l t2.l
     && Taggedset.equal t1.a t2.a && Taggedset.equal t1.b t2.b
     && Taggedset.equal t1.c t2.c
 
+  (** Converts a sequence to a string using a provided conversion function. *)
   let seq_to_string (to_string : 'a -> string) (s : 'a Seq.t) : string =
     let strs = Seq.map to_string s |> List.of_seq in
     "[" ^ String.concat "; " strs ^ "]"

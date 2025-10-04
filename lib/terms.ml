@@ -1,6 +1,6 @@
 open Common_defs
 
-(** kinds of generators -- corefl is still not used *)
+(** Type representing the kinds of generators. *)
 type gen_kind =
   | Relation
   | OpRelation
@@ -8,17 +8,6 @@ type gen_kind =
   | Function
   | Corefl
 [@@deriving show, compare]
-
-(*type term = Id of (sort)
-            | Gen of string * (sort list list) * (sort list list)
-            | SwapTimes of (sort * sort)
-            | SwapPlus of (sort list * sort list)
-            | Oplus of term * term
-            | Otimes of term * term
-            | Compose of term * term
-            | Id0
-            | Id1
-            [@@deriving show]*)
 
 (** type of objects *)
 type obj =
@@ -29,7 +18,7 @@ type obj =
   | Ob1
 [@@deriving show]
 
-(** cleans objects *)
+(** Cleans objects by removing neutral elements. *)
 let rec clean_obj = function
   | Obtimes (x, y) -> (
       let x = clean_obj x and y = clean_obj y in
@@ -41,7 +30,7 @@ let rec clean_obj = function
   | Ob0 -> Ob0
   | Ob1 -> Ob1
 
-(** pretty-prints objects *)
+(** Pretty-prints objects as strings. *)
 let rec pp_object ob =
   let ob = clean_obj ob in
   match ob with
@@ -51,7 +40,7 @@ let rec pp_object ob =
   | Obtimes (a, b) -> "(" ^ pp_object a ^ " ⊗  " ^ pp_object b ^ ")"
   | Obplus (a, b) -> "(" ^ pp_object a ^ " ⊕  " ^ pp_object b ^ ")"
 
-(** type of sesquistrict-rig terms *)
+(** Type representing sesquistrict-rig terms. *)
 type term =
   | Id of sort list list
   | GenVar of string
@@ -73,9 +62,10 @@ type term =
   | Trace of sort list list * term
 [@@deriving show]
 
-(** hashtable for looking up which terms have been named so far *)
+(** Hashtable for looking up which terms have been named so far. *)
 let defined_terms : (string, term) Hashtbl.t = Hashtbl.create 10
 
+(** Prints a type in polynomial form to stdout. *)
 let _print_type t =
   print_string "[";
   List.iter
@@ -91,11 +81,11 @@ let _print_type t =
     t;
   print_string "]\n"
 
-(** Otimes on objects, Technical report page 24, section 4.1 *)
+(** Computes the tensor product of two objects as polynomials. *)
 let times_on_objects p q =
   List.concat_map (fun ui -> List.map (fun vj -> ui @ vj) q) p
 
-(** turns an object into a normalized polynomial in S** representation *)
+(** Converts an object to a normalized polynomial in S** representation. *)
 let rec obj_to_polynomial ob =
   match ob with
   | S e -> [ [ e ] ]
@@ -115,7 +105,7 @@ let rec obj_to_monomial ob =
         (Errors.TypeError
            "used non-monomial type where monomial type was needed")
 
-(** turns a polynomial in S** representation into a polynomial *)
+(** Converts a polynomial in S** representation to an object. *)
 let obj_of_polynomial poly =
   List.fold_left
     (fun acc mon ->
@@ -125,14 +115,14 @@ let obj_of_polynomial poly =
       Obplus (acc, term))
     Ob0 poly
 
-(** turns a monomial in S* representation into a polynomial *)
+(** Converts a monomial in S* representation to an object. *)
 let obj_of_monomial (mon : sort list) =
   List.fold_left (fun acc_e e -> Obtimes (acc_e, S e)) Ob1 mon
 
-(** reduces an object into its normal form *)
+(** Reduces an object into its normal form. *)
 let _object_to_normal_form ob = obj_of_polynomial (obj_to_polynomial ob)
 
-(** transforms an object of the form ∏_i (s_i) to [s_1, s_2, ...] *)
+(** Transforms an object of the form ∏_i (s_i) to [s_1, s_2, ...]. *)
 let rec sort_prod_to_list (ob : obj) =
   match ob with
   | S e -> [ e ]
@@ -141,7 +131,7 @@ let rec sort_prod_to_list (ob : obj) =
   | Obplus _ | Ob0 ->
       raise (Errors.TypeError "expected product of sorts, got non-product type")
 
-(** n-ary copy *)
+(** Constructs an n-ary copy term. *)
 let rec multi_copy n u =
   if n = 0 then Discard u
   else if n = 1 then Id u
@@ -177,6 +167,7 @@ let rec decompose_ldistr (p : sort list list) (q : sort list list)
                 (obj_to_polynomial
                    (Obtimes (obj_of_polynomial p1, obj_of_polynomial r))) ) )
 
+(** Inverts a generator. *)
 let invert_generator s ar coar (kind : gen_kind) =
   let t0 = Otimes (Id coar, CoDiscard ar) in
   let t1 = Otimes (Id coar, Copy ar) in
@@ -198,6 +189,7 @@ let invert_generator s ar coar (kind : gen_kind) =
   let t4 = Otimes (Discard coar, Id ar) in
   Compose (t0, Compose (t1, Compose (t2, Compose (t3, t4))))
 
+(** Computes the inverse of a term. *)
 let rec term_inverse (t : term) =
   match t with
   | Id x -> Id x

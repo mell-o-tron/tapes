@@ -121,7 +121,7 @@ codiscard(nat*nat*nat*nat) ;
 ((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(gt, nat*nat, 1) * id(nat*nat*nat*nat)));
 (id(nat) * copy(nat) * id(nat*nat));
 (fun(minus, nat*nat, nat) * id(nat*nat*nat))
- to "1".
+ to "./result_examples/1".
 
  draw 
 codiscard(nat*nat*nat*nat) ; 
@@ -138,7 +138,7 @@ codiscard(nat*nat*nat*nat) ;
 ((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(ngt, nat*nat, 1) * id(nat*nat*nat*nat)));
 (copy(nat) * id(nat) * id(nat*nat));
 (id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))
- to "2".
+ to "./result_examples/2".
 
   draw 
 codiscard(nat*nat*nat*nat) ; 
@@ -152,7 +152,7 @@ codiscard(nat*nat*nat*nat) ;
 (id (nat) * (fun(gcd, nat*nat, nat) * id(nat * nat)) * id(nat * nat));
 ((cocopy(nat); discard(nat)) * id(nat*nat*nat*nat));
 ((copy(nat) * copy(nat) * id(nat*nat)) ; (id(nat) * s*(nat,nat) * id(nat*nat*nat)); (gen(eq, nat*nat, 1) * id(nat*nat*nat*nat)))
- to "3".
+ to "./result_examples/3".
 
    draw 
 codiscard(nat*nat*nat*nat) ; 
@@ -167,7 +167,7 @@ codiscard(nat*nat*nat*nat) ;
 ((gen(gt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
 (id(nat) * copy(nat) * id(nat*nat));
 (fun(minus, nat*nat, nat) * id(nat*nat*nat))
- to "4".
+ to "./result_examples/4".
 
 draw 
 codiscard(nat*nat*nat*nat) ; 
@@ -182,7 +182,7 @@ codiscard(nat*nat*nat*nat) ;
 ((gen(ngt, nat*nat, 1) * id(nat * nat)) * id(nat * nat));
 (copy(nat) * id(nat) * id(nat*nat));
 (id(nat) * fun(minus, nat*nat, nat) * id(nat*nat))
- to "5".
+ to "./result_examples/5".
 
  draw 
 codiscard(nat*nat*nat*nat) ; 
@@ -192,7 +192,7 @@ codiscard(nat*nat*nat*nat) ;
 ((copy(nat)*copy(nat)) * id(nat * nat));
 (id(nat) * s*(nat, nat) * s*(nat, nat) * id(nat));
 ((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat))
- to "6".
+ to "./result_examples/6".
 
  
 draw (split (1) + split(1)) ; (split (1) + id(1) + split(1) + id(1)) ; 
@@ -268,7 +268,7 @@ draw (split (1) + split(1)) ; (split (1) + id(1) + split(1) + id(1)) ;
 ((gen(neq, nat*nat, 1) * id(nat * nat)) * id(nat * nat))) 
  ; (join (nat*nat*nat*nat) + id(nat*nat*nat*nat) + join(nat*nat*nat*nat) + id(nat*nat*nat*nat)) ; 
 id(nat*nat*nat*nat) + s+(nat*nat*nat*nat, nat*nat*nat*nat) + id(nat*nat*nat*nat);
- (join (nat*nat*nat*nat) + join(nat*nat*nat*nat))  to "aaaa".
+ (join (nat*nat*nat*nat) + join(nat*nat*nat*nat))  to "./result_examples/aaaa".
 
 draw 
 
@@ -308,6 +308,12 @@ draw
     (id(nat) * gen(eq, nat*nat, 1) * id(nat*nat*nat))
   )
 ) ; (join(nat*nat*nat*nat) + join(nat*nat*nat*nat))
-to "bbbb".
+to "./result_examples/bbbb".
 
-draw (of_relation union(gen(R, A, A), gen(S, A, A))) to "union"
+draw_circuit s*(A, A) ; cocopy (A) to "./result_examples/commut_1".
+
+draw_cospan (id(A) * (codiscard(A) ; copy(A))) ; (gen(P, A * A, 1) * gen(Q, A, A)) ; discard (A) to "./result_examples/cospan_test".
+
+to_fol (id(A) * (codiscard(A) ; copy(A))) ; (gen(P, A * A, 1) * gen(Q, A, A)) ; discard (A).
+
+set (rounded_wires : 0.0).

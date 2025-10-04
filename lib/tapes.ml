@@ -268,6 +268,7 @@ let invert_generator s ar coar (kind : gen_kind) =
   let t4 = Otimes (Gen ("discard", coar, [], Relation), id_to_circuit ar) in
   CCompose (t0, CCompose (t1, CCompose (t2, CCompose (t3, t4))))
 
+(** Computes the inverse of a circuit *)
 let rec circuit_inverse (c : circuit) =
   match c with
   | CId _ | CId1 -> c
@@ -277,6 +278,7 @@ let rec circuit_inverse (c : circuit) =
   | Otimes (c1, c2) -> Otimes (circuit_inverse c1, circuit_inverse c2)
   | SwapTimes (s1, s2) -> SwapTimes (s2, s1)
 
+(** Computes the inverse of a tape*)
 let rec tape_inverse (t : tape) =
   match t with
   | TId0 | TId _ -> t

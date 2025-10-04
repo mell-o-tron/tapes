@@ -44,8 +44,9 @@ program:
   | c=command {Ast.Comm(c)}
   | d=decl {(match d with Decl(ExprDecl (id, _typ, e)) -> Hashtbl.add env id (populate_genvars e) | _ -> ()) ; d}
   | s = setting {s}
+  | p=program DOT EOF {p}
   | p1=program DOT p2=program {Ast.Seq(p1, p2)}
-  | program DOT error {raise (Errors.ParseError "further commands expected after \".\". There should be no dot at the end of a program")}
+  | program program {raise (Errors.ParseError "commands should be dot(.)-separated")}
 
 setting:
   | Set LPAREN s=STRING COLON f=FLOAT RPAREN {Ast.Set(s, f)}
@@ -67,6 +68,7 @@ command:
   | Print qs=QSTRING {Ast.Print(remove_first_last qs)}
   | Draw expr error    {raise (Errors.ParseError "did not specify path of draw")}
   | Draw expr To error {raise (Errors.ParseError "did not specify path of draw")}
+  | error {raise (Errors.ParseError "command expected")}
 
 decl:
   | Let s=STRING COLON o1 = object_type ARROW o2 = object_type {Ast.Decl(Ast.GenDecl(s, o1, o2, Relation))} (* TODO add functions et al *)
@@ -119,11 +121,13 @@ term:
   | NORMALIZETRACE t1 = term {let res = Rewrite.trace_normal_form t1 in Printf.printf "term: %s\n" (Terms.show_term res); res}
   | OfRelation r = relation {Relations.term_of_rel r}
   | Invert t=term {Terms.term_inverse (populate_vars_in_term t)}
+  | BEGIN_IMP imp_command {raise (Errors.ParseError "Context expected between BEGIN_IMP and command")}
   | error {raise (Errors.ParseError "term expected")}
 
 context:
   | x = STRING COLON s = STRING {[(x, s)]}
   | x = STRING COLON s = STRING COMMA a1 = context {(x, s) :: a1}
+  | error {raise (Errors.ParseError "context expected")}
 
 circuit:
   | One                                                                                                 { Tapes.CId1 }
@@ -176,6 +180,7 @@ imp_expr:
   | f = QSTRING LPAREN RPAREN COLON s = STRING {Imp.Func(remove_first_last f, [], s)}
   | f = QSTRING LPAREN a = args RPAREN COLON s = STRING {Imp.Func(remove_first_last f, a, s)}
   | LPAREN e = imp_expr RPAREN {e}
+  | error {raise (Errors.ParseError "imp expression expected")}
 
 imp_pred:
   | r = STRING LPAREN RPAREN {Imp.Rel(r, [], true)}
@@ -188,10 +193,12 @@ imp_pred:
   | p1 = imp_pred AND p2 = imp_pred {Imp.And(p1, p2)}
   | NOT p1 = imp_pred {Imp.negate p1}
   | LPAREN p = imp_pred RPAREN {p}
+  | error {raise (Errors.ParseError "imp predicate expected")}
   
 args:
   | e = imp_expr {[e]}
   | e = imp_expr COMMA a1 = args {e :: a1}
+  | error {raise (Errors.ParseError "arguments expected")}
 
 imp_command:
   | ABORT {Imp.Abort}
@@ -200,6 +207,7 @@ imp_command:
   | WHILE p = imp_pred OPEN_BRACE c1 = imp_command CLOSED_BRACE {Imp.WhileDo (p, c1)}
   | c1 = imp_command SEMICOLON c2 = imp_command {Imp.Seq(c1, c2)}
   | x = STRING ASSIGN e = imp_expr {Imp.Assign(x, e)}
+  | error {raise (Errors.ParseError "imp command expected")}
 
 fol_formula:
   | TRUE {Fol_encoding.Top}
@@ -215,19 +223,22 @@ fol_formula:
   | f1=fol_formula IMPLIES f2=fol_formula {Fol_encoding.Or(Fol_encoding.Not(f1), f2)}
   | f1=fol_formula IFF f2=fol_formula {Fol_encoding.And(Fol_encoding.Or(Fol_encoding.Not(f1), f2),Fol_encoding.Or(Fol_encoding.Not(f2), f1))}
   | LPAREN f = fol_formula RPAREN {f}
+  | error {raise (Errors.ParseError "FOL formula expected")}
 
 fol_term:
   | s = STRING {Fol_encoding.Var (s, 0)}
   | s = STRING LPAREN  RPAREN {Fol_encoding.Func(s, [])}
   | s = STRING LPAREN l=fol_term_list RPAREN {Fol_encoding.Func(s, l)}
   | LPAREN t =fol_term RPAREN {t}
+  | error {raise (Errors.ParseError "FOL term expected")}
 
 fol_term_list:
   | t = fol_term {[t]}
   | t = fol_term COMMA r = fol_term_list {t :: r}
 
 relation:
-  | Gen LPAREN s = STRING COMMA t1 = object_type COMMA t2 = object_type RPAREN {Relations.RelGen(s, Terms.obj_to_monomial t1, Terms.obj_to_monomial t2)}
+  | Gen LPAREN s = STRING COMMA t1 = object_type RPAREN {Relations.RelGen(s, Terms.obj_to_monomial t1)}
+  | Gen LPAREN STRING COMMA object_type COMMA object_type {raise (Errors.ParseError "only specify arity of relation: it is assumed to have the same coarity.")}
   | UNION LPAREN r1=relation COMMA r2=relation RPAREN {Relations.Union (r1, r2)}
   | INTERSECTION LPAREN r1=relation COMMA r2=relation RPAREN {Relations.Intersection (r1, r2)}
   | OP LPAREN r1=relation RPAREN {Relations.Op (r1)}
@@ -237,9 +248,12 @@ relation:
   | EMPTY LPAREN t1 = object_type RPAREN {Relations.BotRel (Terms.obj_to_monomial t1)}
   | r1=relation SEMICOLON r2=relation {Relations.Compose (r1, r2)}
   | LPAREN r = relation RPAREN {r}
+  | error {raise (Errors.ParseError "Relation expected")}
 
 hoare_triple:
   | OPEN_BRACE prec=imp_pred CLOSED_BRACE com=imp_command OPEN_BRACE post=imp_pred CLOSED_BRACE {Hoare_triples.make_triple prec com post}
+  | error {raise (Errors.ParseError "hoare triple expected")}
 
 rel_hoare_triple:
   | OPEN_BRACE prec=imp_pred CLOSED_BRACE com1=imp_command COMMA com2=imp_command OPEN_BRACE post=imp_pred CLOSED_BRACE {Hoare_triples.make_rel_triple prec com1 com2 post}
+  | error {raise (Errors.ParseError "relational hoare quadruple expected")}

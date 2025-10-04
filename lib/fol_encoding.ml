@@ -564,6 +564,11 @@ let generate_implication_problem f1 f2 =
     |> String.concat "\n"
   in
 
+  let implication = Or (Not f1, f2) |> universally_quantify_fvs in
+
+  Printf.printf "implication problem: %s\n"
+    (pp_formula (simplify_formula implication));
+
   Printf.sprintf
     "\n\
      begin_problem(Implication).\n\n\
@@ -596,6 +601,5 @@ let generate_implication_problem f1 f2 =
      if fs = "" then "" else Printf.sprintf "functions[%s]." fs)
     (let fs = spassify_preds (And (And (f1, f2), big_and !current_axioms)) in
      if fs = "" then "" else Printf.sprintf "predicates[%s]." fs)
-    axioms
-    (spassify (Or (Not f1, f2) |> universally_quantify_fvs))
+    axioms (spassify implication)
     (List.length !current_axioms + 1)

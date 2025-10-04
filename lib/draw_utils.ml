@@ -170,20 +170,56 @@ type tape_geometry =
 [@@deriving show]
 
 (* settings: these can be controlled from the language *)
+
+(** Global value for the vertical distance between summands in tape diagrams. *)
 let oplus_dist = ref 0.25
+
+(** Global value for the vertical distance between tensor products in tape
+    diagrams. *)
 let otimes_dist = ref 0.5
+
+(** Global value for the padding around tape diagrams. *)
 let tape_padding = ref 0.25
+
+(** Controls whether summands should be aligned in tape diagrams. *)
 let align_summands = ref true
+
+(** Controls whether identity morphisms should have zero length. *)
 let zero_len_ids = ref false
+
+(** Controls whether to use the old alignment algorithm for tape diagrams. *)
 let old_alignment = ref false
-let wrap_trace_ids = ref false
+
+(** Controls whether to wrap traces in identities (should always be true). *)
+let wrap_trace_ids = ref true
+
+(** Scaling factor for the x-axis in diagrams. *)
 let scale_x = ref 1.
+
+(** Scaling factor for the y-axis in diagrams. *)
 let scale_y = ref 1.
+
+(** Controls whether wires should be joined in diagrams. *)
 let join_wires = ref false
+
+(** Controls whether wires should be drawn with rounded corners. *)
 let rounded_wires = ref true
+
+(** Counter for generating fresh identity names. *)
+let id_counter = ref 0
+
+(** Counter for generating fresh swap names. *)
+let swap_counter = ref 0
+
+(** Counter for generating fresh generator names. *)
+let gen_counter = ref 0
+
+(** Counter for generating fresh measurement names. *)
+let meas_counter = ref 0
 
 (********** Tape utils ***********)
 
+(** Wraps a tape in identity morphisms on both sides. *)
 let wrap_in_ids (t : tape) =
   let ar = Typecheck.tape_arity t in
   let coar = Typecheck.tape_coarity t in
@@ -191,14 +227,17 @@ let wrap_in_ids (t : tape) =
 
 (********* List utils ***********)
 
+(** Returns the maximum value in a list of floats. *)
 let rec list_max (l : float list) =
   match l with [] -> -.infinity | a :: rest -> max a (list_max rest)
 
+(** Returns the minimum value in a list of floats. *)
 let rec list_min (l : float list) : float =
   match l with [] -> infinity | a :: rest -> min a (list_min rest)
 
 (********* BLOCK LOGIC **********)
 
+(** Returns the height of a tape block. *)
 let tape_block_height (tb : tape_block) =
   match tb with
   | EmptyTBlock -> 0.
@@ -233,6 +272,7 @@ let tape_block_height (tb : tape_block) =
       max_y +. oplusdist +. h -. min (snd pos_r) (snd pos_l)
   | TapeDebugNode _ -> 0.
 
+(** Returns the y-position of a tape block. *)
 let y_pos_of_tape_block (tb : tape_block) : float =
   match tb with
   | EmptyTBlock -> failwith "tried to get position of empty block"
@@ -248,6 +288,7 @@ let y_pos_of_tape_block (tb : tape_block) : float =
   | BTraceTape { pos_l; pos_r; _ } -> min (snd pos_l) (snd pos_r)
   | TapeDebugNode { pos; _ } -> snd pos
 
+(** Returns the y-position of a circuit block. *)
 let y_pos_of_circuit_block (tb : circuit_block) : float =
   match tb with
   | EmptyBlock -> failwith "tried to get position of empty block"
@@ -262,6 +303,7 @@ let y_pos_of_circuit_block (tb : circuit_block) : float =
   | CircuitDebugNode { pos; _ } -> snd pos
   | _ -> failwith "not yet implemented"
 
+(** Returns the x-position of a tape block. *)
 let x_pos_of_tape_block (tb : tape_block) : float =
   match tb with
   | EmptyTBlock -> failwith "tried to get position of empty block"
@@ -277,9 +319,11 @@ let x_pos_of_tape_block (tb : tape_block) : float =
   | BTraceTape { pos_l; _ } -> fst pos_l
   | TapeDebugNode { pos; _ } -> fst pos
 
+(** Returns the top y-position of a tape block. *)
 let tape_block_top_y (t : tape_block) =
   y_pos_of_tape_block t +. tape_block_height t
 
+(** Returns the base (lowest y) of a list of circuit blocks. *)
 let base_of_circuit_blocks (t : circuit_block list) =
   let t =
     List.filter
@@ -292,24 +336,29 @@ let base_of_circuit_blocks (t : circuit_block list) =
   let l = List.map (fun x -> y_pos_of_circuit_block x) t in
   list_min l
 
+(** Returns the base (lowest y) of a list of tape blocks. *)
 let base_of_tape_blocks (t : tape_block list) =
   let t = List.filter (fun x -> x != EmptyTBlock) t in
   let l = List.map (fun x -> y_pos_of_tape_block x) t in
   list_min l
 
+(** Returns the top (highest y) of a list of tape blocks. *)
 let top_of_tape_blocks (t : tape_block list) =
   let t = List.filter (fun x -> x != EmptyTBlock) t in
   let l = List.map (fun x -> tape_block_top_y x) t in
   list_max l
 
+(** Extracts tape blocks from a list of blocks. *)
 let get_tape_blocks (t : block list) =
   List.filter (function TB _ -> true | _ -> false) t
   |> List.map (fun x -> match x with TB x -> x | _ -> failwith "unreachable")
 
+(** Extracts circuit blocks from a list of blocks. *)
 let get_circuit_blocks (t : block list) =
   List.filter (function CB _ -> true | _ -> false) t
   |> List.map (fun x -> match x with CB x -> x | _ -> failwith "unreachable")
 
+(** Converts a circuit block to its TikZ representation. *)
 let tikz_of_circuit_block (cb : circuit_block) : string =
   match cb with
   | BMeasure { fresh_name; len; pos = x, y } ->
@@ -354,6 +403,7 @@ let tikz_of_circuit_block (cb : circuit_block) : string =
   | CircuitDebugNode { pos = x, y; text = t } ->
       Printf.sprintf "\\node () at (%f, %f) {%s};\n" x y t
 
+(** Converts a tape block to its TikZ representation. *)
 let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
   let debug_bounds tb =
     if debug then
@@ -411,6 +461,7 @@ let tikz_of_tape_block (tb : tape_block) (debug : bool) : string =
       Printf.sprintf "\\node () at (%f, %f) {%s};\n" x y t)
   ^ debug_bounds tb
 
+(** Sorts a list of blocks, tape blocks first, then circuit blocks. *)
 let sort_block_list (b : block list) : block list =
   let rec aux (b : block list) : block list * block list =
     match b with
@@ -425,12 +476,14 @@ let sort_block_list (b : block list) : block list =
   let ts, bs = aux b in
   ts @ bs
 
+(** Converts an identity block to a connector block. *)
 let id_to_connector (b : circuit_block) =
   match b with
   | BId { pos = x, y; len; _ } ->
       Connector { positions = [ (x, y); (x +. len, y) ] }
   | _ -> b
 
+(** Converts swap blocks to connector blocks in a list. *)
 let rec swaps_to_connectors (l : circuit_block list) =
   match l with
   | BSwap { pos = x, y; scaley; _ } :: rest ->
@@ -440,8 +493,10 @@ let rec swaps_to_connectors (l : circuit_block list) =
   | x :: l1 -> x :: swaps_to_connectors l1
   | [] -> []
 
+(** Converts identity blocks to connector blocks in a list. *)
 let ids_to_connectors (l : circuit_block list) = List.map id_to_connector l
 
+(** Checks if a tape block has nonzero width. *)
 let is_tape_block_nonzero_width (b : tape_block) =
   match b with
   | EmptyTBlock -> false
@@ -451,6 +506,7 @@ let is_tape_block_nonzero_width (b : tape_block) =
       (not (x1 = x3)) || not (x2 = x4)
   | _ -> true
 
+(** Checks if a circuit block has nonzero width. *)
 let is_circuit_block_nonzero_width (b : circuit_block) =
   match b with
   | Connector { positions = (x, _) :: l } ->
@@ -458,12 +514,15 @@ let is_circuit_block_nonzero_width (b : circuit_block) =
   | EmptyBlock -> false
   | _ -> true
 
+(** Gets all connector blocks from a list of circuit blocks. *)
 let get_connectors (l : circuit_block list) =
   List.filter (fun x -> match x with Connector _ -> true | _ -> false) l
 
+(** Gets all non-connector blocks from a list of circuit blocks. *)
 let get_non_connectors (l : circuit_block list) =
   List.filter (fun x -> match x with Connector _ -> false | _ -> true) l
 
+(** Sorts the positions in a connector block by x-coordinate. *)
 let orient_connector (l : circuit_block) =
   match l with
   | Connector { positions = l } ->
@@ -471,6 +530,7 @@ let orient_connector (l : circuit_block) =
         { positions = List.sort (fun (x1, _) (x2, _) -> compare x1 x2) l }
   | _ -> failwith "orient_connector applied on non-connector"
 
+(** Concatenates two connector blocks. *)
 let concat_connectors (b : circuit_block) (c : circuit_block) =
   match (b, c) with
   | Connector { positions = l1 }, Connector { positions = _ :: l2 } ->
@@ -480,6 +540,8 @@ let concat_connectors (b : circuit_block) (c : circuit_block) =
         "concat_connectors expects two connectors, the second of which non \
          empty"
 
+(** Finds a connector block in a list that matches the end of another connector.
+*)
 let find_matching_connector (b : circuit_block) (l : circuit_block list) =
   let l = get_connectors l in
   let matching_block =
@@ -501,8 +563,10 @@ let find_matching_connector (b : circuit_block) (l : circuit_block list) =
   ( List.filter (fun x -> not (x = matching_block)) l,
     concat_connectors b matching_block )
 
+(** Sorts connector blocks. *)
 let sort_connectors = List.sort compare_circuit_block
 
+(** Matches and merges connector blocks in a list. *)
 let rec match_connectors (l : circuit_block list) =
   let rec aux (l : circuit_block list) =
     match l with
@@ -519,9 +583,11 @@ let rec match_connectors (l : circuit_block list) =
   let res = aux l in
   if List.length res = List.length l then res else match_connectors res
 
+(** Prints a list of blocks to stdout. *)
 let print_blocks (l : block list) =
   List.iter (fun x -> Printf.printf "%s\n" (show_block x)) l
 
+(** Converts a list of blocks to their TikZ representation. *)
 let rec tikz_of_block_list (b : block list) : string =
   let b = sort_block_list b in
   match b with
@@ -674,13 +740,13 @@ let rec circuit_interface_of_list l =
 
 (** returns the height of a circuit interface *)
 let circuit_interface_height (c : circuit_draw_interface) =
-  Printf.printf "getting height of intf: %s\n" (show_circuit_draw_interface c);
+  (* Printf.printf "getting height of intf: %s\n" (show_circuit_draw_interface c); *)
   try
     let top = top_of_circuit_interface c in
     let bot = base_of_circuit_interface c in
-    Printf.printf "top: %f, bottom: %f\n"
+    (* Printf.printf "top: %f, bottom: %f\n"
       (snd (Option.get top))
-      (snd (Option.get bot));
+      (snd (Option.get bot)); *)
     snd (Option.get top) -. snd (Option.get bot)
   with _ -> 0.
 (* match circuit_interface_normalize c with
@@ -698,6 +764,7 @@ let rec is_empty_circ c =
   | CircuitTens (c1, c2) -> is_empty_circ c1 && is_empty_circ c2
   | _ -> false
 
+(** Cleans a tape interface by removing empty circuit interfaces. *)
 let rec clean_tape_interface t =
   match t with
   | TapeInterface (p1, p2, c) when is_empty_circ c -> EmptyTape (p1, p2)
@@ -762,6 +829,7 @@ let rec base_of_tape_interface t =
   | EmptyInterface (Some (x, y), _) -> (x, y)
   | _ -> failwith "tried to get base of empty interface"
 
+(** Gets the highest nonempty interface from a tape interface. *)
 let get_highest_nonempty_interface t =
   let l =
     list_of_tape_interface t
@@ -769,10 +837,12 @@ let get_highest_nonempty_interface t =
   in
   match l with [] -> failwith "no highest interface" | a :: _ -> a
 
+(** Gets the lowest nonempty interface from a tape interface. *)
 let get_lowest_nonempty_interface t =
   let t = list_of_tape_interface t |> List.rev |> tape_interface_of_list in
   get_highest_nonempty_interface t
 
+(** Checks if a tape interface is nonempty. *)
 let is_interface_nonempty (ti : tape_draw_interface) =
   match ti with
   | EmptyInterface _ ->
@@ -782,6 +852,7 @@ let is_interface_nonempty (ti : tape_draw_interface) =
       (* print_endline ("true: " ^ show_tape_draw_interface ti); *)
       true
 
+(** Removes the highest nonempty interface from a tape interface. *)
 let rec chop_off_highest_nonempty_intf t =
   let l = list_of_tape_interface t in
   match l with
@@ -793,7 +864,7 @@ let rec chop_off_highest_nonempty_intf t =
           (a, chop_off_highest_nonempty_intf (rest |> tape_interface_of_list))
         |> tape_interface_normalize
 
-(* returns the highest position of a tape interface *)
+(** Returns the top position of a tape interface. *)
 let rec top_of_tape_interface t =
   match tape_interface_normalize t with
   | EmptyTape (_, (x, y)) -> (x, y)
@@ -802,12 +873,13 @@ let rec top_of_tape_interface t =
   | EmptyInterface (_, Some (x, y)) -> (x, y)
   | _ -> failwith "tried to get top of empty interface"
 
-(* returns the lowest position of a pair of tape interfaces *)
+(** Returns the base position of two tape interfaces (lowest y). *)
 let base_of_tape_interfaces t1 t2 =
   let x1, y1 = base_of_tape_interface t1 in
   let x2, y2 = base_of_tape_interface t2 in
   if y1 > y2 then (x1, y1) else (x2, y2)
 
+(** Maps a function over two tape interfaces, producing a list of blocks. *)
 let rec tape_interface_to_block_map2
     (f : tape_draw_interface -> tape_draw_interface -> block list)
     (t1 : tape_draw_interface) (t2 : tape_draw_interface) : block list =
@@ -834,6 +906,7 @@ let rec tape_interface_to_block_map2
         "tape_interface_to_block_map2 could not be applied, args have \
          different sizes."
 
+(** Returns the height of a tape interface. *)
 let rec tape_interface_height (t : tape_draw_interface) =
   (* used NORMALIZED t, but this would eliminate all empty interfaces. *)
   match t with
@@ -1292,6 +1365,7 @@ let debug_get_circuit_interface (ci : circuit_draw_interface) (color : string) :
       | _ -> failwith "should not happen I guess")
     ci
 
+(** Adds debug elements for a tape interface. *)
 let debug_get_tape_interface (ti : tape_draw_interface) (color : string) :
     block list =
   List.map
@@ -1316,6 +1390,7 @@ let debug_get_tape_interface (ti : tape_draw_interface) (color : string) :
     (list_of_tape_interface ti)
   |> List.concat
 
+(** Moves a circuit block by a given offset. *)
 let move_circuit_block (cb : circuit_block) (dx, dy) =
   let move (x, y) = (x +. dx, y +. dy) in
   match cb with
@@ -1331,6 +1406,7 @@ let move_circuit_block (cb : circuit_block) (dx, dy) =
   | EmptyBlock -> cb
   | CircuitDebugNode b -> CircuitDebugNode { b with pos = move b.pos }
 
+(** Moves a tape block by a given offset. *)
 let move_tape_block (tb : tape_block) (dx, dy) =
   let move (x, y) = (x +. dx, y +. dy) in
   match tb with
@@ -1360,6 +1436,7 @@ let move_tape_block (tb : tape_block) (dx, dy) =
         }
   | TapeDebugNode b -> TapeDebugNode { b with pos = move b.pos }
 
+(** Moves a block (circuit or tape) by a given offset. *)
 let move_block (b : block) (dx, dy) : block =
   match b with
   | CB cb -> CB (move_circuit_block cb (dx, dy))

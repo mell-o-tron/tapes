@@ -4,6 +4,7 @@ open Fol_encoding
 open ANSITerminal
 open Typecheck
 
+(** Runs the SPASS theorem prover *)
 let run_spass dir =
   Printf.printf "Running SPASS on generated problems:\n";
   flush stdout;
