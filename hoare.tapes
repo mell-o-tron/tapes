@@ -55,11 +55,11 @@ axioms [
     forall v. forall w. (v = w) implies (gcd(v, w) = v),
     forall v. forall w. gt(v, w) implies (gcd(v, w) = gcd(minus(v, w), w)),
     forall v. forall w. lt(v, w) implies (gcd(v, w) = gcd(v, minus(w, v))),
-    forall v. forall w. lt(v, w) iff (gt(v, w) or (v = w))
+    forall v. forall w. lt(v, w) iff gt(w, v)
 ].
 
-check_hoare [x : nat, y : nat, a : nat, b : nat]
-{eq(x, a) and eq(y, b)}
+check_hoare [x : nat, y : nat]
+{eq(x, A() : nat) and eq(y, B() : nat)}
 while (not(eq(x, y))) {
     if (gt(x, y)) then {
         x := minus (x, y) : nat
@@ -68,8 +68,8 @@ while (not(eq(x, y))) {
         y := minus (y, x) : nat
     }
 }
-{eq(x, y) and eq(x, gcd(a, b) : nat)}
+{eq(x, y) and eq(x, gcd(A() : nat, B() : nat) : nat)}
 with invariant 
-    BEGIN_TEST [x : nat, y : nat, a : nat, b : nat]
-    eq(gcd(x, y) : nat, gcd(a, b) : nat)
+    BEGIN_TEST [x : nat, y : nat]
+    eq(gcd(x, y) : nat, gcd(A() : nat, B() : nat) : nat)
     END_TEST

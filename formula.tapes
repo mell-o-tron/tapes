@@ -317,3 +317,46 @@ draw_cospan (id(A) * (codiscard(A) ; copy(A))) ; (gen(P, A * A, 1) * gen(Q, A, A
 to_fol (id(A) * (codiscard(A) ; copy(A))) ; (gen(P, A * A, 1) * gen(Q, A, A)) ; discard (A).
 
 set (rounded_wires : 0.0).
+
+draw normalize_term
+
+BEGIN_IMP [x : int]
+  while (not(leq(x, ten(): int))) {
+      x := inc(x) : int
+  };
+  while (not(geq(x, zero(): int))) {
+      x := dec(x) : int
+  }
+END_IMP to "./result_examples/example_mit_nf".
+
+let a : term = (copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(neq, nat*nat, 1) * id(nat*nat)).
+
+let b : term = (copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(gt, nat*nat, 1) * id(nat*nat)) ; (id(nat) * copy(nat)) ; (fun(minus, nat*nat, nat) * id(nat)).
+
+let c : term = (copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(ngt, nat*nat, 1) * id(nat*nat)) ; (copy(nat) * id(nat)) ; (id(nat) * s*(nat, nat)) ; (id(nat) * fun(minus, nat*nat, nat)).
+
+let d : term = (copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(eq, nat*nat, 1) * id(nat*nat)).
+
+let imp_euclid_byhand : term = trace(nat*nat, 
+
+join(nat*nat) ; split(nat*nat) ;
+
+((
+  (((copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(neq, nat*nat, 1) * id(nat*nat)))   // put a here
+   ;
+   split(nat*nat)
+   ;
+   (((copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(gt, nat*nat, 1) * id(nat*nat)) ; (id(nat) * copy(nat)) ; (fun(minus, nat*nat, nat) * id(nat))) + ((copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(ngt, nat*nat, 1) * id(nat*nat)) ; (copy(nat) * id(nat)) ; (id(nat) * s*(nat, nat)) ; (id(nat) * fun(minus, nat*nat, nat)))) // b + c
+   ; join(nat*nat)
+  )
+) + ((copy(nat) * copy(nat)) ; (id (nat) * s*(nat, nat) * id(nat)) ; (gen(eq, nat*nat, 1) * id(nat*nat))))).
+
+set (zerolenids : 1.0).
+set (scalex : 0.4).
+set (scaley : 0.5).
+set (otimesdist : 0.6).
+set (oplusdist : 0.25).
+set (paddingdist : 0.5).
+set (rounded_wires : 1.0).
+
+draw imp_euclid_byhand to "imp_euclid_byhand"

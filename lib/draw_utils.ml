@@ -928,11 +928,6 @@ let rec tape_interface_height (t : tape_draw_interface) =
 (********************************************************************************************************)
 (* counters used in generating fresh ids for the tikz elements *)
 
-let id_counter = ref 0
-let swap_counter = ref 0
-let gen_counter = ref 0
-let meas_counter = ref 0
-
 let fresh_id () =
   id_counter := !id_counter + 1;
   string_of_int !id_counter
